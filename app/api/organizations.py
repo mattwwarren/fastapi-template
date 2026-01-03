@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, HTTPException, status
 from fastapi_pagination import Page, create_page
 from fastapi_pagination.ext.sqlalchemy import paginate
@@ -59,7 +61,7 @@ async def list_orgs(
 
 @router.get("/{organization_id}", response_model=OrganizationRead)
 async def get_org(
-    organization_id: int,
+    organization_id: UUID,
     session: SessionDep,
 ) -> OrganizationRead:
     organization = await get_organization(session, organization_id)
@@ -75,7 +77,7 @@ async def get_org(
 
 @router.patch("/{organization_id}", response_model=OrganizationRead)
 async def update_org(
-    organization_id: int,
+    organization_id: UUID,
     payload: OrganizationUpdate,
     session: SessionDep,
 ) -> OrganizationRead:
@@ -93,7 +95,7 @@ async def update_org(
 
 @router.delete("/{organization_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_org(
-    organization_id: int,
+    organization_id: UUID,
     session: SessionDep,
 ) -> None:
     organization = await get_organization(session, organization_id)

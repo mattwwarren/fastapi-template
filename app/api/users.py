@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, HTTPException, status
 from fastapi_pagination import Page, create_page
 from fastapi_pagination.ext.sqlalchemy import paginate
@@ -54,7 +56,7 @@ async def list_users_endpoint(
 
 @router.get("/{user_id}", response_model=UserRead)
 async def get_user_endpoint(
-    user_id: int,
+    user_id: UUID,
     session: SessionDep,
 ) -> UserRead:
     user = await get_user(session, user_id)
@@ -72,7 +74,7 @@ async def get_user_endpoint(
 
 @router.patch("/{user_id}", response_model=UserRead)
 async def update_user_endpoint(
-    user_id: int,
+    user_id: UUID,
     payload: UserUpdate,
     session: SessionDep,
 ) -> UserRead:
@@ -90,7 +92,7 @@ async def update_user_endpoint(
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user_endpoint(
-    user_id: int,
+    user_id: UUID,
     session: SessionDep,
 ) -> None:
     user = await get_user(session, user_id)

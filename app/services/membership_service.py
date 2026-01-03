@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
@@ -6,7 +8,7 @@ from app.models.membership import Membership, MembershipCreate
 
 
 async def get_membership(
-    session: AsyncSession, membership_id: int
+    session: AsyncSession, membership_id: UUID
 ) -> Membership | None:
     result = await session.execute(
         select(Membership).where(col(Membership.id) == membership_id)

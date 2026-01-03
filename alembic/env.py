@@ -4,7 +4,7 @@ from logging.config import fileConfig
 from alembic import context
 from app.core.config import settings
 from app.db import base  # noqa: F401
-from sqlalchemy import pool
+from sqlalchemy import pool, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlmodel import SQLModel
@@ -38,6 +38,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
+    connection.execute(text('CREATE EXTENSION IF NOT EXISTS "pgcrypto"'))
     context.configure(connection=connection, target_metadata=target_metadata)
 
     with context.begin_transaction():

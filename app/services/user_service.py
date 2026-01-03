@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
@@ -7,7 +9,7 @@ from app.models.organization import Organization
 from app.models.user import User, UserCreate, UserUpdate
 
 
-async def get_user(session: AsyncSession, user_id: int) -> User | None:
+async def get_user(session: AsyncSession, user_id: UUID) -> User | None:
     result = await session.execute(select(User).where(col(User.id) == user_id))
     return result.scalar_one_or_none()
 
@@ -43,7 +45,7 @@ async def delete_user(session: AsyncSession, user: User) -> None:
 
 
 async def list_organizations_for_user(
-    session: AsyncSession, user_id: int
+    session: AsyncSession, user_id: UUID
 ) -> list[Organization]:
     result = await session.execute(
         select(Organization)
@@ -57,8 +59,8 @@ async def list_organizations_for_user(
 
 
 async def list_organizations_for_users(
-    session: AsyncSession, user_ids: list[int]
-) -> dict[int, list[Organization]]:
+    session: AsyncSession, user_ids: list[UUID]
+) -> dict[UUID, list[Organization]]:
     if not user_ids:
         return {}
     result = await session.execute(
@@ -69,7 +71,7 @@ async def list_organizations_for_users(
         )
         .where(col(Membership.user_id).in_(user_ids))
     )
-    mapping: dict[int, list[Organization]] = {user_id: [] for user_id in user_ids}
+    mapping: dict[UUID, list[Organization]] = {user_id: [] for user_id in user_ids}
     for user_id, organization in result.all():
         if user_id in mapping:
             mapping[user_id].append(organization)

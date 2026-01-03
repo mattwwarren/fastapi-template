@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import ClassVar
+from uuid import UUID
 
 import sqlalchemy as sa
 from pydantic import ConfigDict
@@ -11,16 +12,16 @@ from app.models.base import TimestampedTable
 
 
 class MembershipBase(SQLModel):
-    user_id: int = Field(
+    user_id: UUID = Field(
         sa_column=sa.Column(
-            sa.Integer,
+            sa.UUID(as_uuid=True),
             sa.ForeignKey("app_user.id", ondelete="CASCADE"),
             nullable=False,
         )
     )
-    organization_id: int = Field(
+    organization_id: UUID = Field(
         sa_column=sa.Column(
-            sa.Integer,
+            sa.UUID(as_uuid=True),
             sa.ForeignKey("organization.id", ondelete="CASCADE"),
             nullable=False,
         )
@@ -39,7 +40,7 @@ class MembershipCreate(MembershipBase):
 
 
 class MembershipRead(MembershipBase):
-    id: int
+    id: UUID
     created_at: datetime
     updated_at: datetime
 

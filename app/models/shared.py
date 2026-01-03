@@ -1,12 +1,13 @@
 from datetime import datetime
 from typing import ClassVar
+from uuid import UUID
 
 from pydantic import ConfigDict
 from sqlmodel import SQLModel
 
 
 class OrganizationInfo(SQLModel):
-    id: int
+    id: UUID
     name: str
     created_at: datetime
     updated_at: datetime
@@ -15,7 +16,7 @@ class OrganizationInfo(SQLModel):
 
 
 class UserInfo(SQLModel):
-    id: int
+    id: UUID
     email: str
     name: str
     created_at: datetime

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import ClassVar
+from uuid import UUID
 
 from pydantic import ConfigDict
 from sqlmodel import Field, SQLModel
@@ -25,7 +26,7 @@ class UserCreate(UserBase):
 
 
 class UserRead(UserBase):
-    id: int
+    id: UUID
     created_at: datetime
     updated_at: datetime
     organizations: list[OrganizationInfo] = Field(default_factory=list)

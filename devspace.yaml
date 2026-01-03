@@ -77,6 +77,9 @@ dev:
     imageSelector: ${runtime.images.app.image}:${runtime.images.app.tag}
     ports:
       - port: 8000
+    sync:
+      - path: ./:/app
+        excludeFile: .gitignore
 
 hooks: []
 
@@ -91,8 +94,11 @@ commands:
           echo "Usage: devspace run alembic:revision -- \"your message\"" >&2
           exit 1
         fi
-        export DATABASE_URL="postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres.${NAMESPACE}.svc.cluster.local:5432/${POSTGRES_DB}"
-        uv run alembic revision --autogenerate -m "$1"
+        devspace enter \
+          --container api \
+          --namespace "${NAMESPACE}" \
+          --label-selector "app.kubernetes.io/name=devspace-app" \
+          -- sh -lc 'uv run alembic revision --autogenerate -m "$1"' _ "$1"
       - --
   alembic-upgrade:
     description: "Run Alembic migrations against the dev cluster"
@@ -100,8 +106,11 @@ commands:
     args:
       - -c
       - |
-        export DATABASE_URL="postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres.${NAMESPACE}.svc.cluster.local:5432/${POSTGRES_DB}"
-        uv run alembic upgrade head
+        devspace enter \
+          --container api \
+          --namespace "${NAMESPACE}" \
+          --label-selector "app.kubernetes.io/name=devspace-app" \
+          -- sh -lc 'uv run alembic upgrade head'
   k3d-down:
     description: "Delete the local k3d cluster"
     command: bash
