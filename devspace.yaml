@@ -1,0 +1,89 @@
+version: v2beta1
+name: fastapi-template
+
+vars:
+  - name: CLUSTER_NAME
+    default: fastapi-template
+  - name: NAMESPACE
+    default: dev
+  - name: IMAGE_NAME
+    default: fastapi-template
+  - name: IMAGE_TAG
+    default: dev
+  - name: APP_NAME
+    default: fastapi-template
+  - name: ENVIRONMENT
+    default: dev
+  - name: LOG_LEVEL
+    default: info
+  - name: POSTGRES_RELEASE_NAME
+    default: fastapi-postgres
+  - name: POSTGRES_DB
+    default: app
+  - name: POSTGRES_USER
+    default: app
+  - name: POSTGRES_PASSWORD
+    default: app
+
+namespace: ${NAMESPACE}
+
+images:
+  app:
+    image: ${IMAGE_NAME}
+    tags:
+      - ${IMAGE_TAG}
+    dockerfile: ./Dockerfile
+    skipPush: true
+
+pipelines:
+  deploy:
+    run: |-
+      create_deployments --all
+  dev:
+    run: |-
+      create_deployments --all
+      start_dev --all
+
+profiles:
+  - name: dev
+    patches:
+      - op: add
+        path: /dev
+        value:
+          ports:
+            - imageSelector: ${IMAGE_NAME}
+              forward:
+                - port: 8000
+                  bindPort: 8000
+
+hooks:
+  - name: create-k3d
+    command: ["bash", "scripts/k3d-up.sh"]
+    args: []
+
+
+# Deployment definitions
+
+deployments:
+  - name: postgres
+    helm:
+      chart:
+        name: postgresql
+        repo: https://charts.bitnami.com/bitnami
+        version: 15.5.0
+      values:
+        auth:
+          username: ${POSTGRES_USER}
+          password: ${POSTGRES_PASSWORD}
+          database: ${POSTGRES_DB}
+        primary:
+          persistence:
+            enabled: true
+
+  - name: app
+    kubectl:
+      manifests:
+        - k8s/app-config.yaml
+        - k8s/app-secret.yaml
+        - k8s/app-deployment.yaml
+        - k8s/app-service.yaml

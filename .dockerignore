@@ -22,4 +22,7 @@ htmlcov/
 build/
 dist/
 
-.DS_Store
+.git/
+.gitignore
+
+README.md

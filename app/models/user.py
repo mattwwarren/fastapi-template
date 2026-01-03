@@ -1,0 +1,38 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import ClassVar
+
+from pydantic import ConfigDict
+from sqlmodel import Field, SQLModel
+
+from app.models.base import TimestampedTable
+from app.models.shared import OrganizationInfo
+
+
+class UserBase(SQLModel):
+    email: str
+    name: str
+
+
+class User(TimestampedTable, UserBase, table=True):
+    __tablename__ = "app_user"
+    pass
+
+
+class UserCreate(UserBase):
+    pass
+
+
+class UserRead(UserBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    organizations: list[OrganizationInfo] = Field(default_factory=list)
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(from_attributes=True)
+
+
+class UserUpdate(SQLModel):
+    email: str | None = None
+    name: str | None = None
