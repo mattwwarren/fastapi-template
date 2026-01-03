@@ -23,7 +23,11 @@ async def test_user_crud(client: AsyncClient) -> None:
 
     list_response = await client.get("/users")
     assert list_response.status_code == HTTPStatus.OK
-    assert len(list_response.json()) == 1
+    data = list_response.json()
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+    assert data["page"] == 1
+    assert data["size"] >= 1
 
     update_response = await client.patch(
         f"/users/{user_id}", json={"name": "Jane Updated"}

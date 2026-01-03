@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     )
     sqlalchemy_echo: bool = False
     enable_metrics: bool = True
+    pagination_page_size: int = 50
+    pagination_page_size_max: int = 200
+    pagination_page_class: str | None = None
 
 
 settings = Settings()

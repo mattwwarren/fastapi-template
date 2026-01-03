@@ -1,14 +1,18 @@
 from fastapi import APIRouter, HTTPException, status
+from fastapi_pagination import Page, create_page
+from fastapi_pagination.ext.sqlalchemy import paginate
+from sqlalchemy import select
 
+from app.core.pagination import ParamsDep
 from app.db.session import SessionDep
 from app.models.shared import OrganizationInfo
-from app.models.user import UserCreate, UserRead, UserUpdate
+from app.models.user import User, UserCreate, UserRead, UserUpdate
 from app.services.user_service import (
     create_user,
     delete_user,
     get_user,
     list_organizations_for_user,
-    list_users,
+    list_organizations_for_users,
     update_user,
 )
 
@@ -26,24 +30,26 @@ async def create_user_endpoint(
     return response
 
 
-@router.get("", response_model=list[UserRead])
+@router.get("", response_model=Page[UserRead])
 async def list_users_endpoint(
     session: SessionDep,
-    offset: int = 0,
-    limit: int = 100,
-) -> list[UserRead]:
-    users = await list_users(session, offset=offset, limit=limit)
+    params: ParamsDep,
+) -> Page[UserRead]:
+    page = await paginate(session, select(User), params)
+    users = page.items
+    user_ids = [user.id for user in users if user.id is not None]
+    organizations_by_user = await list_organizations_for_users(session, user_ids)
     responses: list[UserRead] = []
     for user in users:
         if user.id is None:
             raise HTTPException(status_code=500, detail="User id missing")
-        organizations = await list_organizations_for_user(session, user.id)
         response = UserRead.model_validate(user)
         response.organizations = [
-            OrganizationInfo.model_validate(org) for org in organizations
+            OrganizationInfo.model_validate(org)
+            for org in organizations_by_user.get(user.id, [])
         ]
         responses.append(response)
-    return responses
+    return create_page(responses, total=page.total, params=page.params)
 
 
 @router.get("/{user_id}", response_model=UserRead)

@@ -26,7 +26,9 @@ async def test_membership_create_and_delete(client: AsyncClient) -> None:
 
     list_response = await client.get("/memberships")
     assert list_response.status_code == HTTPStatus.OK
-    assert len(list_response.json()) == 1
+    data = list_response.json()
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
 
     user_get = await client.get(f"/users/{user_id}")
     assert user_get.status_code == HTTPStatus.OK
@@ -46,3 +48,57 @@ async def test_membership_create_and_delete(client: AsyncClient) -> None:
     org_get = await client.get(f"/organizations/{organization_id}")
     assert org_get.status_code == HTTPStatus.OK
     assert org_get.json()["users"] == []
+
+
+@pytest.mark.asyncio
+async def test_membership_cascade_delete(client: AsyncClient) -> None:
+    org_response = await client.post("/organizations", json={"name": "Acme"})
+    assert org_response.status_code == HTTPStatus.CREATED
+    organization_id = org_response.json()["id"]
+
+    user_response = await client.post(
+        "/users",
+        json={"name": "Jane Doe", "email": "jane@example.com"},
+    )
+    assert user_response.status_code == HTTPStatus.CREATED
+    user_id = user_response.json()["id"]
+
+    create_response = await client.post(
+        "/memberships",
+        json={"user_id": user_id, "organization_id": organization_id},
+    )
+    assert create_response.status_code == HTTPStatus.CREATED
+
+    delete_org = await client.delete(f"/organizations/{organization_id}")
+    assert delete_org.status_code == HTTPStatus.NO_CONTENT
+
+    list_response = await client.get("/memberships")
+    assert list_response.status_code == HTTPStatus.OK
+    assert list_response.json()["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_membership_cascade_delete_user(client: AsyncClient) -> None:
+    org_response = await client.post("/organizations", json={"name": "Acme"})
+    assert org_response.status_code == HTTPStatus.CREATED
+    organization_id = org_response.json()["id"]
+
+    user_response = await client.post(
+        "/users",
+        json={"name": "Jane Doe", "email": "jane@example.com"},
+    )
+    assert user_response.status_code == HTTPStatus.CREATED
+    user_id = user_response.json()["id"]
+
+    create_response = await client.post(
+        "/memberships",
+        json={"user_id": user_id, "organization_id": organization_id},
+    )
+    assert create_response.status_code == HTTPStatus.CREATED
+
+    delete_user = await client.delete(f"/users/{user_id}")
+    assert delete_user.status_code == HTTPStatus.NO_CONTENT
+
+    list_response = await client.get("/memberships")
+    assert list_response.status_code == HTTPStatus.OK
+    assert list_response.json()["items"] == []

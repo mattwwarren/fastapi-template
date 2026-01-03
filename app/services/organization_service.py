@@ -61,3 +61,20 @@ async def list_users_for_organization(
         .where(col(Membership.organization_id) == organization_id)
     )
     return list(result.scalars().all())
+
+
+async def list_users_for_organizations(
+    session: AsyncSession, organization_ids: list[int]
+) -> dict[int, list[User]]:
+    if not organization_ids:
+        return {}
+    result = await session.execute(
+        select(Membership.organization_id, User)
+        .join(User, col(Membership.user_id) == col(User.id))
+        .where(col(Membership.organization_id).in_(organization_ids))
+    )
+    mapping: dict[int, list[User]] = {org_id: [] for org_id in organization_ids}
+    for organization_id, user in result.all():
+        if organization_id in mapping:
+            mapping[organization_id].append(user)
+    return mapping

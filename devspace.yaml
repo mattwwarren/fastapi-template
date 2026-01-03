@@ -2,30 +2,39 @@ version: v2beta1
 name: fastapi-template
 
 vars:
-  - name: CLUSTER_NAME
+  CLUSTER_NAME:
     default: fastapi-template
-  - name: NAMESPACE
-    default: dev
-  - name: IMAGE_NAME
+    source: env
+  NAMESPACE:
+    default: warren-enterprises-ltd
+    source: env
+  IMAGE_NAME:
     default: fastapi-template
-  - name: IMAGE_TAG
+    source: env
+  IMAGE_TAG:
     default: dev
-  - name: APP_NAME
+    source: env
+  APP_NAME:
     default: fastapi-template
-  - name: ENVIRONMENT
+    source: env
+  ENVIRONMENT:
     default: dev
-  - name: LOG_LEVEL
+    source: env
+  LOG_LEVEL:
     default: info
-  - name: POSTGRES_RELEASE_NAME
+    source: env
+  POSTGRES_RELEASE_NAME:
     default: fastapi-postgres
-  - name: POSTGRES_DB
+    source: env
+  POSTGRES_DB:
     default: app
-  - name: POSTGRES_USER
+    source: env
+  POSTGRES_USER:
     default: app
-  - name: POSTGRES_PASSWORD
+    source: env
+  POSTGRES_PASSWORD:
     default: app
-
-namespace: ${NAMESPACE}
+    source: env
 
 images:
   app:
@@ -38,52 +47,127 @@ images:
 pipelines:
   deploy:
     run: |-
+      bash scripts/k3d-up.sh
+      export KUBECONFIG="$(k3d kubeconfig write ${CLUSTER_NAME})"
+      kubectl config use-context "k3d-${CLUSTER_NAME}"
+      for _ in $(seq 1 30); do
+        if kubectl get namespaces >/dev/null 2>&1; then
+          break
+        fi
+        sleep 1
+      done
       create_deployments --all
   dev:
     run: |-
+      bash scripts/k3d-up.sh
+      export KUBECONFIG="$(k3d kubeconfig write ${CLUSTER_NAME})"
+      kubectl config use-context "k3d-${CLUSTER_NAME}"
+      for _ in $(seq 1 30); do
+        if kubectl get namespaces >/dev/null 2>&1; then
+          break
+        fi
+        sleep 1
+      done
       create_deployments --all
       start_dev --all
 
-profiles:
-  - name: dev
-    patches:
-      - op: add
-        path: /dev
-        value:
-          ports:
-            - imageSelector: ${IMAGE_NAME}
-              forward:
-                - port: 8000
-                  bindPort: 8000
+dev:
+  api:
+    namespace: ${NAMESPACE}
+    imageSelector: ${runtime.images.app.image}:${runtime.images.app.tag}
+    ports:
+      - port: 8000
 
-hooks:
-  - name: create-k3d
-    command: ["bash", "scripts/k3d-up.sh"]
-    args: []
+hooks: []
+
+commands:
+  alembic-revision:
+    description: "Generate an Alembic migration (requires --message)"
+    command: bash
+    args:
+      - -c
+      - |
+        if [ -z "$1" ]; then
+          echo "Usage: devspace run alembic:revision -- \"your message\"" >&2
+          exit 1
+        fi
+        export DATABASE_URL="postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres.${NAMESPACE}.svc.cluster.local:5432/${POSTGRES_DB}"
+        uv run alembic revision --autogenerate -m "$1"
+      - --
+  alembic-upgrade:
+    description: "Run Alembic migrations against the dev cluster"
+    command: bash
+    args:
+      - -c
+      - |
+        export DATABASE_URL="postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres.${NAMESPACE}.svc.cluster.local:5432/${POSTGRES_DB}"
+        uv run alembic upgrade head
+  k3d-down:
+    description: "Delete the local k3d cluster"
+    command: bash
+    args:
+      - -c
+      - |
+        bash scripts/k3d-down.sh
 
 
 # Deployment definitions
 
 deployments:
-  - name: postgres
-    helm:
-      chart:
-        name: postgresql
-        repo: https://charts.bitnami.com/bitnami
-        version: 15.5.0
-      values:
-        auth:
-          username: ${POSTGRES_USER}
-          password: ${POSTGRES_PASSWORD}
-          database: ${POSTGRES_DB}
-        primary:
-          persistence:
-            enabled: true
-
-  - name: app
+  postgres:
+    namespace: ${NAMESPACE}
     kubectl:
       manifests:
-        - k8s/app-config.yaml
-        - k8s/app-secret.yaml
-        - k8s/app-deployment.yaml
-        - k8s/app-service.yaml
+        - k8s/postgres-secret.yaml
+        - k8s/postgres-service.yaml
+        - k8s/postgres-statefulset.yaml
+
+  app:
+    namespace: ${NAMESPACE}
+    helm:
+      chart:
+        name: component-chart
+        repo: https://charts.devspace.sh
+      values:
+        containers:
+          - name: api
+            image: ${runtime.images.app.image}:${runtime.images.app.tag}
+            imagePullPolicy: IfNotPresent
+            ports:
+              - containerPort: 8000
+            env:
+              - name: APP_NAME
+                value: ${APP_NAME}
+              - name: ENVIRONMENT
+                value: ${ENVIRONMENT}
+              - name: LOG_LEVEL
+                value: ${LOG_LEVEL}
+              - name: SQLALCHEMY_ECHO
+                value: "false"
+              - name: ENABLE_METRICS
+                value: "true"
+              - name: DATABASE_URL
+                value: postgresql+asyncpg://app:app@postgres.${NAMESPACE}.svc.cluster.local:5432/app
+            readinessProbe:
+              httpGet:
+                path: /health
+                port: 8000
+              initialDelaySeconds: 5
+              periodSeconds: 10
+            livenessProbe:
+              httpGet:
+                path: /health
+                port: 8000
+              initialDelaySeconds: 10
+              periodSeconds: 20
+            resources:
+              requests:
+                cpu: "100m"
+                memory: "128Mi"
+              limits:
+                cpu: "500m"
+                memory: "512Mi"
+        service:
+          ports:
+            - port: 80
+              targetPort: 8000

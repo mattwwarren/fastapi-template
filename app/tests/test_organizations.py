@@ -19,7 +19,11 @@ async def test_organization_crud(client: AsyncClient) -> None:
 
     list_response = await client.get("/organizations")
     assert list_response.status_code == HTTPStatus.OK
-    assert len(list_response.json()) == 1
+    data = list_response.json()
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+    assert data["page"] == 1
+    assert data["size"] >= 1
 
     update_response = await client.patch(
         f"/organizations/{organization_id}", json={"name": "Acme 2"}

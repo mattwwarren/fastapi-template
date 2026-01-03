@@ -1,3 +1,3 @@
-from . import context
+from . import command, context
 
-__all__ = ["context"]
+__all__ = ["command", "context"]

@@ -21,12 +21,17 @@ async_session_maker: async_sessionmaker[AsyncSession] = async_sessionmaker(
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with async_session_maker() as session:
-        yield session
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
 
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
 async def init_db() -> None:
+    """Test-only helper; production migrations should use Alembic."""
     async with engine.begin() as connection:
         await connection.run_sync(SQLModel.metadata.create_all)

@@ -41,9 +41,19 @@ export POSTGRES_PASSWORD=app
 alembic upgrade head
 ```
 
+`init_db()` is test-only; production and local dev should run Alembic migrations.
+
+### DevSpace helpers
+
+```bash
+devspace run alembic-revision -- "initial"
+devspace run alembic-upgrade
+```
+
 ## Tests
 
 Tests use `pytest-docker` to launch a Postgres container via `tests/docker-compose.yml`.
+Schema drift is checked via `pytest-alembic` against SQLModel metadata.
 
 ```bash
 uv run pytest
@@ -64,4 +74,9 @@ uv run pytest
 - `GET /memberships`
 - `POST /memberships`
 - `DELETE /memberships/{membership_id}`
-- `GET /metrics`
+- `GET /metrics` (internal-only via infra)
+
+List endpoints use `fastapi-pagination` and return standard `Page` responses.
+
+Note: the kubectl manifests are currently static for Postgres credentials; update
+`k8s/postgres-secret.yaml` and `k8s/app-secret.yaml` if you change these values.

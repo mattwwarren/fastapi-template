@@ -1,7 +1,12 @@
 from fastapi import APIRouter, HTTPException, status
+from fastapi_pagination import Page, create_page
+from fastapi_pagination.ext.sqlalchemy import paginate
+from sqlalchemy import select
 
+from app.core.pagination import ParamsDep
 from app.db.session import SessionDep
 from app.models.organization import (
+    Organization,
     OrganizationCreate,
     OrganizationRead,
     OrganizationUpdate,
@@ -11,8 +16,8 @@ from app.services.organization_service import (
     create_organization,
     delete_organization,
     get_organization,
-    list_organizations,
     list_users_for_organization,
+    list_users_for_organizations,
     update_organization,
 )
 
@@ -30,22 +35,26 @@ async def create_org(
     return response
 
 
-@router.get("", response_model=list[OrganizationRead])
+@router.get("", response_model=Page[OrganizationRead])
 async def list_orgs(
     session: SessionDep,
-    offset: int = 0,
-    limit: int = 100,
-) -> list[OrganizationRead]:
-    organizations = await list_organizations(session, offset=offset, limit=limit)
-    responses: list[OrganizationRead] = []
+    params: ParamsDep,
+) -> Page[OrganizationRead]:
+    page = await paginate(session, select(Organization), params)
+    organizations = page.items
+    organization_ids = [org.id for org in organizations if org.id is not None]
+    users_by_org = await list_users_for_organizations(session, organization_ids)
+    items: list[OrganizationRead] = []
     for organization in organizations:
         if organization.id is None:
             raise HTTPException(status_code=500, detail="Organization id missing")
-        users = await list_users_for_organization(session, organization.id)
         response = OrganizationRead.model_validate(organization)
-        response.users = [UserInfo.model_validate(user) for user in users]
-        responses.append(response)
-    return responses
+        response.users = [
+            UserInfo.model_validate(user)
+            for user in users_by_org.get(organization.id, [])
+        ]
+        items.append(response)
+    return create_page(items, total=page.total, params=page.params)
 
 
 @router.get("/{organization_id}", response_model=OrganizationRead)

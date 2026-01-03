@@ -32,3 +32,5 @@
 - Tests should use real Postgres via `pytest-docker`, not SQLite
 - Prefer SQLModel relationship annotations that are SQLAlchemy-compatible
 - Keep stub packages unpinned so they stay at the latest version
+- List endpoints use `fastapi-pagination` and should avoid N+1 queries
+- Use Alembic migrations in tests (no `create_all`/`drop_all`)

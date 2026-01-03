@@ -1,18 +1,18 @@
-FROM python:3.13-slim
+FROM ghcr.io/astral-sh/uv:alpine
 
 ENV PYTHONUNBUFFERED=1 \
-    UV_SYSTEM_PYTHON=1
+    UV_SYSTEM_PYTHON=1 \
+    UV_NO_DEV=1
 
 WORKDIR /app
 
-COPY pyproject.toml README.md ./
-COPY app ./app
-RUN pip install --no-cache-dir uv
-RUN uv pip install --system --no-cache-dir .
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked -n --no-progress
+COPY scripts ./scripts
 COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
-COPY scripts ./scripts
+COPY app ./app
 
 EXPOSE 8000
 
-CMD ["bash", "scripts/start.sh"]
+CMD ["sh", "scripts/start.sh"]

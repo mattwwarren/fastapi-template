@@ -1,12 +1,15 @@
 from fastapi import APIRouter, HTTPException, status
+from fastapi_pagination import Page
+from fastapi_pagination.ext.sqlalchemy import paginate
+from sqlalchemy import select
 
+from app.core.pagination import ParamsDep
 from app.db.session import SessionDep
-from app.models.membership import MembershipCreate, MembershipRead
+from app.models.membership import Membership, MembershipCreate, MembershipRead
 from app.services.membership_service import (
     create_membership,
     delete_membership,
     get_membership,
-    list_memberships,
 )
 from app.services.organization_service import get_organization
 from app.services.user_service import get_user
@@ -29,14 +32,12 @@ async def create_membership_endpoint(
     return MembershipRead.model_validate(membership)
 
 
-@router.get("", response_model=list[MembershipRead])
+@router.get("", response_model=Page[MembershipRead])
 async def list_memberships_endpoint(
     session: SessionDep,
-    offset: int = 0,
-    limit: int = 100,
-) -> list[MembershipRead]:
-    memberships = await list_memberships(session, offset=offset, limit=limit)
-    return [MembershipRead.model_validate(item) for item in memberships]
+    params: ParamsDep,
+) -> Page[MembershipRead]:
+    return await paginate(session, select(Membership), params)
 
 
 @router.delete("/{membership_id}", status_code=status.HTTP_204_NO_CONTENT)
