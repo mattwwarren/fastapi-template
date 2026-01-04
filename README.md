@@ -1,6 +1,21 @@
 # fastapi-template
 
-Async-only FastAPI template with SQLModel, Alembic, Postgres, Prometheus metrics, and k3d + DevSpace for local Kubernetes workflows.
+Async-only FastAPI template for a modern SaaS backend. This repo is meant to remove
+plumbing work so you can focus on product: async FastAPI, SQLModel + Alembic
+migrations, Postgres, structured ECS JSON logging, Prometheus metrics, and a
+k3d + DevSpace Kubernetes workflow.
+
+## What you get
+
+- Async-only API and data access
+- SQLModel models with UUID primary keys and timezone-aware timestamps
+- Alembic migrations with drift detection in tests
+- Postgres 18 (dev/test), asyncpg driver
+- ECS JSON logging via `logging.yaml`
+- `/health`, `/ping`, and `/metrics` endpoints
+- Pagination via `fastapi-pagination`
+- Local Kubernetes dev with k3d + DevSpace
+- Non-root container image
 
 ## Requirements
 
@@ -14,26 +29,76 @@ Async-only FastAPI template with SQLModel, Alembic, Postgres, Prometheus metrics
 ```bash
 uv sync --dev
 cp .env.example .env
+uv run alembic upgrade head
 uv run uvicorn app.main:app --reload --log-config app/core/logging.yaml
 ```
 
+OpenAPI docs:
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+
 ## Quickstart (k3d + DevSpace)
 
+This is the default workflow for local Kubernetes:
+
 ```bash
+devspace build
 devspace dev -p dev
 ```
 
-Defaults are defined in `devspace.yaml` and can be overridden via environment variables:
+DevSpace defaults live in `devspace.yaml` and can be overridden via env vars:
 
 ```bash
 export CLUSTER_NAME=fastapi-template
-export NAMESPACE=dev
+export NAMESPACE=warren-enterprises-ltd
 export IMAGE_NAME=fastapi-template
 export IMAGE_TAG=dev
+export APP_NAME=fastapi-template
+export ENVIRONMENT=dev
+export LOG_LEVEL=info
 export POSTGRES_DB=app
 export POSTGRES_USER=app
 export POSTGRES_PASSWORD=app
 ```
+
+### DevSpace helpers
+
+```bash
+devspace run alembic-revision -- "initial"
+devspace run alembic-upgrade
+devspace run k3d-down
+```
+
+## Configuration
+
+Configuration is driven by environment variables (see `.env.example`).
+Key values:
+
+- `DATABASE_URL`: async SQLAlchemy URL, e.g. `postgresql+asyncpg://app:app@localhost:5432/app`
+- `APP_NAME`, `ENVIRONMENT`
+- `ENABLE_METRICS`, `SQLALCHEMY_ECHO`
+- Pagination defaults: `PAGINATION_PAGE_SIZE`, `PAGINATION_PAGE_SIZE_MAX`
+
+## Logging
+
+Logging is configured **only** via `app/core/logging.yaml` and is ECS JSON.
+The runtime entrypoint (`scripts/start.sh`) uses `--log-config` and does not
+apply its own log level overrides.
+
+If you want a different verbosity, update `app/core/logging.yaml` (or provide an
+alternate log config at startup).
+
+## Database model behavior
+
+- All tables use UUID primary keys with `gen_random_uuid()` defaults.
+- `created_at` and `updated_at` are timezone-aware.
+- `updated_at` is maintained by a Postgres trigger, not by ORM code.
+
+### Model registration for Alembic
+
+Alembic autogenerate uses `SQLModel.metadata`. The module `app/db/base.py`
+imports every model that should be included in migrations. When you add a new
+SQLModel table, **also add it to `app/db/base.py`** so Alembic can detect it.
 
 ## Database migrations
 
@@ -41,25 +106,15 @@ export POSTGRES_PASSWORD=app
 alembic upgrade head
 ```
 
-`init_db()` is test-only; production and local dev should run Alembic migrations.
-
-### DevSpace helpers
+Never hand-write migrations. Always use:
 
 ```bash
-devspace run alembic-revision -- "initial"
-devspace run alembic-upgrade
+alembic revision --autogenerate -m "your message"
 ```
 
-## Tests
+`init_db()` is test-only; production and local dev should always run Alembic.
 
-Tests use `pytest-docker` to launch a Postgres container via `tests/docker-compose.yml`.
-Schema drift is checked via `pytest-alembic` against SQLModel metadata.
-
-```bash
-uv run pytest
-```
-
-## Endpoints
+## API endpoints
 
 - `GET /health`
 - `GET /ping`
@@ -78,7 +133,85 @@ uv run pytest
 - `DELETE /memberships/{membership_id}`
 - `GET /metrics` (internal-only via infra)
 
-List endpoints use `fastapi-pagination` and return standard `Page` responses.
+List endpoints use `fastapi-pagination` and return `Page` responses with stable
+ordering by `created_at`.
 
-Note: the kubectl manifests are currently static for Postgres credentials; update
-`k8s/postgres-secret.yaml` if you change these values.
+## Health and metrics
+
+- `/health` validates DB connectivity with a short timeout and returns 503 on
+  failure.
+- `/metrics` exports Prometheus metrics (intended for internal networking only).
+
+## Tests
+
+Tests use `pytest-docker` to launch Postgres (`tests/docker-compose.yml`) and
+`pytest-alembic` to ensure schema drift is caught.
+
+```bash
+uv run pytest
+```
+
+## Code quality
+
+```bash
+uv run ruff check
+uv run mypy app
+uv run pre-commit run --all-files
+```
+
+## Project layout
+
+- `app/main.py` FastAPI app
+- `app/api/` routers
+- `app/models/` SQLModel models and schemas
+- `app/services/` CRUD helpers
+- `app/db/` async engine/session + Alembic model registry
+- `alembic/` migrations
+- `k8s/` Kubernetes manifests
+- `devspace.yaml` DevSpace configuration
+
+## Documentation (Sphinx)
+
+Build the full docs locally:
+
+```bash
+uv run sphinx-build -b html docs docs/_build/html
+```
+
+Key docs live in `docs/`:
+
+- `docs/conventions.rst`
+- `docs/howto_add_feature.rst`
+- `docs/troubleshooting.rst`
+- `docs/decision_log.rst`
+- `docs/architecture.rst`
+
+## Decision log (summary)
+
+- Async-only API + DB access.
+- SQLModel + Alembic for schema lifecycle.
+- UUID primary keys; DB-managed `updated_at`.
+- ECS JSON logging from `logging.yaml`.
+- k3d + DevSpace for local Kubernetes.
+
+## How to add a model/endpoint (summary)
+
+1. Create the SQLModel table + schemas in `app/models/`.
+2. Import the model in `app/db/base.py` so Alembic sees it.
+3. Generate a migration via `alembic revision --autogenerate`.
+4. Add service helpers in `app/services/`.
+5. Add endpoints in `app/api/`.
+6. Add tests under `app/tests/`.
+
+## Troubleshooting (quick hits)
+
+- Missing tables in tests: ensure the model is imported in `app/db/base.py`.
+- DevSpace can’t find pods: check image selector and run `devspace build`.
+- Logs look wrong: `app/core/logging.yaml` is the single source of truth.
+
+## Notes
+
+- Authentication is intentionally excluded. Use a separate auth service (e.g.
+  Ory) and integrate via API gateway or shared identity flow.
+- Kubernetes manifests are currently static for Postgres credentials; update
+  `k8s/postgres-secret.yaml` if you change these values.

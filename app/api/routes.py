@@ -1,3 +1,5 @@
+"""API router composition for the service."""
+
 from fastapi import APIRouter
 
 from app.api import health, memberships, organizations, ping, users

@@ -1,3 +1,5 @@
+"""Async SQLAlchemy engine and session dependency for the API."""
+
 from collections.abc import AsyncGenerator
 from typing import Annotated
 

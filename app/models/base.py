@@ -1,3 +1,5 @@
+"""Shared SQLModel base with UUID keys and DB-managed timestamps."""
+
 from datetime import datetime
 from uuid import UUID
 

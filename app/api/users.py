@@ -1,3 +1,5 @@
+"""User CRUD endpoints and membership expansion."""
+
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status

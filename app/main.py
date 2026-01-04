@@ -1,3 +1,5 @@
+"""FastAPI application entrypoint and wiring."""
+
 from fastapi import FastAPI
 from fastapi_pagination import add_pagination
 

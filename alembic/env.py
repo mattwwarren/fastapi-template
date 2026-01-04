@@ -1,3 +1,5 @@
+"""Alembic environment configuration for async migrations."""
+
 from asyncio.runners import run
 from logging.config import fileConfig
 

@@ -1,3 +1,5 @@
+"""Simple ping endpoint for liveness checks."""
+
 from fastapi import APIRouter
 
 router = APIRouter()

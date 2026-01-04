@@ -1,3 +1,5 @@
+"""Membership CRUD endpoints for user-organization relationships."""
+
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status

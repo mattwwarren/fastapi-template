@@ -1,3 +1,5 @@
+"""Pagination configuration and dependency helpers."""
+
 import importlib
 from typing import Annotated
 

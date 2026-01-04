@@ -1,3 +1,5 @@
+"""Pytest fixtures for async API testing with Postgres + Alembic."""
+
 import asyncio
 import os
 import socket

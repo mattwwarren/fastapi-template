@@ -1,3 +1,5 @@
+"""Runtime configuration sourced from environment variables."""
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -7,13 +9,13 @@ class Settings(BaseSettings):
 
     app_name: str = "fastapi-template"
     environment: str = "local"
-    log_level: str = "debug"
+    log_level: str = Field(default="debug", alias="LOG_LEVEL")
     database_url: str = Field(
         default="postgresql+asyncpg://app:app@localhost:5432/app",
         alias="DATABASE_URL",
     )
-    sqlalchemy_echo: bool = False
-    enable_metrics: bool = True
+    sqlalchemy_echo: bool = Field(default=False, alias="SQLALCHEMY_ECHO")
+    enable_metrics: bool = Field(default=True, alias="ENABLE_METRICS")
     pagination_page_size: int = 50
     pagination_page_size_max: int = 200
     pagination_page_class: str | None = None

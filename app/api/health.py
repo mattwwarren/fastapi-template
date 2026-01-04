@@ -1,3 +1,5 @@
+"""Health endpoint with a short DB connectivity check."""
+
 import asyncio
 
 from fastapi import APIRouter, HTTPException, status

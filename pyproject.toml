@@ -61,4 +61,6 @@ dev = [
   "mypy>=1.10.0",
   "pre-commit>=3.7.0",
   "aiosqlite>=0.20.0",
+  "sphinx>=7.3.0",
+  "furo>=2024.1.29",
 ]

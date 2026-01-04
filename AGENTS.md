@@ -36,3 +36,4 @@
 - Use Alembic migrations in tests (no `create_all`/`drop_all`)
 - Logging is configured via `app/core/logging.yaml`; avoid configuring it in code
 - Health checks should enforce a DB timeout and return 503 on failure
+- Keep module-level docstrings for key files and update Sphinx docs in `docs/`

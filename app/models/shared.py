@@ -1,3 +1,5 @@
+"""Shared response schemas used across multiple resources."""
+
 from datetime import datetime
 from typing import ClassVar
 from uuid import UUID

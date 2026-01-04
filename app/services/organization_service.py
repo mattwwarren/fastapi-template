@@ -1,3 +1,5 @@
+"""Organization data access helpers for services and endpoints."""
+
 from uuid import UUID
 
 from sqlalchemy import select

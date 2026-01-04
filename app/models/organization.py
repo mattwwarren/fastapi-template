@@ -1,3 +1,5 @@
+"""Organization table and related API schemas."""
+
 from __future__ import annotations
 
 from datetime import datetime

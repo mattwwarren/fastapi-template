@@ -1,3 +1,5 @@
+"""Membership table and API schemas for user-organization links."""
+
 from __future__ import annotations
 
 from datetime import datetime
