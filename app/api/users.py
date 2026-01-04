@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 from fastapi_pagination import Page, create_page
-from fastapi_pagination.ext.sqlalchemy import paginate
+from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 
 from app.core.pagination import ParamsDep
@@ -37,7 +37,7 @@ async def list_users_endpoint(
     session: SessionDep,
     params: ParamsDep,
 ) -> Page[UserRead]:
-    page = await paginate(session, select(User), params)
+    page = await apaginate(session, select(User), params)
     users = page.items
     user_ids = [user.id for user in users if user.id is not None]
     organizations_by_user = await list_organizations_for_users(session, user_ids)
@@ -51,7 +51,7 @@ async def list_users_endpoint(
             for org in organizations_by_user.get(user.id, [])
         ]
         responses.append(response)
-    return create_page(responses, total=page.total, params=page.params)
+    return create_page(responses, total=page.total, params=params)
 
 
 @router.get("/{user_id}", response_model=UserRead)

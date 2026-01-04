@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 from fastapi_pagination import Page
-from fastapi_pagination.ext.sqlalchemy import paginate
+from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 
 from app.core.pagination import ParamsDep
@@ -39,7 +39,7 @@ async def list_memberships_endpoint(
     session: SessionDep,
     params: ParamsDep,
 ) -> Page[MembershipRead]:
-    return await paginate(session, select(Membership), params)
+    return await apaginate(session, select(Membership), params)
 
 
 @router.delete("/{membership_id}", status_code=status.HTTP_204_NO_CONTENT)

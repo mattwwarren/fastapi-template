@@ -10,9 +10,12 @@ def test_downgrade(alembic_runner: MigrationContext) -> None:
     for head in alembic_runner.heads:
         alembic_runner.migrate_up_to(head)
         alembic_runner.migrate_down_to("base")
+        alembic_runner.migrate_up_to(head)
 
 
 def test_model_definitions_match_ddl(alembic_runner: MigrationContext) -> None:
+    for head in alembic_runner.heads:
+        alembic_runner.migrate_up_to(head)
     has_changes = False
 
     def check_revision(context, revision, directives):

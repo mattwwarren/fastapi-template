@@ -45,7 +45,7 @@ ignore_missing_imports = true
 mypy_path = "stubs"
 
 [tool.pytest.ini_options]
-addopts = "-q"
+addopts = "--tb=short"
 asyncio_mode = "auto"
 testpaths = ["app/tests"]
 

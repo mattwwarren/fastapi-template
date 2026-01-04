@@ -7,7 +7,7 @@ class Settings(BaseSettings):
 
     app_name: str = "fastapi-template"
     environment: str = "local"
-    log_level: str = "info"
+    log_level: str = "debug"
     database_url: str = Field(
         default="postgresql+asyncpg://app:app@localhost:5432/app",
         alias="DATABASE_URL",

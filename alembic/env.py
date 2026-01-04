@@ -5,7 +5,7 @@ from alembic import context
 from app.core.config import settings
 from app.db import base  # noqa: F401
 from sqlalchemy import pool, text
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlmodel import SQLModel
 
@@ -46,6 +46,15 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 def run_migrations_online() -> None:
+    connection = config.attributes.get("connection")  # type: ignore[attr-defined]
+    if connection is not None:
+        if isinstance(connection, Engine):
+            with connection.connect() as conn:
+                do_run_migrations(conn)
+        else:
+            do_run_migrations(connection)
+        return
+
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section),
         prefix="sqlalchemy.",
