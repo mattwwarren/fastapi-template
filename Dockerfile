@@ -13,6 +13,11 @@ COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
 COPY app ./app
 
+RUN addgroup -S app && adduser -S app -G app \
+    && chown -R app:app /app
+
+USER app
+
 EXPOSE 8000
 
 CMD ["sh", "scripts/start.sh"]

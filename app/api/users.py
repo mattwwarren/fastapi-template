@@ -37,7 +37,7 @@ async def list_users_endpoint(
     session: SessionDep,
     params: ParamsDep,
 ) -> Page[UserRead]:
-    page = await apaginate(session, select(User), params)
+    page = await apaginate(session, select(User).order_by(User.created_at), params)
     users = page.items
     user_ids = [user.id for user in users if user.id is not None]
     organizations_by_user = await list_organizations_for_users(session, user_ids)

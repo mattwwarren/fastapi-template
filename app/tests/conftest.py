@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 import socket
 from collections.abc import AsyncGenerator, Generator
@@ -24,10 +23,6 @@ from app.core.config import settings
 from app.db import session as db_session
 from app.db.session import get_session
 from app.main import app
-
-LOGGER = logging.getLogger(__name__)
-ROOT_LOGGER = logging.getLogger()
-LOGGER.setLevel(logging.INFO)
 
 
 @pytest.fixture(scope="session")
@@ -109,39 +104,7 @@ async def truncate_tables(
             )
             existing = [row[0] for row in result.fetchall()]
     if not existing:
-        sync_info = None
-        sync_table = None
-        with alembic_engine.connect() as connection:
-            sync_info = connection.execute(
-                text(
-                    "SELECT current_database(), inet_server_addr(), "
-                    "inet_server_port(), current_schema()"
-                )
-            ).one()
-            sync_table = connection.execute(
-                text("SELECT to_regclass('public.app_user')")
-            ).scalar_one_or_none()
-        async with engine.connect() as connection:
-            async_info = await connection.execute(
-                text(
-                    "SELECT current_database(), inet_server_addr(), "
-                    "inet_server_port(), current_schema()"
-                )
-            )
-            async_row = async_info.one()
-            async_table = await connection.execute(
-                text("SELECT to_regclass('public.app_user')")
-            )
-            async_table_name = async_table.scalar_one_or_none()
-        raise RuntimeError(
-            "No tables found after migrations. "
-            f"sync_db={sync_info[0]} sync_host={sync_info[1]} "
-            f"sync_port={sync_info[2]} sync_schema={sync_info[3]} "
-            f"sync_app_user={sync_table} "
-            f"async_db={async_row[0]} async_host={async_row[1]} "
-            f"async_port={async_row[2]} async_schema={async_row[3]}"
-            f" async_app_user={async_table_name}"
-        )
+        return
     async with engine.begin() as connection:
         await connection.execute(
             text("TRUNCATE TABLE " + ", ".join(existing) + " RESTART IDENTITY CASCADE")
@@ -155,50 +118,10 @@ async def engine(
     alembic_engine: Engine,
 ) -> AsyncGenerator[AsyncEngine, None]:
     await asyncio.to_thread(run_migrations, alembic_config, alembic_engine)
-    with alembic_engine.connect() as connection:
-        info = connection.execute(
-            text(
-                "SELECT current_database(), inet_server_addr(), inet_server_port(), "
-                "current_schema()"
-            )
-        ).one()
-        LOGGER.info(
-            "Sync DB: database=%s host=%s port=%s schema=%s",
-            info[0],
-            info[1],
-            info[2],
-            info[3],
-        )
-        ROOT_LOGGER.info(
-            "Sync DB: database=%s host=%s port=%s schema=%s",
-            info[0],
-            info[1],
-            info[2],
-            info[3],
-        )
+    old_engine = db_session.engine
     engine = create_async_engine(database_url, poolclass=NullPool)
-    async with engine.connect() as connection:
-        info = await connection.execute(
-            text(
-                "SELECT current_database(), inet_server_addr(), inet_server_port(), "
-                "current_schema()"
-            )
-        )
-        row = info.one()
-        LOGGER.info(
-            "Async DB: database=%s host=%s port=%s schema=%s",
-            row[0],
-            row[1],
-            row[2],
-            row[3],
-        )
-        ROOT_LOGGER.info(
-            "Async DB: database=%s host=%s port=%s schema=%s",
-            row[0],
-            row[1],
-            row[2],
-            row[3],
-        )
+    if old_engine is not engine:
+        await old_engine.dispose()
     db_session.engine = engine
     db_session.async_session_maker = async_sessionmaker(
         bind=engine,

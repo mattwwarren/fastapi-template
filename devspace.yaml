@@ -156,7 +156,22 @@ deployments:
               - name: ENABLE_METRICS
                 value: "true"
               - name: DATABASE_URL
-                value: postgresql+asyncpg://app:app@postgres.${NAMESPACE}.svc.cluster.local:5432/app
+                value: postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres.${NAMESPACE}.svc.cluster.local:5432/$(POSTGRES_DB)
+              - name: POSTGRES_USER
+                valueFrom:
+                  secretKeyRef:
+                    name: postgres-secret
+                    key: POSTGRES_USER
+              - name: POSTGRES_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: postgres-secret
+                    key: POSTGRES_PASSWORD
+              - name: POSTGRES_DB
+                valueFrom:
+                  secretKeyRef:
+                    name: postgres-secret
+                    key: POSTGRES_DB
             readinessProbe:
               httpGet:
                 path: /health

@@ -42,7 +42,9 @@ async def list_orgs(
     session: SessionDep,
     params: ParamsDep,
 ) -> Page[OrganizationRead]:
-    page = await apaginate(session, select(Organization), params)
+    page = await apaginate(
+        session, select(Organization).order_by(Organization.created_at), params
+    )
     organizations = page.items
     organization_ids = [org.id for org in organizations if org.id is not None]
     users_by_org = await list_users_for_organizations(session, organization_ids)

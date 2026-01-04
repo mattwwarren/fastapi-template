@@ -39,7 +39,9 @@ async def list_memberships_endpoint(
     session: SessionDep,
     params: ParamsDep,
 ) -> Page[MembershipRead]:
-    return await apaginate(session, select(Membership), params)
+    return await apaginate(
+        session, select(Membership).order_by(Membership.created_at), params
+    )
 
 
 @router.delete("/{membership_id}", status_code=status.HTTP_204_NO_CONTENT)
