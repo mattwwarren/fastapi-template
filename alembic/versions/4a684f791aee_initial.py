@@ -85,6 +85,13 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["app_user.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
+    op.create_index("ix_app_user_created_at", "app_user", ["created_at"], unique=False)
+    op.create_index(
+        "ix_organization_created_at", "organization", ["created_at"], unique=False
+    )
+    op.create_index(
+        "ix_membership_created_at", "membership", ["created_at"], unique=False
+    )
     op.create_index(
         "ix_membership_organization_id", "membership", ["organization_id"], unique=False
     )
@@ -135,6 +142,9 @@ def downgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS set_updated_at")
     op.drop_index("ix_membership_user_id", table_name="membership")
     op.drop_index("ix_membership_organization_id", table_name="membership")
+    op.drop_index("ix_membership_created_at", table_name="membership")
+    op.drop_index("ix_organization_created_at", table_name="organization")
+    op.drop_index("ix_app_user_created_at", table_name="app_user")
     op.drop_table("membership")
     op.drop_table("organization")
     op.drop_table("app_user")

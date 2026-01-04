@@ -65,10 +65,12 @@ uv run pytest
 - `GET /ping`
 - `GET /organizations`
 - `POST /organizations`
+- `GET /organizations/{organization_id}`
 - `PATCH /organizations/{organization_id}`
 - `DELETE /organizations/{organization_id}`
 - `GET /users`
 - `POST /users`
+- `GET /users/{user_id}`
 - `PATCH /users/{user_id}`
 - `DELETE /users/{user_id}`
 - `GET /memberships`
@@ -79,4 +81,4 @@ uv run pytest
 List endpoints use `fastapi-pagination` and return standard `Page` responses.
 
 Note: the kubectl manifests are currently static for Postgres credentials; update
-`k8s/postgres-secret.yaml` and `k8s/app-secret.yaml` if you change these values.
+`k8s/postgres-secret.yaml` if you change these values.

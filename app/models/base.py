@@ -22,6 +22,7 @@ class TimestampedTable(SQLModel):
             "server_default": sa.func.now(),
             "nullable": False,
         },
+        index=True,
     )
     updated_at: datetime = Field(
         sa_type=sa.DateTime(timezone=True),
