@@ -34,3 +34,5 @@
 - Keep stub packages unpinned so they stay at the latest version
 - List endpoints use `fastapi-pagination` and should avoid N+1 queries
 - Use Alembic migrations in tests (no `create_all`/`drop_all`)
+- Logging is configured via `app/core/logging.yaml`; avoid configuring it in code
+- Health checks should enforce a DB timeout and return 503 on failure
