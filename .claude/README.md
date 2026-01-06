@@ -34,6 +34,12 @@ Backend-specific guidelines:
 
 ### Code Quality Guides
 
+- **TEMPLATE-TESTING.md** - Complete testing workflow for generated projects
+  - Quick verification (5 min) and comprehensive testing phases
+  - Project generation, linting, type checking, testing
+  - Troubleshooting guide and complete verification script
+  - How to launch and test running application
+
 - **RUFF-GUIDE.md** - Comprehensive ruff linting rules and violation fixes
   - Rule categories and enforcement strategy
   - Common violations with code examples and fixes
@@ -111,6 +117,12 @@ ruff check .   # Must pass
 mypy .         # Must pass
 pytest         # 100% pass rate
 ```
+
+For complete testing workflow, see **[TEMPLATE-TESTING.md](TEMPLATE-TESTING.md)** with:
+- Quick verification (5 min)
+- Comprehensive testing phases
+- Troubleshooting guide
+- Complete verification script
 
 ### Ruff Linting
 
