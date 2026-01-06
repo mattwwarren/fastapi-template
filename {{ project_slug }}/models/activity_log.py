@@ -79,4 +79,5 @@ class ActivityLogRead(ActivityLogBase):
     created_at: datetime
     updated_at: datetime
 
-    model_config: ClassVar[ConfigDict] = ConfigDict(from_attributes=True)
+    # SQLModel expects SQLModelConfig but accepts ConfigDict at runtime
+    model_config: ClassVar[ConfigDict] = ConfigDict(from_attributes=True)  # type: ignore[assignment]

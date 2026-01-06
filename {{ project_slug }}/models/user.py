@@ -17,10 +17,8 @@ MAX_NAME_LENGTH = 100
 
 
 class UserBase(SQLModel):
-    email: EmailStr = Field(
-        ..., description="User email address", examples=["user@example.com"]
-    )
-    name: str = Field(..., min_length=1, description="User full name")
+    email: EmailStr = Field(description="User email address", examples=["user@example.com"])
+    name: str = Field(min_length=1, description="User full name")
 
 
 class User(TimestampedTable, UserBase, table=True):
@@ -60,7 +58,8 @@ class UserRead(UserBase):
     updated_at: datetime
     organizations: list[OrganizationInfo] = Field(default_factory=list)
 
-    model_config: ClassVar[ConfigDict] = ConfigDict(from_attributes=True)
+    # SQLModel expects SQLModelConfig but accepts ConfigDict at runtime
+    model_config: ClassVar[ConfigDict] = ConfigDict(from_attributes=True)  # type: ignore[assignment]
 
 
 class UserUpdate(SQLModel):

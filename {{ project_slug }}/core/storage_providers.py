@@ -38,7 +38,7 @@ Setup Instructions:
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import UUID
 
@@ -431,7 +431,7 @@ class AzureBlobStorageService:
                 blob_name=blob_name,
                 account_key=account_key,
                 permission=BlobSasPermissions(read=True),
-                expiry=datetime.now(datetime.UTC) + timedelta(
+                expiry=datetime.now(timezone.utc) + timedelta(
                     seconds=expiry_seconds
                 ),
             )

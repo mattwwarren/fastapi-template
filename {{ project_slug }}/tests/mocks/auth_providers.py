@@ -26,7 +26,7 @@ Usage:
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -36,7 +36,7 @@ from {{ project_slug }}.core.config import Settings
 
 
 @pytest.fixture
-def mock_ory_provider(test_settings_factory: Callable[..., Settings]) -> MagicMock:
+def mock_ory_provider(test_settings_factory: Callable[..., Settings]) -> Generator[dict[str, Any], None, None]:
     """Mock Ory authentication provider.
 
     Patches Ory endpoint to return valid tokens without network requests.
@@ -84,7 +84,7 @@ def mock_ory_provider(test_settings_factory: Callable[..., Settings]) -> MagicMo
 
 
 @pytest.fixture
-def mock_auth0_provider(test_settings_factory: Callable[..., Settings]) -> MagicMock:
+def mock_auth0_provider(test_settings_factory: Callable[..., Settings]) -> Generator[dict[str, Any], None, None]:
     """Mock Auth0 authentication provider.
 
     Patches Auth0 endpoints to return valid tokens without Auth0 credentials.
@@ -137,7 +137,7 @@ def mock_auth0_provider(test_settings_factory: Callable[..., Settings]) -> Magic
 
 
 @pytest.fixture
-def mock_keycloak_provider(test_settings_factory: Callable[..., Settings]) -> MagicMock:
+def mock_keycloak_provider(test_settings_factory: Callable[..., Settings]) -> Generator[dict[str, Any], None, None]:
     """Mock Keycloak authentication provider.
 
     Patches Keycloak endpoints for token validation without Keycloak server.
@@ -184,7 +184,7 @@ def mock_keycloak_provider(test_settings_factory: Callable[..., Settings]) -> Ma
 
 
 @pytest.fixture
-def mock_cognito_provider(test_settings_factory: Callable[..., Settings]) -> MagicMock:
+def mock_cognito_provider(test_settings_factory: Callable[..., Settings]) -> Generator[dict[str, Any], None, None]:
     """Mock AWS Cognito authentication provider.
 
     Patches Cognito endpoints for testing without AWS credentials.

@@ -29,7 +29,7 @@ Usage:
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID
@@ -40,7 +40,7 @@ from {{ project_slug }}.core.config import Settings
 
 
 @pytest.fixture
-def mock_s3_storage(test_settings_factory: Callable[..., Settings]) -> MagicMock:
+def mock_s3_storage(test_settings_factory: Callable[..., Settings]) -> Generator[dict[str, Any], None, None]:
     """Mock AWS S3 storage provider.
 
     Fixtures provides:
@@ -114,7 +114,7 @@ def mock_s3_storage(test_settings_factory: Callable[..., Settings]) -> MagicMock
 
 
 @pytest.fixture
-def mock_azure_storage(test_settings_factory: Callable[..., Settings]) -> MagicMock:
+def mock_azure_storage(test_settings_factory: Callable[..., Settings]) -> Generator[dict[str, Any], None, None]:
     """Mock Azure Blob Storage provider.
 
     Provides:
@@ -185,7 +185,7 @@ def mock_azure_storage(test_settings_factory: Callable[..., Settings]) -> MagicM
 
 
 @pytest.fixture
-def mock_gcs_storage(test_settings_factory: Callable[..., Settings]) -> MagicMock:
+def mock_gcs_storage(test_settings_factory: Callable[..., Settings]) -> Generator[dict[str, Any], None, None]:
     """Mock Google Cloud Storage provider.
 
     Provides:

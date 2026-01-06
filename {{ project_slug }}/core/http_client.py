@@ -59,15 +59,19 @@ async def http_client(timeout: float = 30.0) -> AsyncGenerator[httpx.AsyncClient
         yield client
 
 
-# EXAMPLE PATTERNS (can be extracted to separate service modules):
+# EXAMPLE PATTERNS (commented to avoid type errors):
+# These patterns show how to call external services, but are not active code.
+# Uncomment and add corresponding settings when implementing service integrations.
 
-
+"""
 async def verify_token_with_auth_service(
     token: str,
 ) -> dict | None:
-    """Verify JWT token with external auth service.
+    '''Verify JWT token with external auth service.
 
     Returns decoded token claims if valid, None if invalid.
+
+    Requires: settings.auth_service_url in config.py
 
     Example usage in auth middleware:
         claims = await verify_token_with_auth_service(token)
@@ -76,9 +80,7 @@ async def verify_token_with_auth_service(
 
         user_id = claims["sub"]
         # Proceed with authenticated request
-    """
-    # This would be called from auth middleware
-    # Requires AUTH_SERVICE_URL in config.py settings
+    '''
     async with http_client(timeout=5.0) as client:
         try:
             response = await client.post(
@@ -99,14 +101,15 @@ async def send_notification(
     message: str,
     channel: str = "email",
 ) -> bool:
-    """Send notification via external notification service.
+    '''Send notification via external notification service.
 
     Returns True if sent, False if service unavailable.
     Used for event-driven communication (user created, org deleted, etc).
 
+    Requires: settings.notification_service_url in config.py
+
     Example usage in user creation endpoint:
         user = await create_user(...)
-        # Non-blocking notification - don't fail if notification service is down
         await send_notification(
             user_id=user.id,
             message=f"Welcome {user.name}! Your account is ready.",
@@ -115,15 +118,13 @@ async def send_notification(
 
     Example usage in organization deletion:
         await delete_organization(org_id)
-        # Notify all members
         for member in members:
             await send_notification(
                 user_id=member.user_id,
                 message=f"Organization {org.name} has been deleted.",
                 channel="email"
             )
-    """
-    # Requires NOTIFICATION_SERVICE_URL in config.py settings
+    '''
     async with http_client(timeout=10.0) as client:
         try:
             response = await client.post(
@@ -147,9 +148,11 @@ async def report_activity(
     resource_type: str,
     resource_id: str,
 ) -> bool:
-    """Send activity report to analytics service.
+    '''Send activity report to analytics service.
 
     Non-blocking: failures don't affect primary request.
+
+    Requires: settings.analytics_service_url in config.py
 
     Example usage in API endpoints:
         # After creating a document
@@ -169,8 +172,7 @@ async def report_activity(
             resource_type="organization",
             resource_id=org_id
         )
-    """
-    # Requires ANALYTICS_SERVICE_URL in config.py settings
+    '''
     async with http_client(timeout=5.0) as client:
         try:
             response = await client.post(
@@ -187,6 +189,7 @@ async def report_activity(
             return False
 
         return response.status_code in (HTTP_OK, HTTP_ACCEPTED)
+"""
 
 
 # CIRCUIT BREAKER PATTERN (advanced, commented example):

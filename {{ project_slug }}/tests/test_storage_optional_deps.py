@@ -221,7 +221,7 @@ class TestStorageProviderFactory:
         self, test_settings_factory: Callable[..., Settings]
     ) -> None:
         """Should raise error for unrecognized provider."""
-        settings = test_settings_factory(storage_provider="invalid_provider")  # type: ignore[arg-type]
+        settings = test_settings_factory(storage_provider="invalid_provider")
 
         with patch("{{ project_slug }}.core.storage.settings", settings):
             with pytest.raises(ValueError, match="Unrecognized storage provider"):
