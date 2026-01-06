@@ -9,8 +9,8 @@ from uuid import UUID
 from pydantic import ConfigDict
 from sqlmodel import Field, SQLModel
 
-from app.models.base import TimestampedTable
-from app.models.shared import UserInfo
+from {{ project_slug }}.models.base import TimestampedTable
+from {{ project_slug }}.models.shared import UserInfo
 
 
 class OrganizationBase(SQLModel):

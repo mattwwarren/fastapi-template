@@ -15,7 +15,7 @@ Write comprehensive pytest tests for Python FastAPI microservices.
 ```python
 # tests/unit/services/test_user_service.py
 import pytest
-from app.services.user_service import UserService
+from {{ project_slug }}.services.user_service import UserService
 
 @pytest.mark.asyncio
 async def test_create_user_success(db_session):
@@ -81,7 +81,7 @@ async def test_user(db_session):
 ## Verification
 
 ```bash
-pytest --cov=app --cov-report=term-missing
+pytest --cov={{ project_slug }} --cov-report=term-missing
 # Target: 80%+ coverage overall, 90%+ on critical paths
 ```
 

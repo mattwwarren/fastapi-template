@@ -1,21 +1,21 @@
 version: v2beta1
-name: fastapi-template
+name: "{{ project_slug }}"
 
 vars:
   CLUSTER_NAME:
-    default: fastapi-template
+    default: "{{ project_slug }}"
     source: env
   NAMESPACE:
     default: warren-enterprises-ltd
     source: env
   IMAGE_NAME:
-    default: fastapi-template
+    default: "{{ project_slug }}"
     source: env
   IMAGE_TAG:
     default: dev
     source: env
   APP_NAME:
-    default: fastapi-template
+    default: "{{ project_slug }}"
     source: env
   ENVIRONMENT:
     default: dev
@@ -76,7 +76,7 @@ dev:
     namespace: ${NAMESPACE}
     imageSelector: ${runtime.images.app.image}:${runtime.images.app.tag}
     ports:
-      - port: 8000
+      - port: "{{ port }}"
     sync:
       - path: ./:/app
         excludeFile: .gitignore
@@ -143,7 +143,7 @@ deployments:
             image: ${runtime.images.app.image}:${runtime.images.app.tag}
             imagePullPolicy: IfNotPresent
             ports:
-              - containerPort: 8000
+              - containerPort: "{{ port }}"
             env:
               - name: APP_NAME
                 value: ${APP_NAME}
@@ -175,13 +175,13 @@ deployments:
             readinessProbe:
               httpGet:
                 path: /health
-                port: 8000
+                port: "{{ port }}"
               initialDelaySeconds: 5
               periodSeconds: 10
             livenessProbe:
               httpGet:
                 path: /health
-                port: 8000
+                port: "{{ port }}"
               initialDelaySeconds: 10
               periodSeconds: 20
             resources:

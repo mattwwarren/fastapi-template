@@ -3,10 +3,10 @@
 from fastapi import FastAPI
 from fastapi_pagination import add_pagination
 
-from app.api.routes import router as api_router
-from app.core.config import settings
-from app.core.metrics import metrics_app
-from app.core.pagination import configure_pagination
+from {{ project_slug }}.api.routes import router as api_router
+from {{ project_slug }}.core.config import settings
+from {{ project_slug }}.core.metrics import metrics_app
+from {{ project_slug }}.core.pagination import configure_pagination
 
 app = FastAPI(title=settings.app_name)
 app.include_router(api_router)

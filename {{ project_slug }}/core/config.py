@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
-    app_name: str = "fastapi-template"
+    app_name: str = "{{ project_slug }}"
     environment: str = "local"
     log_level: str = Field(default="debug", alias="LOG_LEVEL")
     database_url: str = Field(

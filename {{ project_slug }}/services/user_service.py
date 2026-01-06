@@ -6,9 +6,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
-from app.models.membership import Membership
-from app.models.organization import Organization
-from app.models.user import User, UserCreate, UserUpdate
+from {{ project_slug }}.models.membership import Membership
+from {{ project_slug }}.models.organization import Organization
+from {{ project_slug }}.models.user import User, UserCreate, UserUpdate
 
 
 async def get_user(session: AsyncSession, user_id: UUID) -> User | None:

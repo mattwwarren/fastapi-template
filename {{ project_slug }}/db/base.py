@@ -4,8 +4,8 @@ Alembic autogenerate uses SQLModel.metadata. Importing this module registers all
 table models by importing their modules, so keep new models listed here.
 """
 
-from app.models.membership import Membership
-from app.models.organization import Organization
-from app.models.user import User
+from {{ project_slug }}.models.membership import Membership
+from {{ project_slug }}.models.organization import Organization
+from {{ project_slug }}.models.user import User
 
 __all__ = ["Membership", "Organization", "User"]

@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
-from app.models.membership import Membership, MembershipCreate
+from {{ project_slug }}.models.membership import Membership, MembershipCreate
 
 
 async def get_membership(

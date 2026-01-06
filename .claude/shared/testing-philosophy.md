@@ -30,8 +30,8 @@ tests/
 ```python
 # tests/unit/services/test_user_service.py
 import pytest
-from app.services.user_service import UserService
-from app.models import UserCreate
+from {{ project_slug }}.services.user_service import UserService
+from {{ project_slug }}.models import UserCreate
 
 @pytest.mark.asyncio
 async def test_create_user_success(db_session):
@@ -95,8 +95,8 @@ async def test_get_nonexistent_user_returns_404(client: AsyncClient):
 ```python
 import pytest
 from httpx import AsyncClient
-from app.main import app
-from app.db import get_db, async_session_maker
+from {{ project_slug }}.main import app
+from {{ project_slug }}.db import get_db, async_session_maker
 
 @pytest.fixture
 async def db_session():
@@ -111,7 +111,7 @@ async def client():
 
 @pytest.fixture
 async def test_user(db_session):
-    from app.db.models import User
+    from {{ project_slug }}.db.models import User
     user = User(email="test@example.com", password_hash="hashed")
     db_session.add(user)
     await db_session.commit()
@@ -126,7 +126,7 @@ async def test_user(db_session):
 - **Happy path + error cases + edge cases**
 
 ```bash
-pytest --cov=app --cov-report=term-missing --cov-fail-under=80
+pytest --cov={{ project_slug }} --cov-report=term-missing --cov-fail-under=80
 ```
 
 ## What to Test

@@ -1,9 +1,6 @@
-# fastapi-template
+# {{ project_name }}
 
-Async-only FastAPI template for a modern SaaS backend. This repo is meant to remove
-plumbing work so you can focus on product: async FastAPI, SQLModel + Alembic
-migrations, Postgres, structured ECS JSON logging, Prometheus metrics, and a
-k3d + DevSpace Kubernetes workflow.
+{{ description }}
 
 ## What you get
 
@@ -30,7 +27,7 @@ k3d + DevSpace Kubernetes workflow.
 uv sync --dev
 cp .env.example .env
 uv run alembic upgrade head
-uv run uvicorn app.main:app --reload --log-config app/core/logging.yaml
+uv run uvicorn {{ project_slug }}.main:app --reload --log-config {{ project_slug }}/core/logging.yaml
 ```
 
 OpenAPI docs:
@@ -49,11 +46,11 @@ devspace dev -p dev
 DevSpace defaults live in `devspace.yaml` and can be overridden via env vars:
 
 ```bash
-export CLUSTER_NAME=fastapi-template
+export CLUSTER_NAME={{ project_slug }}
 export NAMESPACE=warren-enterprises-ltd
-export IMAGE_NAME=fastapi-template
+export IMAGE_NAME={{ project_slug }}
 export IMAGE_TAG=dev
-export APP_NAME=fastapi-template
+export APP_NAME={{ project_slug }}
 export ENVIRONMENT=dev
 export LOG_LEVEL=info
 export POSTGRES_DB=app
@@ -81,11 +78,11 @@ Key values:
 
 ## Logging
 
-Logging is configured **only** via `app/core/logging.yaml` and is ECS JSON.
+Logging is configured **only** via `{{ project_slug }}/core/logging.yaml` and is ECS JSON.
 The runtime entrypoint (`scripts/start.sh`) uses `--log-config` and does not
 apply its own log level overrides.
 
-If you want a different verbosity, update `app/core/logging.yaml` (or provide an
+If you want a different verbosity, update `{{ project_slug }}/core/logging.yaml` (or provide an
 alternate log config at startup).
 
 ## Database model behavior
@@ -96,9 +93,9 @@ alternate log config at startup).
 
 ### Model registration for Alembic
 
-Alembic autogenerate uses `SQLModel.metadata`. The module `app/db/base.py`
+Alembic autogenerate uses `SQLModel.metadata`. The module `{{ project_slug }}/db/base.py`
 imports every model that should be included in migrations. When you add a new
-SQLModel table, **also add it to `app/db/base.py`** so Alembic can detect it.
+SQLModel table, **also add it to `{{ project_slug }}/db/base.py`** so Alembic can detect it.
 
 ## Database migrations
 
@@ -155,17 +152,17 @@ uv run pytest
 
 ```bash
 uv run ruff check
-uv run mypy app
+uv run mypy {{ project_slug }}
 uv run pre-commit run --all-files
 ```
 
 ## Project layout
 
-- `app/main.py` FastAPI app
-- `app/api/` routers
-- `app/models/` SQLModel models and schemas
-- `app/services/` CRUD helpers
-- `app/db/` async engine/session + Alembic model registry
+- `{{ project_slug }}/main.py` FastAPI app
+- `{{ project_slug }}/api/` routers
+- `{{ project_slug }}/models/` SQLModel models and schemas
+- `{{ project_slug }}/services/` CRUD helpers
+- `{{ project_slug }}/db/` async engine/session + Alembic model registry
 - `alembic/` migrations
 - `k8s/` Kubernetes manifests
 - `devspace.yaml` DevSpace configuration
@@ -196,18 +193,18 @@ Key docs live in `docs/`:
 
 ## How to add a model/endpoint (summary)
 
-1. Create the SQLModel table + schemas in `app/models/`.
-2. Import the model in `app/db/base.py` so Alembic sees it.
+1. Create the SQLModel table + schemas in `{{ project_slug }}/models/`.
+2. Import the model in `{{ project_slug }}/db/base.py` so Alembic sees it.
 3. Generate a migration via `alembic revision --autogenerate`.
-4. Add service helpers in `app/services/`.
-5. Add endpoints in `app/api/`.
-6. Add tests under `app/tests/`.
+4. Add service helpers in `{{ project_slug }}/services/`.
+5. Add endpoints in `{{ project_slug }}/api/`.
+6. Add tests under `{{ project_slug }}/tests/`.
 
 ## Troubleshooting (quick hits)
 
-- Missing tables in tests: ensure the model is imported in `app/db/base.py`.
-- DevSpace can’t find pods: check image selector and run `devspace build`.
-- Logs look wrong: `app/core/logging.yaml` is the single source of truth.
+- Missing tables in tests: ensure the model is imported in `{{ project_slug }}/db/base.py`.
+- DevSpace can't find pods: check image selector and run `devspace build`.
+- Logs look wrong: `{{ project_slug }}/core/logging.yaml` is the single source of truth.
 
 ## Notes
 

@@ -7,16 +7,16 @@ from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 
-from app.core.pagination import ParamsDep
-from app.db.session import SessionDep
-from app.models.membership import Membership, MembershipCreate, MembershipRead
-from app.services.membership_service import (
+from {{ project_slug }}.core.pagination import ParamsDep
+from {{ project_slug }}.db.session import SessionDep
+from {{ project_slug }}.models.membership import Membership, MembershipCreate, MembershipRead
+from {{ project_slug }}.services.membership_service import (
     create_membership,
     delete_membership,
     get_membership,
 )
-from app.services.organization_service import get_organization
-from app.services.user_service import get_user
+from {{ project_slug }}.services.organization_service import get_organization
+from {{ project_slug }}.services.user_service import get_user
 
 router = APIRouter(prefix="/memberships", tags=["memberships"])
 

@@ -1,0 +1,23 @@
+_min_copier_version: "9.0.0"
+_templates_suffix: ""
+
+project_name:
+  type: str
+  help: "Project name (e.g., 'User Auth Service')"
+  validator: "{% if not project_name %}Required{% endif %}"
+
+project_slug:
+  type: str
+  help: "Python package name (auto-generated, lowercase with underscores)"
+  default: "{{ project_name | lower | replace(' ', '_') | replace('-', '_') }}"
+
+description:
+  type: str
+  help: "Brief project description"
+  default: "A FastAPI microservice"
+
+port:
+  type: int
+  help: "Development server port"
+  default: 8000
+  validator: "{% if port < 1024 or port > 65535 %}Port must be 1024-65535{% endif %}"

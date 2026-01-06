@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cluster_name="${CLUSTER_NAME:-fastapi-template}"
+cluster_name="${CLUSTER_NAME:-{{ project_slug }}}"
 namespace="${NAMESPACE:-dev}"
 
 if ! command -v k3d >/dev/null 2>&1; then

@@ -7,16 +7,16 @@ from fastapi_pagination import Page, create_page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 
-from app.core.pagination import ParamsDep
-from app.db.session import SessionDep
-from app.models.organization import (
+from {{ project_slug }}.core.pagination import ParamsDep
+from {{ project_slug }}.db.session import SessionDep
+from {{ project_slug }}.models.organization import (
     Organization,
     OrganizationCreate,
     OrganizationRead,
     OrganizationUpdate,
 )
-from app.models.shared import UserInfo
-from app.services.organization_service import (
+from {{ project_slug }}.models.shared import UserInfo
+from {{ project_slug }}.services.organization_service import (
     create_organization,
     delete_organization,
     get_organization,

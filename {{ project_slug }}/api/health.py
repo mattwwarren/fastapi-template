@@ -5,7 +5,7 @@ import asyncio
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import text
 
-from app.db.session import SessionDep
+from {{ project_slug }}.db.session import SessionDep
 
 router = APIRouter()
 HEALTH_DB_TIMEOUT_SECONDS = 2.0

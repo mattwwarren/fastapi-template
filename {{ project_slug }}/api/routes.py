@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api import health, memberships, organizations, ping, users
+from {{ project_slug }}.api import health, memberships, organizations, ping, users
 
 router = APIRouter()
 router.include_router(health.router)

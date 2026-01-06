@@ -1,5 +1,5 @@
-fastapi-template
-================
+{{ project_name }}
+{{ '=' * project_name|length }}
 
 This documentation is designed for future developers (including AI agents)
 using the template as the foundation for new services.

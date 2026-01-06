@@ -4,8 +4,8 @@ from asyncio.runners import run
 from logging.config import fileConfig
 
 from alembic import context
-from app.core.config import settings
-from app.db import base  # noqa: F401
+from {{ project_slug }}.core.config import settings
+from {{ project_slug }}.db import base  # noqa: F401
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.ext.asyncio import async_engine_from_config

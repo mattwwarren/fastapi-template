@@ -1,0 +1,25 @@
+# Git
+.git/
+
+# Build artifacts
+docs/_build/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Generated files (will be regenerated)
+uv.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.venv/
+venv/

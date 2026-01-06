@@ -7,11 +7,11 @@ from fastapi_pagination import Page, create_page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 
-from app.core.pagination import ParamsDep
-from app.db.session import SessionDep
-from app.models.shared import OrganizationInfo
-from app.models.user import User, UserCreate, UserRead, UserUpdate
-from app.services.user_service import (
+from {{ project_slug }}.core.pagination import ParamsDep
+from {{ project_slug }}.db.session import SessionDep
+from {{ project_slug }}.models.shared import OrganizationInfo
+from {{ project_slug }}.models.user import User, UserCreate, UserRead, UserUpdate
+from {{ project_slug }}.services.user_service import (
     create_user,
     delete_user,
     get_user,

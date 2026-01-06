@@ -7,7 +7,7 @@ from fastapi import Depends
 from fastapi_pagination import Page, Params, set_page
 from pydantic import Field
 
-from app.core.config import settings
+from {{ project_slug }}.core.config import settings
 
 
 class DefaultParams(Params):

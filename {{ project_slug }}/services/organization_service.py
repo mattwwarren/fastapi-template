@@ -6,9 +6,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
-from app.models.membership import Membership
-from app.models.organization import Organization, OrganizationCreate, OrganizationUpdate
-from app.models.user import User
+from {{ project_slug }}.models.membership import Membership
+from {{ project_slug }}.models.organization import Organization, OrganizationCreate, OrganizationUpdate
+from {{ project_slug }}.models.user import User
 
 
 async def get_organization(

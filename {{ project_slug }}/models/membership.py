@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from pydantic import ConfigDict
 from sqlmodel import Field, SQLModel
 
-from app.models.base import TimestampedTable
+from {{ project_slug }}.models.base import TimestampedTable
 
 
 class MembershipBase(SQLModel):

@@ -21,10 +21,10 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool
 from sqlmodel import SQLModel
 
-from app.core.config import settings
-from app.db import session as db_session
-from app.db.session import get_session
-from app.main import app
+from {{ project_slug }}.core.config import settings
+from {{ project_slug }}.db import session as db_session
+from {{ project_slug }}.db.session import get_session
+from {{ project_slug }}.main import app
 
 
 @pytest.fixture(scope="session")
