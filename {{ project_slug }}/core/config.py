@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     pagination_page_size: int = 50
     pagination_page_size_max: int = 200
     pagination_page_class: str | None = None
+    activity_logging_enabled: bool = Field(
+        default=True, description="Enable activity logging for audit trail"
+    )
+    activity_log_retention_days: int = Field(
+        default=90, description="Number of days to retain activity logs before archival"
+    )
 
 
 settings = Settings()
