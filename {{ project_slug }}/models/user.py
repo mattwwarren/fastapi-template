@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import ClassVar
 from uuid import UUID
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, EmailStr
 from sqlmodel import Field, SQLModel
 
 from {{ project_slug }}.models.base import TimestampedTable
@@ -14,8 +14,10 @@ from {{ project_slug }}.models.shared import OrganizationInfo
 
 
 class UserBase(SQLModel):
-    email: str
-    name: str
+    email: EmailStr = Field(
+        ..., description="User email address", examples=["user@example.com"]
+    )
+    name: str = Field(..., min_length=1, description="User full name")
 
 
 class User(TimestampedTable, UserBase, table=True):

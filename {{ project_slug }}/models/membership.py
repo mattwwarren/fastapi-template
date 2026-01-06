@@ -31,7 +31,14 @@ class MembershipBase(SQLModel):
 
 
 class Membership(TimestampedTable, MembershipBase, table=True):
+    __tablename__ = "membership"
+
     __table_args__ = (
+        sa.UniqueConstraint(
+            "user_id",
+            "organization_id",
+            name="uq_membership_user_org",
+        ),
         sa.Index("ix_membership_user_id", "user_id"),
         sa.Index("ix_membership_organization_id", "organization_id"),
     )

@@ -7,6 +7,7 @@ from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 
+from {{ project_slug }}.core.activity_logging import ActivityAction, log_activity_decorator
 from {{ project_slug }}.core.pagination import ParamsDep
 from {{ project_slug }}.db.session import SessionDep
 from {{ project_slug }}.models.membership import Membership, MembershipCreate, MembershipRead
@@ -22,6 +23,7 @@ router = APIRouter(prefix="/memberships", tags=["memberships"])
 
 
 @router.post("", response_model=MembershipRead, status_code=status.HTTP_201_CREATED)
+@log_activity_decorator(ActivityAction.CREATE, "membership")
 async def create_membership_endpoint(
     payload: MembershipCreate,
     session: SessionDep,
@@ -47,6 +49,7 @@ async def list_memberships_endpoint(
 
 
 @router.delete("/{membership_id}", status_code=status.HTTP_204_NO_CONTENT)
+@log_activity_decorator(ActivityAction.DELETE, "membership")
 async def delete_membership_endpoint(
     membership_id: UUID,
     session: SessionDep,

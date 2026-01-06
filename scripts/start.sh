@@ -3,8 +3,9 @@ set -eu
 
 host="${HOST:-0.0.0.0}"
 port="${PORT:-8000}"
+project_slug="${PROJECT_SLUG:-{{ project_slug }}}"
 
-exec uv run uvicorn app.main:app \
+exec uv run uvicorn "${project_slug}.main:app" \
   --host "${host}" \
   --port "${port}" \
-  --log-config app/core/logging.yaml
+  --log-config "${project_slug}/core/logging.yaml"

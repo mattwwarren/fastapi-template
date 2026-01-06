@@ -56,12 +56,29 @@ def log_activity_decorator(
     Wraps an endpoint to record activity after successful execution.
     Handles response model inspection to extract resource IDs automatically.
 
+    IMPORTANT: The decorator logs activity AFTER endpoint execution but BEFORE
+    response serialization. Callers are responsible for ensuring session.commit()
+    is called within the endpoint to persist the activity log alongside the
+    primary operation.
+
     Args:
         action: ActivityAction enum for the audit log
         resource_type: String identifier for resource type (e.g., "user", "organization")
 
     Returns:
         Decorator function for API endpoints
+
+    Example:
+        @router.post("", response_model=UserRead, status_code=201)
+        @log_activity_decorator(ActivityAction.CREATE, "user")
+        async def create_user_endpoint(
+            payload: UserCreate,
+            session: SessionDep,
+        ) -> UserRead:
+            user = await create_user(session, payload)
+            # Activity log is recorded with the transaction
+            response = UserRead.model_validate(user)
+            return response
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:

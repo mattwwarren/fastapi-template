@@ -20,10 +20,19 @@ class Settings(BaseSettings):
     pagination_page_size_max: int = 200
     pagination_page_class: str | None = None
     activity_logging_enabled: bool = Field(
-        default=True, description="Enable activity logging for audit trail"
+        default=True,
+        alias="ACTIVITY_LOGGING_ENABLED",
+        description="Enable activity logging for audit trail",
     )
     activity_log_retention_days: int = Field(
-        default=90, description="Number of days to retain activity logs before archival"
+        default=90,
+        alias="ACTIVITY_LOG_RETENTION_DAYS",
+        description="Number of days to retain activity logs before archival",
+    )
+    max_file_size_bytes: int = Field(
+        default=50 * 1024 * 1024,
+        alias="MAX_FILE_SIZE_BYTES",
+        description="Maximum file size for document uploads in bytes (default: 50MB)",
     )
 
 

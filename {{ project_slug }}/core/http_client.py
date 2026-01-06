@@ -1,0 +1,244 @@
+"""HTTP client for cross-service communication.
+
+Usage:
+    from {{ project_slug }}.core.http_client import http_client
+
+    async with http_client() as client:
+        response = await client.get("https://auth-service/verify",
+                                   headers={"Authorization": f"Bearer {token}"})
+        if response.status_code == 401:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+"""
+
+from contextlib import asynccontextmanager
+from datetime import datetime
+from typing import AsyncGenerator
+
+import httpx
+
+from {{ project_slug }}.core.config import settings
+
+
+@asynccontextmanager
+async def http_client(timeout: float = 30.0) -> AsyncGenerator[httpx.AsyncClient, None]:
+    """Create HTTP client for service-to-service calls.
+
+    Features:
+    - Automatic JSON encoding/decoding
+    - Timeout enforcement
+    - Proper async context management
+    - Error handling for common scenarios
+
+    Args:
+        timeout: Request timeout in seconds (default 30)
+
+    Yields:
+        AsyncClient configured for cross-service communication
+
+    Example:
+        async with http_client() as client:
+            try:
+                response = await client.get(
+                    "https://other-service/api/resource",
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                response.raise_for_status()
+                data = response.json()
+            except httpx.HTTPStatusError as e:
+                logger.error(f"Service call failed: {e.response.status_code}")
+                raise
+    """
+    async with httpx.AsyncClient(
+        timeout=timeout,
+        headers={"User-Agent": f"{{ project_slug }}/{settings.environment}"},
+    ) as client:
+        yield client
+
+
+# EXAMPLE PATTERNS (can be extracted to separate service modules):
+
+
+async def verify_token_with_auth_service(
+    token: str,
+) -> dict | None:
+    """Verify JWT token with external auth service.
+
+    Returns decoded token claims if valid, None if invalid.
+
+    Example usage in auth middleware:
+        claims = await verify_token_with_auth_service(token)
+        if claims is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        user_id = claims["sub"]
+        # Proceed with authenticated request
+    """
+    # This would be called from auth middleware
+    # Requires AUTH_SERVICE_URL in config.py settings
+    async with http_client(timeout=5.0) as client:
+        try:
+            response = await client.post(
+                f"{settings.auth_service_url}/verify",
+                json={"token": token},
+            )
+            if response.status_code == 200:
+                return response.json()
+            return None
+        except httpx.RequestError:
+            # Log error and fail open or closed based on business logic
+            return None
+
+
+async def send_notification(
+    user_id: str,
+    message: str,
+    channel: str = "email",
+) -> bool:
+    """Send notification via external notification service.
+
+    Returns True if sent, False if service unavailable.
+    Used for event-driven communication (user created, org deleted, etc).
+
+    Example usage in user creation endpoint:
+        user = await create_user(...)
+        # Non-blocking notification - don't fail if notification service is down
+        await send_notification(
+            user_id=user.id,
+            message=f"Welcome {user.name}! Your account is ready.",
+            channel="email"
+        )
+
+    Example usage in organization deletion:
+        await delete_organization(org_id)
+        # Notify all members
+        for member in members:
+            await send_notification(
+                user_id=member.user_id,
+                message=f"Organization {org.name} has been deleted.",
+                channel="email"
+            )
+    """
+    # Requires NOTIFICATION_SERVICE_URL in config.py settings
+    async with http_client(timeout=10.0) as client:
+        try:
+            response = await client.post(
+                f"{settings.notification_service_url}/send",
+                json={
+                    "user_id": user_id,
+                    "message": message,
+                    "channel": channel,
+                },
+            )
+            return response.status_code == 202
+        except httpx.RequestError:
+            # Don't fail primary operation on notification failure
+            return False
+
+
+async def report_activity(
+    user_id: str,
+    action: str,
+    resource_type: str,
+    resource_id: str,
+) -> bool:
+    """Send activity report to analytics service.
+
+    Non-blocking: failures don't affect primary request.
+
+    Example usage in API endpoints:
+        # After creating a document
+        document = await document_service.create(...)
+        await report_activity(
+            user_id=current_user.id,
+            action="create",
+            resource_type="document",
+            resource_id=document.id
+        )
+
+        # After deleting an organization
+        await organization_service.delete(org_id)
+        await report_activity(
+            user_id=current_user.id,
+            action="delete",
+            resource_type="organization",
+            resource_id=org_id
+        )
+    """
+    # Requires ANALYTICS_SERVICE_URL in config.py settings
+    async with http_client(timeout=5.0) as client:
+        try:
+            response = await client.post(
+                f"{settings.analytics_service_url}/events",
+                json={
+                    "user_id": user_id,
+                    "action": action,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
+            )
+            return response.status_code in (200, 202)
+        except httpx.RequestError:
+            return False
+
+
+# CIRCUIT BREAKER PATTERN (advanced, commented example):
+"""
+from circuitbreaker import circuit
+
+@circuit(failure_threshold=5, recovery_timeout=60)
+async def call_external_service(url: str) -> dict:
+    '''Call external service with circuit breaker.
+
+    - Fails fast after 5 consecutive failures
+    - Recovers after 60 seconds
+    - Prevents cascading failures
+
+    Install: pip install pybreaker
+
+    Example usage:
+        try:
+            data = await call_external_service("https://external-api/resource")
+            # Process data
+        except CircuitBreakerError:
+            # Service is down, circuit is open
+            logger.error("External service circuit breaker open")
+            # Return cached data or fail gracefully
+    '''
+    async with http_client() as client:
+        response = await client.get(url)
+        response.raise_for_status()
+        return response.json()
+"""
+
+# RETRY PATTERN (advanced, commented example):
+"""
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10)
+)
+async def call_with_retry(url: str) -> dict:
+    '''Call external service with exponential backoff retry.
+
+    - Retries up to 3 times
+    - Waits 2s, 4s, 8s between retries
+    - Useful for transient network failures
+
+    Install: pip install tenacity
+
+    Example usage:
+        try:
+            data = await call_with_retry("https://flaky-service/data")
+            # Process data
+        except Exception as e:
+            # All retries failed
+            logger.error(f"Service call failed after 3 retries: {e}")
+            raise
+    '''
+    async with http_client() as client:
+        response = await client.get(url)
+        response.raise_for_status()
+        return response.json()
+"""

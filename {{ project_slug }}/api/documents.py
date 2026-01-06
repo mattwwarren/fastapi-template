@@ -8,6 +8,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlmodel import col
 
+from {{ project_slug }}.core.activity_logging import ActivityAction, log_activity_decorator
+from {{ project_slug }}.core.config import settings
 from {{ project_slug }}.db.session import SessionDep
 from {{ project_slug }}.models.document import Document, DocumentRead
 
@@ -29,6 +31,7 @@ def iter_file_chunks(data: bytes, chunk_size: int = 8192) -> Iterator[bytes]:
 
 
 @router.post("", response_model=DocumentRead, status_code=status.HTTP_201_CREATED)
+@log_activity_decorator(ActivityAction.CREATE, "document")
 async def upload_document(
     session: SessionDep,
     file: UploadFile = File(...),
@@ -57,8 +60,16 @@ async def upload_document(
             detail="File must have a content type",
         )
 
-    file_data = await file.read()
+    # Read with size limit (+1 to detect oversized files)
+    file_data = await file.read(settings.max_file_size_bytes + 1)
     file_size = len(file_data)
+
+    if file_size > settings.max_file_size_bytes:
+        max_mb = settings.max_file_size_bytes / 1024 / 1024
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File exceeds maximum size of {max_mb:.1f}MB",
+        )
 
     document = Document(
         filename=file.filename,
@@ -75,6 +86,7 @@ async def upload_document(
 
 
 @router.get("/{document_id}")
+@log_activity_decorator(ActivityAction.READ, "document")
 async def download_document(
     document_id: UUID,
     session: SessionDep,

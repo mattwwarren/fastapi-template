@@ -7,6 +7,7 @@ from fastapi_pagination import Page, create_page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 
+from {{ project_slug }}.core.activity_logging import ActivityAction, log_activity_decorator
 from {{ project_slug }}.core.pagination import ParamsDep
 from {{ project_slug }}.db.session import SessionDep
 from {{ project_slug }}.models.organization import (
@@ -29,6 +30,7 @@ router = APIRouter(prefix="/organizations", tags=["organizations"])
 
 
 @router.post("", response_model=OrganizationRead, status_code=status.HTTP_201_CREATED)
+@log_activity_decorator(ActivityAction.CREATE, "organization")
 async def create_org(
     payload: OrganizationCreate,
     session: SessionDep,
@@ -64,6 +66,7 @@ async def list_orgs(
 
 
 @router.get("/{organization_id}", response_model=OrganizationRead)
+@log_activity_decorator(ActivityAction.READ, "organization")
 async def get_org(
     organization_id: UUID,
     session: SessionDep,
@@ -80,6 +83,7 @@ async def get_org(
 
 
 @router.patch("/{organization_id}", response_model=OrganizationRead)
+@log_activity_decorator(ActivityAction.UPDATE, "organization")
 async def update_org(
     organization_id: UUID,
     payload: OrganizationUpdate,
@@ -98,6 +102,7 @@ async def update_org(
 
 
 @router.delete("/{organization_id}", status_code=status.HTTP_204_NO_CONTENT)
+@log_activity_decorator(ActivityAction.DELETE, "organization")
 async def delete_org(
     organization_id: UUID,
     session: SessionDep,

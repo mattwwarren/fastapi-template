@@ -7,6 +7,7 @@ from fastapi_pagination import Page, create_page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 
+from {{ project_slug }}.core.activity_logging import ActivityAction, log_activity_decorator
 from {{ project_slug }}.core.pagination import ParamsDep
 from {{ project_slug }}.db.session import SessionDep
 from {{ project_slug }}.models.shared import OrganizationInfo
@@ -24,6 +25,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+@log_activity_decorator(ActivityAction.CREATE, "user")
 async def create_user_endpoint(
     payload: UserCreate,
     session: SessionDep,
@@ -57,6 +59,7 @@ async def list_users_endpoint(
 
 
 @router.get("/{user_id}", response_model=UserRead)
+@log_activity_decorator(ActivityAction.READ, "user")
 async def get_user_endpoint(
     user_id: UUID,
     session: SessionDep,
@@ -75,6 +78,7 @@ async def get_user_endpoint(
 
 
 @router.patch("/{user_id}", response_model=UserRead)
+@log_activity_decorator(ActivityAction.UPDATE, "user")
 async def update_user_endpoint(
     user_id: UUID,
     payload: UserUpdate,
@@ -93,6 +97,7 @@ async def update_user_endpoint(
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@log_activity_decorator(ActivityAction.DELETE, "user")
 async def delete_user_endpoint(
     user_id: UUID,
     session: SessionDep,
