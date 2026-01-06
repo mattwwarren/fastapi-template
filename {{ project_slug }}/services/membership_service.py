@@ -6,6 +6,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
+from {{ project_slug }}.core.config import settings
+from {{ project_slug }}.core.metrics import (
+    active_memberships_gauge,
+    memberships_created_total,
+)
 from {{ project_slug }}.models.membership import Membership, MembershipCreate
 
 
@@ -28,13 +33,30 @@ async def list_memberships(
 async def create_membership(
     session: AsyncSession, payload: MembershipCreate
 ) -> Membership:
+    """Create a new membership.
+
+    Increments memberships_created_total counter and updates active_memberships_gauge
+    after successful creation.
+    """
     membership = Membership(**payload.model_dump())
     session.add(membership)
     await session.commit()
     await session.refresh(membership)
+
+    # Record metrics after successful creation
+    memberships_created_total.labels(environment=settings.environment).inc()
+    active_memberships_gauge.labels(environment=settings.environment).inc()
+
     return membership
 
 
 async def delete_membership(session: AsyncSession, membership: Membership) -> None:
+    """Delete a membership.
+
+    Decrements active_memberships_gauge after successful deletion.
+    """
     await session.delete(membership)
     await session.commit()
+
+    # Decrement gauge after successful deletion
+    active_memberships_gauge.labels(environment=settings.environment).dec()

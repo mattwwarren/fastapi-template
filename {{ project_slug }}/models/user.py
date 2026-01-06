@@ -6,11 +6,14 @@ from datetime import datetime
 from typing import ClassVar
 from uuid import UUID
 
-from pydantic import ConfigDict, EmailStr
+from pydantic import ConfigDict, EmailStr, ValidationInfo, field_validator
 from sqlmodel import Field, SQLModel
 
 from {{ project_slug }}.models.base import TimestampedTable
 from {{ project_slug }}.models.shared import OrganizationInfo
+
+# Constants for validation
+MAX_NAME_LENGTH = 100
 
 
 class UserBase(SQLModel):
@@ -26,7 +29,29 @@ class User(TimestampedTable, UserBase, table=True):
 
 
 class UserCreate(UserBase):
-    pass
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str, info: ValidationInfo) -> str:
+        """Validate user name field.
+
+        Args:
+            value: The name value to validate
+            info: Pydantic validation context
+
+        Returns:
+            The validated and trimmed name
+
+        Raises:
+            ValueError: If name is empty/whitespace or exceeds max length
+        """
+        value = value.strip()
+        if not value:
+            msg = "Name cannot be empty or whitespace"
+            raise ValueError(msg)
+        if len(value) > MAX_NAME_LENGTH:
+            msg = f"Name must be {MAX_NAME_LENGTH} characters or less"
+            raise ValueError(msg)
+        return value
 
 
 class UserRead(UserBase):

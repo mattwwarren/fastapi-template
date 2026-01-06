@@ -6,11 +6,14 @@ from datetime import datetime
 from typing import ClassVar
 from uuid import UUID
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, ValidationInfo, field_validator
 from sqlmodel import Field, SQLModel
 
 from {{ project_slug }}.models.base import TimestampedTable
 from {{ project_slug }}.models.shared import UserInfo
+
+# Constants for validation
+MAX_ORG_NAME_LENGTH = 255
 
 
 class OrganizationBase(SQLModel):
@@ -22,7 +25,35 @@ class Organization(TimestampedTable, OrganizationBase, table=True):
 
 
 class OrganizationCreate(OrganizationBase):
-    pass
+    """Schema for creating a new organization.
+
+    Note: Uniqueness of organization name must be enforced at the service/database
+    layer, as validators cannot perform database queries.
+    """
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str, info: ValidationInfo) -> str:
+        """Validate organization name field.
+
+        Args:
+            value: The name value to validate
+            info: Pydantic validation context
+
+        Returns:
+            The validated and trimmed name
+
+        Raises:
+            ValueError: If name is empty/whitespace or exceeds max length
+        """
+        value = value.strip()
+        if not value:
+            msg = "Organization name cannot be empty or whitespace"
+            raise ValueError(msg)
+        if len(value) > MAX_ORG_NAME_LENGTH:
+            msg = f"Organization name must be {MAX_ORG_NAME_LENGTH} characters or less"
+            raise ValueError(msg)
+        return value
 
 
 class OrganizationRead(OrganizationBase):

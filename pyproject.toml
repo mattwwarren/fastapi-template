@@ -13,6 +13,8 @@ dependencies = [
   "pydantic-settings>=2.4.0",
   "prometheus-client>=0.21.0",
   "ecs-logging>=2.2.0",
+  "pyjwt[crypto]>=2.9.0",
+  "httpx>=0.27.0",
 ]
 
 [build-system]
@@ -29,7 +31,42 @@ show-fixes = true
 extend-exclude = ["stubs"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "UP", "B", "SIM", "PL", "RUF"]
+# Extended rule set for production-grade code quality:
+# E/F - Pyflakes errors and warnings (syntax, undefined names)
+# I - isort (import sorting)
+# N - pep8-naming (naming conventions)
+# UP - pyupgrade (modern Python syntax)
+# B - flake8-bugbear (common bugs and design problems)
+# SIM - flake8-simplify (code simplification)
+# PL - Pylint (comprehensive static analysis)
+# RUF - Ruff-specific rules
+# ANN - flake8-annotations (type annotations required)
+# S - flake8-bandit (security best practices)
+# W - pycodestyle warnings
+# EM - flake8-errmsg (error message patterns)
+# TRY - tryceratops (exception handling best practices)
+# A - flake8-builtins (shadowing built-ins)
+# ARG - flake8-unused-arguments (unused function arguments)
+# C90 - mccabe (cyclomatic complexity)
+# PT - flake8-pytest-style (pytest patterns)
+# RSE - flake8-raise (raise statement patterns)
+# RET - flake8-return (return statement patterns)
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "PL", "RUF", "ANN", "S", "W", "EM", "TRY", "A", "ARG", "C90", "PT", "RSE", "RET"]
+
+[tool.ruff.lint.flake8-annotations]
+# FastAPI uses operator overloading heavily (Depends, Query, Path, etc.)
+# Annotating __dunder__ methods adds noise without value
+suppress-dummy-args = true
+
+[tool.ruff.lint.mccabe]
+# Maximum cyclomatic complexity for functions
+# 10 is a reasonable threshold - functions above this should be refactored
+max-complexity = 10
+
+[tool.ruff.lint.per-file-ignores]
+# Security checks are valuable in production code but add noise in tests
+# where we intentionally create insecure test data (hardcoded passwords, etc.)
+"{{ project_slug }}/tests/**" = ["S"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -48,6 +85,14 @@ mypy_path = "stubs"
 addopts = "--tb=short"
 asyncio_mode = "auto"
 testpaths = ["{{ project_slug }}/tests"]
+
+[project.optional-dependencies]
+# Object storage provider dependencies (install as needed)
+# Local storage (default) requires no additional dependencies
+azure = ["azure-storage-blob>=12.20.0"]
+aws = ["aioboto3>=13.0.0"]
+gcs = ["google-cloud-storage>=2.14.0"]
+# Install all cloud providers: pip install .[azure,aws,gcs]
 
 [dependency-groups]
 dev = [

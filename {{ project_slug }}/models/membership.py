@@ -45,7 +45,12 @@ class Membership(TimestampedTable, MembershipBase, table=True):
 
 
 class MembershipCreate(MembershipBase):
-    pass
+    """Schema for creating a new membership.
+
+    Note: The combination of user_id and organization_id must be unique, which is
+    enforced by the database constraint 'uq_membership_user_org' in the Membership
+    table definition.
+    """
 
 
 class MembershipRead(MembershipBase):

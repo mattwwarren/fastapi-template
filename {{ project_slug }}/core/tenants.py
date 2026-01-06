@@ -1,0 +1,412 @@
+"""Tenant isolation middleware and dependencies for multi-tenant applications.
+
+This module provides critical security controls to prevent cross-tenant data access
+in multi-tenant SaaS applications. It enforces tenant isolation at the middleware
+level and provides utilities for service-layer query filtering.
+
+Key Security Principles:
+- DENY BY DEFAULT: All endpoints must explicitly opt into tenant context
+- FAIL CLOSED: Missing tenant context returns 401/403, never serves data
+- DEFENSE IN DEPTH: Multiple layers (middleware, dependencies, query filters)
+- EXPLICIT PUBLIC: Public endpoints must be explicitly listed
+
+Usage:
+
+    # In main.py - Add middleware (AFTER AuthMiddleware)
+    from {{ project_slug }}.core.tenants import TenantIsolationMiddleware
+    app.add_middleware(TenantIsolationMiddleware)
+
+    # In endpoints - Require tenant isolation
+    from {{ project_slug }}.core.tenants import TenantDep
+
+    @router.get("/documents")
+    async def list_documents(
+        session: SessionDep,
+        tenant: TenantDep,
+    ) -> list[DocumentRead]:
+        # All queries automatically scoped to tenant.organization_id
+        stmt = select(Document).where(Document.organization_id == tenant.organization_id)
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    # In services - Add tenant filters to queries
+    from {{ project_slug }}.core.tenants import add_tenant_filter
+
+    async def get_documents(session: AsyncSession, tenant: TenantContext) -> list[Document]:
+        stmt = select(Document)
+        stmt = add_tenant_filter(stmt, tenant, Document.organization_id)
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Awaitable, Callable
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import Select
+from sqlalchemy.sql.elements import ColumnElement
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse, Response
+
+from {{ project_slug }}.core.config import settings
+from {{ project_slug }}.db.session import SessionDep
+
+LOGGER = logging.getLogger(__name__)
+
+# Public endpoints that don't require tenant isolation
+# These paths are accessible without authentication or tenant context
+PUBLIC_ENDPOINTS = [
+    "/health",
+    "/ping",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+    "/metrics",
+]
+
+
+class TenantContext(BaseModel):
+    """Tenant context for the current request.
+
+    This model represents the active tenant (organization) for the current request.
+    It's populated by TenantIsolationMiddleware and enforced via TenantDep.
+
+    Security Implications:
+    - All data access MUST be scoped to organization_id
+    - User must be a member of the organization (verified by middleware)
+    - Missing tenant context indicates authentication/authorization failure
+
+    Attributes:
+        organization_id: UUID of the current tenant/organization
+        user_id: UUID of the authenticated user making the request
+    """
+
+    organization_id: UUID = Field(
+        ..., description="Current tenant/organization identifier"
+    )
+    user_id: UUID = Field(..., description="Authenticated user making the request")
+
+    @property
+    def is_isolated(self) -> bool:
+        """Check if tenant isolation is properly configured.
+
+        Returns:
+            True if tenant has valid organization_id and user_id
+        """
+        return bool(self.organization_id and self.user_id)
+
+
+async def _validate_user_org_access(
+    session: AsyncSession, user_id: UUID, organization_id: UUID
+) -> bool:
+    """Validate that user has access to the specified organization.
+
+    This is a critical security check that prevents users from accessing
+    organizations they don't belong to. Called by TenantIsolationMiddleware
+    before granting tenant context.
+
+    Args:
+        session: Database session for membership query
+        user_id: UUID of user to validate
+        organization_id: UUID of organization to check access for
+
+    Returns:
+        True if user is a member of the organization, False otherwise
+
+    Security Note:
+        This function MUST be called before setting tenant context.
+        Failure to validate membership allows cross-tenant access.
+    """
+    # Import here to avoid circular dependency
+    from {{ project_slug }}.models.membership import Membership
+
+    result = await session.execute(
+        select(Membership)
+        .where(Membership.user_id == user_id)
+        .where(Membership.organization_id == organization_id)
+    )
+    membership = result.scalar_one_or_none()
+    return membership is not None
+
+
+class TenantIsolationMiddleware(BaseHTTPMiddleware):
+    """Middleware to enforce tenant isolation for multi-tenant applications.
+
+    This middleware extracts tenant context from requests and validates that
+    users have access to the requested organization. It provides defense-in-depth
+    security by enforcing tenant isolation at the middleware level.
+
+    Tenant Extraction Priority:
+    1. JWT claims (organization_id or org_id field) - Primary method
+    2. Path parameters (e.g., /orgs/{org_id}/resources) - For org-scoped endpoints
+    3. Query parameters (org_id=xxx) - Legacy/convenience method
+
+    Security Guarantees:
+    - Returns 403 if user doesn't belong to requested organization
+    - Returns 401 if tenant extraction fails
+    - Skips validation for public endpoints only
+    - Stores tenant in request.state for downstream access
+
+    Usage in main.py:
+        from {{ project_slug }}.core.tenants import TenantIsolationMiddleware
+        from {{ project_slug }}.core.auth import AuthMiddleware
+
+        # CRITICAL: TenantIsolationMiddleware must come AFTER AuthMiddleware
+        app.add_middleware(AuthMiddleware)
+        app.add_middleware(TenantIsolationMiddleware)
+    """
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        """Process request and enforce tenant isolation.
+
+        Args:
+            request: FastAPI Request object
+            call_next: Next middleware in chain
+
+        Returns:
+            Response from downstream middleware/endpoint
+
+        Raises:
+            Returns JSONResponse with 401/403 for tenant isolation failures
+        """
+        # Skip tenant isolation if enforcement is disabled
+        if not settings.enforce_tenant_isolation:
+            LOGGER.debug("Tenant isolation enforcement disabled by configuration")
+            request.state.tenant = None
+            return await call_next(request)
+
+        # Public endpoints don't require tenant isolation
+        if any(request.url.path.startswith(path) for path in PUBLIC_ENDPOINTS):
+            request.state.tenant = None
+            return await call_next(request)
+
+        # Get authenticated user from AuthMiddleware
+        current_user = getattr(request.state, "user", None)
+        if not current_user:
+            missing_auth_msg = "Authentication required for tenant-isolated endpoint"
+            LOGGER.warning("Tenant isolation check failed: no authenticated user")
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": missing_auth_msg},
+            )
+
+        # Extract organization_id from multiple possible sources
+        organization_id: UUID | None = None
+
+        # Priority 1: JWT claims (set by AuthMiddleware)
+        if hasattr(current_user, "organization_id") and current_user.organization_id:
+            organization_id = current_user.organization_id
+            LOGGER.debug(
+                "Extracted tenant from JWT claims: %s", str(organization_id)
+            )
+
+        # Priority 2: Path parameters (e.g., /orgs/{org_id}/resources)
+        if not organization_id and "org_id" in request.path_params:
+            try:
+                org_id_str = request.path_params["org_id"]
+                organization_id = UUID(org_id_str)
+                LOGGER.debug(
+                    "Extracted tenant from path parameter: %s", str(organization_id)
+                )
+            except (ValueError, TypeError) as err:
+                invalid_org_msg = "Invalid organization ID format in path"
+                LOGGER.warning("Invalid org_id in path: %s", str(err))
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={"detail": invalid_org_msg},
+                )
+
+        # Priority 3: Query parameters (org_id=xxx)
+        if not organization_id:
+            org_id_query = request.query_params.get("org_id")
+            if org_id_query:
+                try:
+                    organization_id = UUID(org_id_query)
+                    LOGGER.debug(
+                        "Extracted tenant from query param: %s", str(organization_id)
+                    )
+                except (ValueError, TypeError) as err:
+                    invalid_org_msg = "Invalid organization ID format in query"
+                    LOGGER.warning("Invalid org_id in query: %s", str(err))
+                    return JSONResponse(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        content={"detail": invalid_org_msg},
+                    )
+
+        # Fail closed if no organization_id found
+        if not organization_id:
+            no_org_msg = "Organization context required but not provided"
+            LOGGER.warning("Tenant isolation check failed: no organization_id found")
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"detail": no_org_msg},
+            )
+
+        # Validate user has access to this organization
+        # This prevents users from accessing other orgs by manipulating requests
+        from {{ project_slug }}.db.session import async_session_maker
+
+        async with async_session_maker() as session:
+            has_access = await _validate_user_org_access(
+                session, current_user.id, organization_id
+            )
+
+        if not has_access:
+            access_denied_msg = "User does not have access to this organization"
+            LOGGER.warning(
+                "Tenant isolation check failed: user %s attempted access to org %s",
+                str(current_user.id),
+                str(organization_id),
+            )
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"detail": access_denied_msg},
+            )
+
+        # Set tenant context for downstream use
+        request.state.tenant = TenantContext(
+            organization_id=organization_id,
+            user_id=current_user.id,
+        )
+
+        LOGGER.debug(
+            "Tenant isolation validated",
+            extra={
+                "user_id": str(current_user.id),
+                "organization_id": str(organization_id),
+            },
+        )
+
+        return await call_next(request)
+
+
+def get_tenant_context(request: Request) -> TenantContext:
+    """Dependency for endpoints that require tenant isolation.
+
+    Extracts TenantContext from request.state (populated by TenantIsolationMiddleware).
+    Raises 401 if tenant context is not available.
+
+    This dependency enforces that:
+    1. TenantIsolationMiddleware has run and validated access
+    2. User belongs to the organization
+    3. All data access will be scoped to tenant.organization_id
+
+    Args:
+        request: FastAPI Request object
+
+    Returns:
+        TenantContext instance with organization_id and user_id
+
+    Raises:
+        HTTPException: 401 if tenant context not available
+
+    Example:
+        from {{ project_slug }}.core.tenants import TenantDep
+
+        @router.get("/documents")
+        async def list_documents(tenant: TenantDep) -> list[DocumentRead]:
+            # tenant.organization_id is guaranteed to be valid
+            # User has been verified as member of this organization
+            ...
+    """
+    tenant = getattr(request.state, "tenant", None)
+    if not tenant:
+        missing_tenant_msg = "Tenant context required but not available"
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=missing_tenant_msg,
+        )
+    return tenant
+
+
+# Type alias for dependency injection
+TenantDep = Annotated[TenantContext, Depends(get_tenant_context)]
+
+
+def add_tenant_filter(
+    statement: Select,
+    tenant: TenantContext,
+    organization_column: ColumnElement[UUID],
+) -> Select:
+    """Add tenant isolation filter to SQLAlchemy query.
+
+    This helper ensures all queries are scoped to the current tenant's organization.
+    Using this function prevents accidental data leaks by enforcing WHERE clauses.
+
+    Security Note:
+        ALWAYS use this helper in service layer queries that access tenant-scoped data.
+        Forgetting to filter by organization_id is a CRITICAL security vulnerability.
+
+    Args:
+        statement: SQLAlchemy Select statement to filter
+        tenant: Current tenant context with organization_id
+        organization_column: The organization_id column to filter on
+
+    Returns:
+        Modified Select statement with tenant filter applied
+
+    Example:
+        from {{ project_slug }}.core.tenants import add_tenant_filter
+
+        async def list_documents(
+            session: AsyncSession,
+            tenant: TenantContext,
+        ) -> list[Document]:
+            stmt = select(Document)
+            stmt = add_tenant_filter(stmt, tenant, Document.organization_id)
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+    """
+    return statement.where(organization_column == tenant.organization_id)
+
+
+async def validate_tenant_ownership(
+    session: AsyncSession,
+    tenant: TenantContext,
+    organization_id: UUID,
+) -> None:
+    """Validate that a resource belongs to the current tenant.
+
+    Use this helper when accepting organization_id as input (e.g., creating resources)
+    to ensure users can't create resources in other organizations.
+
+    Args:
+        session: Database session (required for signature consistency)
+        tenant: Current tenant context
+        organization_id: Organization ID from request payload
+
+    Raises:
+        HTTPException: 403 if organization_id doesn't match tenant
+
+    Example:
+        @router.post("/documents")
+        async def create_document(
+            session: SessionDep,
+            tenant: TenantDep,
+            payload: DocumentCreate,
+        ) -> DocumentRead:
+            # Prevent user from creating documents in other orgs
+            await validate_tenant_ownership(session, tenant, payload.organization_id)
+            ...
+    """
+    # session parameter accepted for consistency but not used
+    # Keep for potential future use (e.g., organization existence check)
+    _ = session
+
+    if organization_id != tenant.organization_id:
+        ownership_violation_msg = (
+            "Cannot create resource for different organization"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=ownership_violation_msg,
+        )

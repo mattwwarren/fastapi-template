@@ -1,5 +1,6 @@
 """Async SQLAlchemy engine and session dependency for the API."""
 
+import logging
 from collections.abc import AsyncGenerator
 from typing import Annotated
 
@@ -8,6 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlmodel import SQLModel
 
 from {{ project_slug }}.core.config import settings
+from {{ project_slug }}.core.logging import get_logging_context
+
+LOGGER = logging.getLogger(__name__)
 
 engine = create_async_engine(
     settings.database_url,
@@ -22,10 +26,29 @@ async_session_maker: async_sessionmaker[AsyncSession] = async_sessionmaker(
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """Create async database session for request scope.
+
+    Session lifecycle:
+    1. Session created from pool
+    2. Yielded to request handler
+    3. Committed on success OR rolled back on exception
+    4. Session closed and returned to pool
+
+    The session dependency handles rollback automatically on exceptions.
+    Callers are responsible for explicit commits.
+
+    Yields:
+        AsyncSession for database operations
+    """
+    context = get_logging_context()
+    LOGGER.debug("session_created", extra=context)
+
     async with async_session_maker() as session:
         try:
             yield session
+            LOGGER.debug("session_completed", extra=context)
         except Exception:
+            LOGGER.warning("session_rollback", extra=context, exc_info=True)
             await session.rollback()
             raise
 

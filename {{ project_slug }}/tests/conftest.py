@@ -160,3 +160,66 @@ async def client(
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def test_user(client: AsyncClient) -> dict[str, Any]:
+    """Create a test user and return user data."""
+    response = await client.post(
+        "/users",
+        json={
+            "name": "Test User",
+            "email": "testuser@example.com",
+        },
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+@pytest.fixture
+async def test_organization(client: AsyncClient) -> dict[str, Any]:
+    """Create a test organization and return organization data."""
+    response = await client.post(
+        "/organizations",
+        json={"name": "Test Organization"},
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+@pytest.fixture
+async def multiple_users(client: AsyncClient) -> list[dict[str, Any]]:
+    """Create multiple test users with varying data."""
+    users = []
+    for i in range(3):
+        response = await client.post(
+            "/users",
+            json={
+                "name": f"User {i}",
+                "email": f"user{i}@example.com",
+            },
+        )
+        assert response.status_code == 201
+        users.append(response.json())
+    return users
+
+
+@pytest.fixture
+async def user_with_org(
+    client: AsyncClient,
+    test_user: dict[str, Any],
+    test_organization: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Create a user with an organization membership."""
+    # Create membership
+    membership_response = await client.post(
+        "/memberships",
+        json={
+            "user_id": test_user["id"],
+            "organization_id": test_organization["id"],
+        },
+    )
+    assert membership_response.status_code == 201
+
+    # Return user and org
+    return test_user, test_organization

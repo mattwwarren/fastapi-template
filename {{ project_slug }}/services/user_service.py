@@ -1,18 +1,50 @@
-"""User data access helpers for services and endpoints."""
+"""User data access helpers for services and endpoints.
 
+Metrics Usage Examples:
+    This module demonstrates comprehensive Prometheus metrics integration:
+
+    - Counters: users_created_total tracks total user creations
+    - Histograms: database_query_duration_seconds tracks query performance
+    - Gauges: Could track active_users_count (not implemented here)
+
+    Metrics are recorded AFTER successful operations to ensure accuracy.
+    Labels are used consistently (environment from settings.environment).
+"""
+
+import time
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
+from {{ project_slug }}.core.config import settings
+from {{ project_slug }}.core.metrics import (
+    database_query_duration_seconds,
+    users_created_total,
+)
 from {{ project_slug }}.models.membership import Membership
 from {{ project_slug }}.models.organization import Organization
 from {{ project_slug }}.models.user import User, UserCreate, UserUpdate
 
 
 async def get_user(session: AsyncSession, user_id: UUID) -> User | None:
+    """Fetch a single user by ID.
+
+    Demonstrates histogram metric usage for tracking database query duration.
+    Uses time.perf_counter() for high-precision timing.
+
+    Example metric output:
+        database_query_duration_seconds{query_type="select"} 0.0023
+    """
+    # Record timing for database query using histogram
+    start = time.perf_counter()
     result = await session.execute(select(User).where(col(User.id) == user_id))
+    duration = time.perf_counter() - start
+
+    # Observe duration in histogram with query_type label
+    database_query_duration_seconds.labels(query_type="select").observe(duration)
+
     return result.scalar_one_or_none()
 
 
@@ -24,10 +56,28 @@ async def list_users(
 
 
 async def create_user(session: AsyncSession, payload: UserCreate) -> User:
+    """Create a new user.
+
+    Demonstrates counter metric usage for tracking user creation events.
+    Counter is incremented AFTER successful commit to ensure accuracy.
+
+    Example metric output:
+        users_created_total{environment="production"} 1234
+        users_created_total{environment="staging"} 56
+
+    Note:
+        Metrics are recorded after successful operations only. If commit fails,
+        the counter is not incremented, maintaining accurate totals.
+    """
     user = User(**payload.model_dump())
     session.add(user)
     await session.commit()
     await session.refresh(user)
+
+    # Increment counter AFTER successful creation
+    # Label with environment to track metrics per deployment environment
+    users_created_total.labels(environment=settings.environment).inc()
+
     return user
 
 

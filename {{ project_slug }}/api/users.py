@@ -1,5 +1,6 @@
 """User CRUD endpoints and membership expansion."""
 
+import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
@@ -8,6 +9,7 @@ from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 
 from {{ project_slug }}.core.activity_logging import ActivityAction, log_activity_decorator
+from {{ project_slug }}.core.background_tasks import send_welcome_email_task
 from {{ project_slug }}.core.pagination import ParamsDep
 from {{ project_slug }}.db.session import SessionDep
 from {{ project_slug }}.models.shared import OrganizationInfo
@@ -30,7 +32,22 @@ async def create_user_endpoint(
     payload: UserCreate,
     session: SessionDep,
 ) -> UserRead:
+    """Create a new user and send welcome email asynchronously.
+
+    This endpoint demonstrates the background task pattern:
+    1. Create user in database (blocking, part of request)
+    2. Send welcome email in background (non-blocking, fire-and-forget)
+
+    The API response is returned immediately without waiting for email delivery.
+    Email failures are logged but do not affect user creation.
+    """
     user = await create_user(session, payload)
+
+    # Send welcome email in background (non-blocking)
+    # Store task reference for proper lifecycle management
+    if user.id is not None:
+        _task = asyncio.create_task(send_welcome_email_task(user.id, user.email))
+
     response = UserRead.model_validate(user)
     response.organizations = []
     return response

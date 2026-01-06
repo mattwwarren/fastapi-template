@@ -1,47 +1,97 @@
 """Prometheus ASGI app for /metrics with custom business metrics.
 
-OpenTelemetry auto-instrumentation handles HTTP request/response metrics:
-- Request duration/latency histograms
-- HTTP status codes (2xx, 4xx, 5xx)
-- Request counts by endpoint/method
-- Active request gauges
+OpenTelemetry Auto-Instrumentation:
+    When using OpenTelemetry auto-instrumentation (recommended), the following
+    HTTP metrics are automatically collected WITHOUT any code changes:
 
-This module defines BUSINESS DOMAIN metrics that track application-specific operations.
+    - http.server.request.duration - Request latency histogram
+    - http.server.active_requests - Active requests gauge
+    - http.server.request.size - Request body size histogram
+    - http.server.response.size - Response body size histogram
+
+    Metrics include labels: http.method, http.route, http.status_code, etc.
+
+    To enable OpenTelemetry auto-instrumentation:
+        pip install opentelemetry-distro opentelemetry-exporter-prometheus
+        opentelemetry-instrument python -m uvicorn app.main:app
+
+Business Domain Metrics:
+    This module defines CUSTOM metrics for application-specific operations that
+    are not covered by auto-instrumentation. These track business logic events,
+    domain operations, and application-specific performance indicators.
+
+Usage Guidelines:
+    - Record metrics AFTER successful operations (post-commit, post-response)
+    - Use consistent label names across metrics (environment, query_type, etc.)
+    - Keep histogram observations lightweight (avoid expensive operations inside timing)
+    - Don't add metrics to every operation (performance overhead)
+    - Focus on domain-specific operations (create, delete, upload, etc.)
 
 Usage Examples:
 
-    # In services/user_service.py
+    # Counter: Increment after successful operation
     from {{ project_slug }}.core.metrics import users_created_total
+    from {{ project_slug }}.core.config import settings
 
     async def create_user(...):
-        user = await db.create(...)
+        user = User(...)
+        await session.commit()
+        # Increment AFTER successful commit
         users_created_total.labels(environment=settings.environment).inc()
         return user
 
-    # In services/document_service.py
+    # Histogram: Observe document upload sizes
     from {{ project_slug }}.core.metrics import document_upload_size_bytes
 
     async def upload_document(file: UploadFile):
-        size_bytes = len(await file.read())
+        file_data = await file.read()
+        size_bytes = len(file_data)
+        # Record size in histogram (no labels needed)
         document_upload_size_bytes.observe(size_bytes)
         ...
 
-    # In database query helper
+    # Histogram: Track database query duration
     from {{ project_slug }}.core.metrics import database_query_duration_seconds
     import time
 
     start = time.perf_counter()
-    result = await db.execute(query)
+    result = await session.execute(query)
     duration = time.perf_counter() - start
+    # Observe duration with query_type label
     database_query_duration_seconds.labels(query_type="select").observe(duration)
 
-    # In API endpoints tracking activity
+    # Gauge: Track active resource counts
+    from {{ project_slug }}.core.metrics import active_memberships_gauge
+
+    # Increment when creating membership
+    active_memberships_gauge.labels(environment=settings.environment).inc()
+
+    # Decrement when deleting membership
+    active_memberships_gauge.labels(environment=settings.environment).dec()
+
+    # Counter with multiple labels
     from {{ project_slug }}.core.metrics import activity_log_entries_created
 
     activity_log_entries_created.labels(
         resource_type="organization",
         action="delete"
     ).inc()
+
+Viewing Metrics:
+    Metrics are exposed at GET /metrics in Prometheus exposition format.
+
+    Example output:
+        # HELP users_created_total Total number of users created
+        # TYPE users_created_total counter
+        users_created_total{environment="production"} 1234.0
+        users_created_total{environment="staging"} 56.0
+
+        # HELP database_query_duration_seconds Database query duration in seconds
+        # TYPE database_query_duration_seconds histogram
+        database_query_duration_seconds_bucket{query_type="select",le="0.001"} 123
+        database_query_duration_seconds_bucket{query_type="select",le="0.01"} 456
+        database_query_duration_seconds_sum{query_type="select"} 12.34
+        database_query_duration_seconds_count{query_type="select"} 500
 """
 
 from prometheus_client import Counter, Gauge, Histogram, make_asgi_app

@@ -14,3 +14,4 @@ using the template as the foundation for new services.
    decision_log
    architecture
    api
+   metrics
