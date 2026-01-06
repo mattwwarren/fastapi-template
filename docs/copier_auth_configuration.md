@@ -12,6 +12,7 @@ The `copier.yaml` file contains questions for project generation. Auth provider 
 
 ### Proposed Copier Configuration
 
+{% raw %}
 ```yaml
 # copier.yaml
 
@@ -27,6 +28,7 @@ _envops:
 
 _skip_if:
   - "{% if not include_auth %}"
+{% endraw %}
 
 questions:
   project_name:
@@ -114,6 +116,7 @@ Based on auth provider selection, templates adjust configuration:
 
 ### .env Template
 
+{% raw %}
 ```bash
 # .env.example
 
@@ -128,9 +131,11 @@ JWT_PUBLIC_KEY=<your-public-key>
 {% endif %}
 {% endif %}
 ```
+{% endraw %}
 
 ### pyproject.toml Conditional Dependencies
 
+{% raw %}
 ```toml
 [project]
 dependencies = [
@@ -157,9 +162,11 @@ keycloak = ["python-keycloak>=3.0"]
 cognito = ["boto3>=1.26"]
 {% endif %}
 ```
+{% endraw %}
 
 ### Core Auth Configuration
 
+{% raw %}
 ```python
 # {{ project_slug }}/core/config.py
 
@@ -192,9 +199,11 @@ class Settings(BaseSettings):
         alias="JWT_PUBLIC_KEY",
     )
 ```
+{% endraw %}
 
 ### Auth Middleware Configuration
 
+{% raw %}
 ```python
 # {{ project_slug }}/main.py
 
@@ -242,9 +251,11 @@ auth_provider = CognitoProvider(
 # No authentication - all endpoints public
 {% endif %}
 ```
+{% endraw %}
 
 ### Test Configuration
 
+{% raw %}
 ```python
 # {{ project_slug }}/tests/conftest.py
 
@@ -266,6 +277,7 @@ from {{ project_slug }}.tests.mocks.auth_providers import (
 # No authentication - all requests allowed in tests
 {% endif %}
 ```
+{% endraw %}
 
 ## Provider-Specific Documentation
 

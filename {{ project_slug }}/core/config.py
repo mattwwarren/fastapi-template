@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import Field
+from pydantic import Field, PrivateAttr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from {{ project_slug }}.core.storage import StorageProvider
@@ -63,12 +63,12 @@ class Settings(BaseSettings):
         alias="JWT_PUBLIC_KEY",
         description="Public key for JWT validation (PEM format) or path to key file",
     )
-    _cors_allowed_origins_raw: str | list[str] = Field(
+    cors_allowed_origins_raw: str | list[str] = Field(
         default="http://localhost:3000",
         alias="CORS_ALLOWED_ORIGINS",
         description="List of allowed CORS origins (comma-separated string or list)",
     )
-    _cors_allowed_origins_cache: list[str] | None = None
+    _cors_allowed_origins_cache: list[str] | None = PrivateAttr(default=None)
     enforce_tenant_isolation: bool = Field(
         default=True,
         alias="ENFORCE_TENANT_ISOLATION",
@@ -168,14 +168,14 @@ class Settings(BaseSettings):
             return self._cors_allowed_origins_cache
 
         # Parse raw value (either string or list)
-        if isinstance(self._cors_allowed_origins_raw, str):
+        if isinstance(self.cors_allowed_origins_raw, str):
             parsed = [
                 origin.strip()
-                for origin in self._cors_allowed_origins_raw.split(",")
+                for origin in self.cors_allowed_origins_raw.split(",")
                 if origin.strip()
             ]
         else:
-            parsed = self._cors_allowed_origins_raw
+            parsed = self.cors_allowed_origins_raw
 
         # Cache the result
         self._cors_allowed_origins_cache = parsed
