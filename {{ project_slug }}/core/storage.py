@@ -1,7 +1,8 @@
 """Object storage abstraction layer with multiple provider support.
 
 This module provides a unified interface for storing and retrieving files across
-different storage backends (local filesystem, Azure Blob Storage, AWS S3, Google Cloud Storage).
+different storage backends (local filesystem, Azure Blob Storage, AWS S3, Google
+Cloud Storage).
 
 Architecture:
     - StorageService: Abstract base protocol defining the storage interface
@@ -101,7 +102,11 @@ class StorageService(Protocol):
         """
         ...
 
-    async def download(self, document_id: UUID, organization_id: UUID | None = None) -> bytes | None:
+    async def download(
+        self,
+        document_id: UUID,
+        organization_id: UUID | None = None,
+    ) -> bytes | None:
         """Download a file from storage.
 
         Args:
@@ -116,7 +121,11 @@ class StorageService(Protocol):
         """
         ...
 
-    async def delete(self, document_id: UUID, organization_id: UUID | None = None) -> bool:
+    async def delete(
+        self,
+        document_id: UUID,
+        organization_id: UUID | None = None,
+    ) -> bool:
         """Delete a file from storage.
 
         Args:
@@ -170,6 +179,101 @@ class StorageError(Exception):
     pass
 
 
+def _get_local_storage() -> StorageService:
+    """Create local filesystem storage service."""
+    from {{ project_slug }}.core.config import settings  # noqa: PLC0415
+    from {{ project_slug }}.core.storage_providers import LocalStorageService  # noqa: PLC0415
+
+    return LocalStorageService(base_path=settings.storage_local_path)
+
+
+def _get_azure_storage() -> StorageService:
+    """Create Azure Blob Storage service."""
+    from {{ project_slug }}.core.config import settings  # noqa: PLC0415
+
+    try:
+        from {{ project_slug }}.core.storage_providers import (  # noqa: PLC0415
+            AzureBlobStorageService,
+        )
+    except ImportError as e:
+        msg = (
+            "Azure Blob Storage requires 'azure-storage-blob' package. "
+            "Install with: pip install .[azure]"
+        )
+        raise ValueError(msg) from e
+
+    if (
+        not settings.storage_azure_container
+        or not settings.storage_azure_connection_string
+    ):
+        msg = (
+            "Azure storage requires STORAGE_AZURE_CONTAINER and "
+            "STORAGE_AZURE_CONNECTION_STRING environment variables"
+        )
+        raise ValueError(msg)
+
+    return AzureBlobStorageService(
+        container_name=settings.storage_azure_container,
+        connection_string=settings.storage_azure_connection_string,
+    )
+
+
+def _get_s3_storage() -> StorageService:
+    """Create AWS S3 storage service."""
+    from {{ project_slug }}.core.config import settings  # noqa: PLC0415
+
+    try:
+        from {{ project_slug }}.core.storage_providers import (  # noqa: PLC0415
+            S3StorageService,
+        )
+    except ImportError as e:
+        msg = (
+            "AWS S3 requires 'aioboto3' package. "
+            "Install with: pip install .[aws]"
+        )
+        raise ValueError(msg) from e
+
+    if not settings.storage_aws_bucket or not settings.storage_aws_region:
+        msg = (
+            "AWS S3 storage requires STORAGE_AWS_BUCKET and "
+            "STORAGE_AWS_REGION environment variables"
+        )
+        raise ValueError(msg)
+
+    return S3StorageService(
+        bucket_name=settings.storage_aws_bucket,
+        region=settings.storage_aws_region,
+    )
+
+
+def _get_gcs_storage() -> StorageService:
+    """Create Google Cloud Storage service."""
+    from {{ project_slug }}.core.config import settings  # noqa: PLC0415
+
+    try:
+        from {{ project_slug }}.core.storage_providers import (  # noqa: PLC0415
+            GCSStorageService,
+        )
+    except ImportError as e:
+        msg = (
+            "Google Cloud Storage requires 'google-cloud-storage' package. "
+            "Install with: pip install .[gcs]"
+        )
+        raise ValueError(msg) from e
+
+    if not settings.storage_gcs_bucket or not settings.storage_gcs_project_id:
+        msg = (
+            "GCS storage requires STORAGE_GCS_BUCKET and "
+            "STORAGE_GCS_PROJECT_ID environment variables"
+        )
+        raise ValueError(msg)
+
+    return GCSStorageService(
+        bucket_name=settings.storage_gcs_bucket,
+        project_id=settings.storage_gcs_project_id,
+    )
+
+
 def get_storage_service() -> StorageService:
     """Factory function to create the configured storage service.
 
@@ -187,81 +291,21 @@ def get_storage_service() -> StorageService:
         storage = get_storage_service()
         url = await storage.upload(doc_id, file_bytes, "image/png")
     """
-    from {{ project_slug }}.core.config import settings
+    from {{ project_slug }}.core.config import settings  # noqa: PLC0415
 
-    if settings.storage_provider == StorageProvider.LOCAL:
-        from {{ project_slug }}.core.storage_providers import LocalStorageService
+    providers = {
+        StorageProvider.LOCAL: _get_local_storage,
+        StorageProvider.AZURE: _get_azure_storage,
+        StorageProvider.AWS_S3: _get_s3_storage,
+        StorageProvider.GCS: _get_gcs_storage,
+    }
 
-        return LocalStorageService(base_path=settings.storage_local_path)
+    provider_func = providers.get(settings.storage_provider)
+    if provider_func:
+        return provider_func()
 
-    if settings.storage_provider == StorageProvider.AZURE:
-        try:
-            from {{ project_slug }}.core.storage_providers import AzureBlobStorageService
-        except ImportError as e:
-            missing_dependency_error = (
-                "Azure Blob Storage requires 'azure-storage-blob' package. "
-                "Install with: pip install .[azure]"
-            )
-            raise ValueError(missing_dependency_error) from e
-
-        if not settings.storage_azure_container or not settings.storage_azure_connection_string:
-            config_missing_error = (
-                "Azure storage requires STORAGE_AZURE_CONTAINER and "
-                "STORAGE_AZURE_CONNECTION_STRING environment variables"
-            )
-            raise ValueError(config_missing_error)
-
-        return AzureBlobStorageService(
-            container_name=settings.storage_azure_container,
-            connection_string=settings.storage_azure_connection_string,
-        )
-
-    if settings.storage_provider == StorageProvider.AWS_S3:
-        try:
-            from {{ project_slug }}.core.storage_providers import S3StorageService
-        except ImportError as e:
-            missing_dependency_error = (
-                "AWS S3 requires 'aioboto3' package. "
-                "Install with: pip install .[aws]"
-            )
-            raise ValueError(missing_dependency_error) from e
-
-        if not settings.storage_aws_bucket or not settings.storage_aws_region:
-            config_missing_error = (
-                "AWS S3 storage requires STORAGE_AWS_BUCKET and "
-                "STORAGE_AWS_REGION environment variables"
-            )
-            raise ValueError(config_missing_error)
-
-        return S3StorageService(
-            bucket_name=settings.storage_aws_bucket,
-            region=settings.storage_aws_region,
-        )
-
-    if settings.storage_provider == StorageProvider.GCS:
-        try:
-            from {{ project_slug }}.core.storage_providers import GCSStorageService
-        except ImportError as e:
-            missing_dependency_error = (
-                "Google Cloud Storage requires 'google-cloud-storage' package. "
-                "Install with: pip install .[gcs]"
-            )
-            raise ValueError(missing_dependency_error) from e
-
-        if not settings.storage_gcs_bucket or not settings.storage_gcs_project_id:
-            config_missing_error = (
-                "GCS storage requires STORAGE_GCS_BUCKET and "
-                "STORAGE_GCS_PROJECT_ID environment variables"
-            )
-            raise ValueError(config_missing_error)
-
-        return GCSStorageService(
-            bucket_name=settings.storage_gcs_bucket,
-            project_id=settings.storage_gcs_project_id,
-        )
-
-    unrecognized_provider_error = (
+    msg = (
         f"Unrecognized storage provider: {settings.storage_provider}. "
         f"Must be one of: {', '.join(StorageProvider)}"
     )
-    raise ValueError(unrecognized_provider_error)
+    raise ValueError(msg)

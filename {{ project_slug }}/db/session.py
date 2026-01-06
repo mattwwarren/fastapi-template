@@ -25,7 +25,7 @@ async_session_maker: async_sessionmaker[AsyncSession] = async_sessionmaker(
 )
 
 
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_session() -> AsyncGenerator[AsyncSession]:
     """Create async database session for request scope.
 
     Session lifecycle:

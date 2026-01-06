@@ -1,9 +1,9 @@
 """Structured logging with user and organization context for audit trails.
 
-This module provides context-aware logging that integrates with ECS (Elastic Common Schema)
-logging format. It uses Python's contextvars to maintain request context across async
-operations, allowing services to automatically include user_id, org_id, and request_id
-in all log entries.
+This module provides context-aware logging that integrates with ECS (Elastic
+Common Schema) logging format. It uses Python's contextvars to maintain request
+context across async operations, allowing services to automatically include
+user_id, org_id, and request_id in all log entries.
 
 Usage:
 
@@ -51,7 +51,8 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_REQUEST_ID_HEADER = "x-request-id"
 
 # ContextVars for request-scoped logging context
-# These survive async context switches and are available throughout the request lifecycle
+# These survive async context switches and are available throughout the
+# request lifecycle
 _request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 _user_id_var: ContextVar[str | None] = ContextVar("user_id", default=None)
 _org_id_var: ContextVar[str | None] = ContextVar("org_id", default=None)

@@ -10,17 +10,21 @@ Usage:
             raise HTTPException(status_code=401, detail="Unauthorized")
 """
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import AsyncGenerator
 
 import httpx
 
 from {{ project_slug }}.core.config import settings
 
+# HTTP status codes
+HTTP_OK = 200
+HTTP_ACCEPTED = 202
+
 
 @asynccontextmanager
-async def http_client(timeout: float = 30.0) -> AsyncGenerator[httpx.AsyncClient, None]:
+async def http_client(timeout: float = 30.0) -> AsyncGenerator[httpx.AsyncClient]:
     """Create HTTP client for service-to-service calls.
 
     Features:
@@ -81,12 +85,13 @@ async def verify_token_with_auth_service(
                 f"{settings.auth_service_url}/verify",
                 json={"token": token},
             )
-            if response.status_code == 200:
-                return response.json()
-            return None
         except httpx.RequestError:
             # Log error and fail open or closed based on business logic
             return None
+
+        if response.status_code == HTTP_OK:
+            return response.json()
+        return None
 
 
 async def send_notification(
@@ -129,10 +134,11 @@ async def send_notification(
                     "channel": channel,
                 },
             )
-            return response.status_code == 202
         except httpx.RequestError:
             # Don't fail primary operation on notification failure
             return False
+
+        return response.status_code == HTTP_ACCEPTED
 
 
 async def report_activity(
@@ -177,9 +183,10 @@ async def report_activity(
                     "timestamp": datetime.utcnow().isoformat(),
                 },
             )
-            return response.status_code in (200, 202)
         except httpx.RequestError:
             return False
+
+        return response.status_code in (HTTP_OK, HTTP_ACCEPTED)
 
 
 # CIRCUIT BREAKER PATTERN (advanced, commented example):

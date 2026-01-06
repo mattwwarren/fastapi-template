@@ -87,7 +87,8 @@ class Settings(BaseSettings):
     include_request_context_in_logs: bool = Field(
         default=True,
         alias="INCLUDE_REQUEST_CONTEXT_IN_LOGS",
-        description="Enable automatic request context logging (user_id, org_id, request_id)",
+        description="Enable automatic request context logging (user_id, org_id, "
+        "request_id)",
     )
 
     # Storage configuration

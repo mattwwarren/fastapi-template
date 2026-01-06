@@ -33,7 +33,7 @@ class OrganizationCreate(OrganizationBase):
 
     @field_validator("name")
     @classmethod
-    def validate_name(cls, value: str, info: ValidationInfo) -> str:
+    def validate_name(cls, value: str, info: ValidationInfo) -> str:  # noqa: ARG003
         """Validate organization name field.
 
         Args:

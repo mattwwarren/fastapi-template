@@ -25,11 +25,16 @@ ParamsDep = Annotated[DefaultParams, Depends()]
 def configure_pagination() -> None:
     if not settings.pagination_page_class:
         return
+
     module_path, _, attr = settings.pagination_page_class.rpartition(".")
     if not module_path:
-        raise ValueError("pagination_page_class must be an importable path")
+        msg = "pagination_page_class must be an importable path"
+        raise ValueError(msg)
+
     module = importlib.import_module(module_path)
     page_cls = getattr(module, attr)
     if not isinstance(page_cls, type) or not issubclass(page_cls, Page):
-        raise TypeError("pagination_page_class must be a fastapi-pagination Page")
+        msg = "pagination_page_class must be a fastapi-pagination Page"
+        raise TypeError(msg)
+
     set_page(page_cls)

@@ -25,14 +25,18 @@ Usage:
         tenant: TenantDep,
     ) -> list[DocumentRead]:
         # All queries automatically scoped to tenant.organization_id
-        stmt = select(Document).where(Document.organization_id == tenant.organization_id)
+        stmt = select(Document).where(
+            Document.organization_id == tenant.organization_id
+        )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
     # In services - Add tenant filters to queries
     from {{ project_slug }}.core.tenants import add_tenant_filter
 
-    async def get_documents(session: AsyncSession, tenant: TenantContext) -> list[Document]:
+    async def get_documents(
+        session: AsyncSession, tenant: TenantContext
+    ) -> list[Document]:
         stmt = select(Document)
         stmt = add_tenant_filter(stmt, tenant, Document.organization_id)
         result = await session.execute(stmt)
@@ -56,7 +60,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
 from {{ project_slug }}.core.config import settings
-from {{ project_slug }}.db.session import SessionDep
+from {{ project_slug }}.db.session import async_session_maker
+from {{ project_slug }}.models.membership import Membership
 
 LOGGER = logging.getLogger(__name__)
 
@@ -124,9 +129,6 @@ async def _validate_user_org_access(
         This function MUST be called before setting tenant context.
         Failure to validate membership allows cross-tenant access.
     """
-    # Import here to avoid circular dependency
-    from {{ project_slug }}.models.membership import Membership
-
     result = await session.execute(
         select(Membership)
         .where(Membership.user_id == user_id)
@@ -134,6 +136,80 @@ async def _validate_user_org_access(
     )
     membership = result.scalar_one_or_none()
     return membership is not None
+
+
+def _extract_org_id_from_jwt(current_user: object) -> UUID | None:
+    """Extract organization_id from JWT claims.
+
+    Args:
+        current_user: Authenticated user object from AuthMiddleware
+
+    Returns:
+        UUID if found in JWT claims, None otherwise
+    """
+    if hasattr(current_user, "organization_id") and current_user.organization_id:
+        organization_id = current_user.organization_id
+        LOGGER.debug("Extracted tenant from JWT claims: %s", str(organization_id))
+        return organization_id
+    return None
+
+
+def _extract_org_id_from_path(request: Request) -> tuple[UUID | None, Response | None]:
+    """Extract organization_id from path parameters.
+
+    Args:
+        request: FastAPI Request object
+
+    Returns:
+        Tuple of (organization_id, error_response)
+        If successful, returns (UUID, None)
+        If error, returns (None, JSONResponse with 400)
+    """
+    if "org_id" not in request.path_params:
+        return None, None
+
+    try:
+        org_id_str = request.path_params["org_id"]
+        organization_id = UUID(org_id_str)
+        LOGGER.debug("Extracted tenant from path parameter: %s", str(organization_id))
+        return organization_id, None
+    except (ValueError, TypeError) as err:
+        invalid_org_msg = "Invalid organization ID format in path"
+        LOGGER.warning("Invalid org_id in path: %s", str(err))
+        error_response = JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"detail": invalid_org_msg},
+        )
+        return None, error_response
+
+
+def _extract_org_id_from_query(request: Request) -> tuple[UUID | None, Response | None]:
+    """Extract organization_id from query parameters.
+
+    Args:
+        request: FastAPI Request object
+
+    Returns:
+        Tuple of (organization_id, error_response)
+        If successful, returns (UUID, None)
+        If error, returns (None, JSONResponse with 400)
+    """
+    org_id_query = request.query_params.get("org_id")
+    if not org_id_query:
+        return None, None
+
+    try:
+        organization_id = UUID(org_id_query)
+        LOGGER.debug("Extracted tenant from query param: %s", str(organization_id))
+        return organization_id, None
+    except (ValueError, TypeError) as err:
+        invalid_org_msg = "Invalid organization ID format in query"
+        LOGGER.warning("Invalid org_id in query: %s", str(err))
+        error_response = JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"detail": invalid_org_msg},
+        )
+        return None, error_response
 
 
 class TenantIsolationMiddleware(BaseHTTPMiddleware):
@@ -199,48 +275,18 @@ class TenantIsolationMiddleware(BaseHTTPMiddleware):
                 content={"detail": missing_auth_msg},
             )
 
-        # Extract organization_id from multiple possible sources
-        organization_id: UUID | None = None
+        # Extract organization_id from multiple sources with priority order
+        organization_id = _extract_org_id_from_jwt(current_user)
 
-        # Priority 1: JWT claims (set by AuthMiddleware)
-        if hasattr(current_user, "organization_id") and current_user.organization_id:
-            organization_id = current_user.organization_id
-            LOGGER.debug(
-                "Extracted tenant from JWT claims: %s", str(organization_id)
-            )
-
-        # Priority 2: Path parameters (e.g., /orgs/{org_id}/resources)
-        if not organization_id and "org_id" in request.path_params:
-            try:
-                org_id_str = request.path_params["org_id"]
-                organization_id = UUID(org_id_str)
-                LOGGER.debug(
-                    "Extracted tenant from path parameter: %s", str(organization_id)
-                )
-            except (ValueError, TypeError) as err:
-                invalid_org_msg = "Invalid organization ID format in path"
-                LOGGER.warning("Invalid org_id in path: %s", str(err))
-                return JSONResponse(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    content={"detail": invalid_org_msg},
-                )
-
-        # Priority 3: Query parameters (org_id=xxx)
         if not organization_id:
-            org_id_query = request.query_params.get("org_id")
-            if org_id_query:
-                try:
-                    organization_id = UUID(org_id_query)
-                    LOGGER.debug(
-                        "Extracted tenant from query param: %s", str(organization_id)
-                    )
-                except (ValueError, TypeError) as err:
-                    invalid_org_msg = "Invalid organization ID format in query"
-                    LOGGER.warning("Invalid org_id in query: %s", str(err))
-                    return JSONResponse(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        content={"detail": invalid_org_msg},
-                    )
+            organization_id, error_response = _extract_org_id_from_path(request)
+            if error_response:
+                return error_response
+
+        if not organization_id:
+            organization_id, error_response = _extract_org_id_from_query(request)
+            if error_response:
+                return error_response
 
         # Fail closed if no organization_id found
         if not organization_id:
@@ -253,8 +299,6 @@ class TenantIsolationMiddleware(BaseHTTPMiddleware):
 
         # Validate user has access to this organization
         # This prevents users from accessing other orgs by manipulating requests
-        from {{ project_slug }}.db.session import async_session_maker
-
         async with async_session_maker() as session:
             has_access = await _validate_user_org_access(
                 session, current_user.id, organization_id

@@ -31,7 +31,7 @@ class User(TimestampedTable, UserBase, table=True):
 class UserCreate(UserBase):
     @field_validator("name")
     @classmethod
-    def validate_name(cls, value: str, info: ValidationInfo) -> str:
+    def validate_name(cls, value: str, info: ValidationInfo) -> str:  # noqa: ARG003
         """Validate user name field.
 
         Args:

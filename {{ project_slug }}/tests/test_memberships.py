@@ -5,6 +5,9 @@ from http import HTTPStatus
 import pytest
 from httpx import AsyncClient
 
+# Test constants
+EXPECTED_USER_COUNT = 3
+
 
 class TestMembershipCRUD:
     """Test basic membership CRUD operations."""
@@ -80,7 +83,7 @@ class TestMembershipCRUD:
         organization_id = org_response.json()["id"]
 
         # Create multiple users and memberships
-        for i in range(3):
+        for i in range(EXPECTED_USER_COUNT):
             user_response = await client.post(
                 "/users",
                 json={"name": f"User {i}", "email": f"user{i}@example.com"},
@@ -96,8 +99,8 @@ class TestMembershipCRUD:
         list_response = await client.get("/memberships")
         assert list_response.status_code == HTTPStatus.OK
         data = list_response.json()
-        assert data["total"] == 3
-        assert len(data["items"]) == 3
+        assert data["total"] == EXPECTED_USER_COUNT
+        assert len(data["items"]) == EXPECTED_USER_COUNT
 
 
 class TestMembershipConstraints:

@@ -38,11 +38,33 @@ Setup Instructions:
 from __future__ import annotations
 
 import asyncio
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
 from {{ project_slug }}.core.storage import StorageError
+
+# Optional cloud provider imports
+try:
+    from azure.core.exceptions import (
+        ResourceNotFoundError as AzureResourceNotFoundError,
+    )
+    from azure.storage.blob import BlobSasPermissions, generate_blob_sas
+    from azure.storage.blob.aio import BlobServiceClient
+except ImportError:
+    pass
+
+try:
+    import aioboto3
+    from botocore.exceptions import ClientError
+except ImportError:
+    pass
+
+try:
+    from google.cloud import storage
+    from google.cloud.exceptions import NotFound
+except ImportError:
+    pass
 
 
 class LocalStorageService:
@@ -95,7 +117,7 @@ class LocalStorageService:
         self,
         document_id: UUID,
         file_data: bytes,
-        content_type: str,
+        content_type: str,  # noqa: ARG002
         organization_id: UUID | None = None,
     ) -> str:
         """Upload file to local filesystem.
@@ -103,7 +125,8 @@ class LocalStorageService:
         Args:
             document_id: Unique identifier for the document
             file_data: Binary file content
-            content_type: MIME type (not used for local storage, preserved for interface)
+            content_type: MIME type (not used for local storage,
+                preserved for interface compatibility)
             organization_id: Optional organization ID for directory organization
 
         Returns:
@@ -122,7 +145,11 @@ class LocalStorageService:
             storage_error = f"Failed to write file to local storage: {e}"
             raise StorageError(storage_error) from e
 
-    async def download(self, document_id: UUID, organization_id: UUID | None = None) -> bytes | None:
+    async def download(
+        self,
+        document_id: UUID,
+        organization_id: UUID | None = None,
+    ) -> bytes | None:
         """Download file from local filesystem.
 
         Args:
@@ -146,7 +173,11 @@ class LocalStorageService:
             storage_error = f"Failed to read file from local storage: {e}"
             raise StorageError(storage_error) from e
 
-    async def delete(self, document_id: UUID, organization_id: UUID | None = None) -> bool:
+    async def delete(
+        self,
+        document_id: UUID,
+        organization_id: UUID | None = None,
+    ) -> bool:
         """Delete file from local filesystem.
 
         Args:
@@ -166,16 +197,17 @@ class LocalStorageService:
 
         try:
             await asyncio.to_thread(file_path.unlink)
-            return True
         except OSError as e:
             storage_error = f"Failed to delete file from local storage: {e}"
             raise StorageError(storage_error) from e
+        else:
+            return True
 
     async def get_download_url(
         self,
         document_id: UUID,
         organization_id: UUID | None = None,
-        expiry_seconds: int = 3600,
+        expiry_seconds: int = 3600,  # noqa: ARG002
     ) -> str:
         """Generate download URL for local file.
 
@@ -185,7 +217,8 @@ class LocalStorageService:
         Args:
             document_id: Unique identifier for the document
             organization_id: Optional organization ID for directory organization
-            expiry_seconds: Not used for local storage (preserved for interface)
+            expiry_seconds: Not used for local storage (preserved for interface
+                compatibility)
 
         Returns:
             Local file path
@@ -230,18 +263,18 @@ class AzureBlobStorageService:
             container_name: Name of the Azure Blob container
             connection_string: Azure Storage account connection string
         """
-        try:
-            from azure.storage.blob.aio import BlobServiceClient
-        except ImportError as e:
-            import_error = (
+        if BlobServiceClient is None:
+            msg = (
                 "Azure Blob Storage requires 'azure-storage-blob' package. "
                 "Install with: pip install azure-storage-blob"
             )
-            raise ImportError(import_error) from e
+            raise ImportError(msg)
 
         self.container_name = container_name
         self.connection_string = connection_string
-        self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        self.blob_service_client = (
+            BlobServiceClient.from_connection_string(connection_string)
+        )
 
     def _get_blob_name(self, document_id: UUID, organization_id: UUID | None) -> str:
         """Generate blob name for document.
@@ -290,12 +323,17 @@ class AzureBlobStorageService:
                 overwrite=True,
                 content_settings={"content_type": content_type},
             )
-            return blob_client.url
         except Exception as e:
             storage_error = f"Failed to upload to Azure Blob Storage: {e}"
             raise StorageError(storage_error) from e
+        else:
+            return blob_client.url
 
-    async def download(self, document_id: UUID, organization_id: UUID | None = None) -> bytes | None:
+    async def download(
+        self,
+        document_id: UUID,
+        organization_id: UUID | None = None,
+    ) -> bytes | None:
         """Download file from Azure Blob Storage.
 
         Args:
@@ -315,17 +353,19 @@ class AzureBlobStorageService:
         )
 
         try:
-            from azure.core.exceptions import ResourceNotFoundError
-
             download_stream = await blob_client.download_blob()
             return await download_stream.readall()
-        except ResourceNotFoundError:
+        except AzureResourceNotFoundError:
             return None
         except Exception as e:
             storage_error = f"Failed to download from Azure Blob Storage: {e}"
             raise StorageError(storage_error) from e
 
-    async def delete(self, document_id: UUID, organization_id: UUID | None = None) -> bool:
+    async def delete(
+        self,
+        document_id: UUID,
+        organization_id: UUID | None = None,
+    ) -> bool:
         """Delete file from Azure Blob Storage.
 
         Args:
@@ -345,15 +385,14 @@ class AzureBlobStorageService:
         )
 
         try:
-            from azure.core.exceptions import ResourceNotFoundError
-
             await blob_client.delete_blob()
-            return True
-        except ResourceNotFoundError:
+        except AzureResourceNotFoundError:
             return False
         except Exception as e:
             storage_error = f"Failed to delete from Azure Blob Storage: {e}"
             raise StorageError(storage_error) from e
+        else:
+            return True
 
     async def get_download_url(
         self,
@@ -374,10 +413,6 @@ class AzureBlobStorageService:
         Raises:
             StorageError: If URL generation fails
         """
-        from datetime import datetime, timezone
-
-        from azure.storage.blob import BlobSasPermissions, generate_blob_sas
-
         blob_name = self._get_blob_name(document_id, organization_id)
 
         try:
@@ -396,17 +431,20 @@ class AzureBlobStorageService:
                 blob_name=blob_name,
                 account_key=account_key,
                 permission=BlobSasPermissions(read=True),
-                expiry=datetime.now(timezone.utc) + timedelta(seconds=expiry_seconds),
+                expiry=datetime.now(datetime.UTC) + timedelta(
+                    seconds=expiry_seconds
+                ),
             )
 
             blob_client = self.blob_service_client.get_blob_client(
                 container=self.container_name,
                 blob=blob_name,
             )
-            return f"{blob_client.url}?{sas_token}"
         except Exception as e:
             storage_error = f"Failed to generate Azure Blob SAS URL: {e}"
             raise StorageError(storage_error) from e
+        else:
+            return f"{blob_client.url}?{sas_token}"
 
 
 class S3StorageService:
@@ -445,14 +483,12 @@ class S3StorageService:
             bucket_name: Name of the S3 bucket
             region: AWS region code
         """
-        try:
-            import aioboto3
-        except ImportError as e:
-            import_error = (
+        if aioboto3 is None:
+            msg = (
                 "AWS S3 requires 'aioboto3' package. "
                 "Install with: pip install aioboto3"
             )
-            raise ImportError(import_error) from e
+            raise ImportError(msg)
 
         self.bucket_name = bucket_name
         self.region = region
@@ -508,7 +544,11 @@ class S3StorageService:
             storage_error = f"Failed to upload to AWS S3: {e}"
             raise StorageError(storage_error) from e
 
-    async def download(self, document_id: UUID, organization_id: UUID | None = None) -> bytes | None:
+    async def download(
+        self,
+        document_id: UUID,
+        organization_id: UUID | None = None,
+    ) -> bytes | None:
         """Download file from AWS S3.
 
         Args:
@@ -521,13 +561,16 @@ class S3StorageService:
         Raises:
             StorageError: If download fails due to network or auth issues
         """
-        from botocore.exceptions import ClientError
-
         object_key = self._get_object_key(document_id, organization_id)
 
         try:
-            async with self.session.client("s3", region_name=self.region) as s3_client:
-                response = await s3_client.get_object(Bucket=self.bucket_name, Key=object_key)
+            async with self.session.client("s3", region_name=self.region) as (
+                s3_client
+            ):
+                response = await s3_client.get_object(
+                    Bucket=self.bucket_name,
+                    Key=object_key,
+                )
                 return await response["Body"].read()
         except ClientError as e:
             if e.response["Error"]["Code"] == "NoSuchKey":
@@ -538,7 +581,11 @@ class S3StorageService:
             storage_error = f"Failed to download from AWS S3: {e}"
             raise StorageError(storage_error) from e
 
-    async def delete(self, document_id: UUID, organization_id: UUID | None = None) -> bool:
+    async def delete(
+        self,
+        document_id: UUID,
+        organization_id: UUID | None = None,
+    ) -> bool:
         """Delete file from AWS S3.
 
         Args:
@@ -585,13 +632,14 @@ class S3StorageService:
         object_key = self._get_object_key(document_id, organization_id)
 
         try:
-            async with self.session.client("s3", region_name=self.region) as s3_client:
-                presigned_url = await s3_client.generate_presigned_url(
+            async with self.session.client("s3", region_name=self.region) as (
+                s3_client
+            ):
+                return await s3_client.generate_presigned_url(
                     "get_object",
                     Params={"Bucket": self.bucket_name, "Key": object_key},
                     ExpiresIn=expiry_seconds,
                 )
-                return presigned_url
         except Exception as e:
             storage_error = f"Failed to generate S3 presigned URL: {e}"
             raise StorageError(storage_error) from e
@@ -631,14 +679,12 @@ class GCSStorageService:
             bucket_name: Name of the GCS bucket
             project_id: Google Cloud project ID
         """
-        try:
-            from google.cloud import storage
-        except ImportError as e:
-            import_error = (
+        if storage is None:
+            msg = (
                 "Google Cloud Storage requires 'google-cloud-storage' package. "
                 "Install with: pip install google-cloud-storage"
             )
-            raise ImportError(import_error) from e
+            raise ImportError(msg)
 
         self.bucket_name = bucket_name
         self.project_id = project_id
@@ -690,12 +736,17 @@ class GCSStorageService:
                 file_data,
                 content_type=content_type,
             )
-            return blob.public_url
         except Exception as e:
             storage_error = f"Failed to upload to Google Cloud Storage: {e}"
             raise StorageError(storage_error) from e
+        else:
+            return blob.public_url
 
-    async def download(self, document_id: UUID, organization_id: UUID | None = None) -> bytes | None:
+    async def download(
+        self,
+        document_id: UUID,
+        organization_id: UUID | None = None,
+    ) -> bytes | None:
         """Download file from Google Cloud Storage.
 
         Args:
@@ -712,8 +763,6 @@ class GCSStorageService:
         blob = self.bucket.blob(blob_name)
 
         try:
-            from google.cloud.exceptions import NotFound
-
             # Check if blob exists first
             exists = await asyncio.to_thread(blob.exists)
             if not exists:
@@ -726,7 +775,11 @@ class GCSStorageService:
             storage_error = f"Failed to download from Google Cloud Storage: {e}"
             raise StorageError(storage_error) from e
 
-    async def delete(self, document_id: UUID, organization_id: UUID | None = None) -> bool:
+    async def delete(
+        self,
+        document_id: UUID,
+        organization_id: UUID | None = None,
+    ) -> bool:
         """Delete file from Google Cloud Storage.
 
         Args:
@@ -743,20 +796,19 @@ class GCSStorageService:
         blob = self.bucket.blob(blob_name)
 
         try:
-            from google.cloud.exceptions import NotFound
-
             # Check if blob exists first
             exists = await asyncio.to_thread(blob.exists)
             if not exists:
                 return False
 
             await asyncio.to_thread(blob.delete)
-            return True
         except NotFound:
             return False
         except Exception as e:
             storage_error = f"Failed to delete from Google Cloud Storage: {e}"
             raise StorageError(storage_error) from e
+        else:
+            return True
 
     async def get_download_url(
         self,
@@ -781,12 +833,11 @@ class GCSStorageService:
         blob = self.bucket.blob(blob_name)
 
         try:
-            signed_url = await asyncio.to_thread(
+            return await asyncio.to_thread(
                 blob.generate_signed_url,
                 expiration=timedelta(seconds=expiry_seconds),
                 method="GET",
             )
-            return signed_url
         except Exception as e:
             storage_error = f"Failed to generate GCS signed URL: {e}"
             raise StorageError(storage_error) from e

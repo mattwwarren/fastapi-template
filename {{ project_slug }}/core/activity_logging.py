@@ -148,7 +148,7 @@ async def log_activity(
                         "transaction_mode": "fire_and_forget",
                     },
                 )
-    except Exception:  # noqa: BLE001
+    except Exception:  # Bare except justified: catch ALL errors to never fail primary
         # Best-effort logging: never interrupt primary operation.
         # Use bare except to catch all exceptions including database errors,
         # validation errors, and unexpected failures. Log error for debugging

@@ -29,7 +29,9 @@ class TestDocumentUpload:
         assert "updated_at" in doc
 
     @pytest.mark.asyncio
-    async def test_upload_document_with_binary_data(self, client: AsyncClient) -> None:
+    async def test_upload_document_with_binary_data(
+        self, client: AsyncClient
+    ) -> None:
         """Upload a binary file (e.g., image)."""
         # Create fake binary image data
         file_content = bytes(range(256))  # 256 bytes of binary data
@@ -169,7 +171,9 @@ class TestDocumentValidation:
             assert response.json()["filename"] == filename
 
     @pytest.mark.asyncio
-    async def test_content_type_preservation(self, client: AsyncClient) -> None:
+    async def test_content_type_preservation(
+        self, client: AsyncClient
+    ) -> None:
         """Verify content type is preserved through upload/download."""
         content_types = [
             "text/plain",
@@ -181,13 +185,22 @@ class TestDocumentValidation:
 
         for content_type in content_types:
             file_content = b"Test content"
-            files = {"file": (f"test.{content_type.split('/')[-1]}", BytesIO(file_content), content_type)}
+            ext = content_type.split("/")[-1]
+            files = {
+                "file": (
+                    f"test.{ext}",
+                    BytesIO(file_content),
+                    content_type,
+                )
+            }
             upload_response = await client.post("/documents", files=files)
             assert upload_response.status_code == HTTPStatus.CREATED
 
             doc_id = upload_response.json()["id"]
             download_response = await client.get(f"/documents/{doc_id}")
-            assert download_response.headers["content-type"] == content_type
+            assert (
+                download_response.headers["content-type"] == content_type
+            )
 
     @pytest.mark.asyncio
     async def test_file_size_tracking(self, client: AsyncClient) -> None:

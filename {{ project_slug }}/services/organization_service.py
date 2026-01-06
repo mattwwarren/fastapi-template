@@ -25,7 +25,11 @@ from {{ project_slug }}.core.metrics import (
     organizations_created_total,
 )
 from {{ project_slug }}.models.membership import Membership
-from {{ project_slug }}.models.organization import Organization, OrganizationCreate, OrganizationUpdate
+from {{ project_slug }}.models.organization import (
+    Organization,
+    OrganizationCreate,
+    OrganizationUpdate,
+)
 from {{ project_slug }}.models.user import User
 
 LOGGER = logging.getLogger(__name__)
@@ -41,21 +45,26 @@ async def get_organization(
     Args:
         session: Database session
         organization_id: UUID of organization to retrieve
-        user_id: Optional user ID to verify membership (recommended for tenant isolation)
+        user_id: Optional user ID to verify membership
+                (recommended for tenant isolation)
 
     Returns:
-        Organization if found (and user has access if user_id provided), None otherwise
+        Organization if found (and user has access if user_id provided),
+        None otherwise
 
     Security Note:
-        When user_id is provided, this verifies the user is a member of the organization.
-        This prevents users from accessing organizations they don't belong to.
+        When user_id is provided, this verifies the user is a member of the
+        organization. This prevents users from accessing organizations they
+        don't belong to.
     """
     start = time.perf_counter()
     stmt = select(Organization).where(col(Organization.id) == organization_id)
 
     # If user_id provided, verify membership for tenant isolation
     if user_id:
-        stmt = stmt.join(Membership, col(Membership.organization_id) == col(Organization.id))
+        stmt = stmt.join(
+            Membership, col(Membership.organization_id) == col(Organization.id)
+        )
         stmt = stmt.where(col(Membership.user_id) == user_id)
 
     result = await session.execute(stmt)
@@ -65,7 +74,10 @@ async def get_organization(
 
 
 async def list_organizations(
-    session: AsyncSession, offset: int = 0, limit: int = 100, user_id: UUID | None = None
+    session: AsyncSession,
+    offset: int = 0,
+    limit: int = 100,
+    user_id: UUID | None = None,
 ) -> list[Organization]:
     """List organizations with pagination.
 
@@ -75,27 +87,34 @@ async def list_organizations(
         session: Database session
         offset: Pagination offset
         limit: Maximum number of results
-        user_id: Optional user ID to filter to only organizations user is member of
+        user_id: Optional user ID to filter to only organizations user
+                is member of
 
     Returns:
-        List of organizations (filtered by user membership if user_id provided)
+        List of organizations (filtered by user membership if user_id
+        provided)
 
     Security Note:
-        When user_id is provided, only returns organizations the user is a member of.
-        This is critical for tenant isolation - users should only see their own orgs.
+        When user_id is provided, only returns organizations the user is a
+        member of. This is critical for tenant isolation - users should only
+        see their own orgs.
     """
     start = time.perf_counter()
     stmt = select(Organization)
 
     # Filter by user membership for tenant isolation
     if user_id:
-        stmt = stmt.join(Membership, col(Membership.organization_id) == col(Organization.id))
+        stmt = stmt.join(
+            Membership, col(Membership.organization_id) == col(Organization.id)
+        )
         stmt = stmt.where(col(Membership.user_id) == user_id)
 
     stmt = stmt.offset(offset).limit(limit)
     result = await session.execute(stmt)
     duration = time.perf_counter() - start
-    database_query_duration_seconds.labels(query_type="select").observe(duration)
+    database_query_duration_seconds.labels(query_type="select").observe(
+        duration
+    )
     return list(result.scalars().all())
 
 
@@ -160,14 +179,16 @@ async def delete_organization(
 ) -> None:
     """Delete an organization.
 
-    Decrements active_memberships_gauge by the count of memberships associated
-    with this organization before deletion.
+    Decrements active_memberships_gauge by the count of memberships
+    associated with this organization before deletion.
 
     Security Note:
         Caller MUST verify user has permission to delete this organization.
         Typically this means:
-        - User is a member of the organization (verified by get_organization with user_id)
-        - User has admin/owner role (role check not implemented in this template)
+        - User is a member of the organization
+          (verified by get_organization with user_id)
+        - User has admin/owner role
+          (role check not implemented in this template)
 
         Deletion will CASCADE to:
         - Memberships (users lose access)
@@ -176,7 +197,9 @@ async def delete_organization(
     """
     # Count memberships for this organization before deletion
     membership_count_result = await session.execute(
-        select(Membership).where(col(Membership.organization_id) == organization.id)
+        select(Membership).where(
+            col(Membership.organization_id) == organization.id
+        )
     )
     membership_count = len(list(membership_count_result.scalars().all()))
 

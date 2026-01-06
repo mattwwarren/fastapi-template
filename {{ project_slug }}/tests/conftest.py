@@ -26,21 +26,29 @@ from {{ project_slug }}.db import session as db_session
 from {{ project_slug }}.db.session import get_session
 from {{ project_slug }}.main import app
 
+# Port constants
+POSTGRES_PORT = 5432
+SOCKET_TIMEOUT_SECONDS = 1
+DOCKER_TIMEOUT_SECONDS = 30.0
+DOCKER_PAUSE_SECONDS = 0.5
+
 
 @pytest.fixture(scope="session")
-def database_url(docker_ip: str, docker_services: Any) -> str:
-    port = docker_services.port_for("postgres", 5432)
+def database_url(docker_ip: str, docker_services: object) -> str:
+    port = docker_services.port_for("postgres", POSTGRES_PORT)  # type: ignore[attr-defined]
 
     def is_responsive() -> bool:
         try:
-            socket.create_connection((docker_ip, port), timeout=1).close()
+            socket.create_connection(
+                (docker_ip, port), timeout=SOCKET_TIMEOUT_SECONDS
+            ).close()
         except OSError:
             return False
         return True
 
-    docker_services.wait_until_responsive(
-        timeout=30.0,
-        pause=0.5,
+    docker_services.wait_until_responsive(  # type: ignore[attr-defined]
+        timeout=DOCKER_TIMEOUT_SECONDS,
+        pause=DOCKER_PAUSE_SECONDS,
         check=is_responsive,
     )
     url = f"postgresql+asyncpg://app:app@{docker_ip}:{port}/app_test"
