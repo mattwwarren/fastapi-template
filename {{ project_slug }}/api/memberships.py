@@ -30,10 +30,16 @@ async def create_membership_endpoint(
 ) -> MembershipRead:
     user = await get_user(session, payload.user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User does not exist")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User does not exist",
+        )
     organization = await get_organization(session, payload.organization_id)
     if not organization:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Organization does not exist")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Organization does not exist",
+        )
     membership = await create_membership(session, payload)
     return MembershipRead.model_validate(membership)
 
@@ -58,5 +64,8 @@ async def delete_membership_endpoint(
 ) -> None:
     membership = await get_membership(session, membership_id)
     if not membership:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Membership not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Membership not found",
+        )
     await delete_membership(session, membership)

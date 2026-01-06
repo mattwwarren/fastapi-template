@@ -39,7 +39,7 @@ from {{ project_slug }}.core.metrics import (
     database_query_duration_seconds,
     document_upload_size_bytes,
 )
-from {{ project_slug }}.core.storage import StorageError, StorageProvider, get_storage_service
+from {{ project_slug }}.core.storage import StorageError, StorageProvider, StorageService, get_storage_service
 from {{ project_slug }}.core.tenants import TenantDep, add_tenant_filter
 from {{ project_slug }}.db.session import SessionDep
 from {{ project_slug }}.models.document import Document, DocumentRead
@@ -47,7 +47,7 @@ from {{ project_slug }}.models.document import Document, DocumentRead
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 # Dependency to get storage service (allows for testing/mocking)
-StorageServiceDep = Annotated[object, Depends(get_storage_service)]
+StorageServiceDep = Annotated[StorageService, Depends(get_storage_service)]
 
 
 def iter_file_chunks(data: bytes, chunk_size: int = 8192) -> Iterator[bytes]:

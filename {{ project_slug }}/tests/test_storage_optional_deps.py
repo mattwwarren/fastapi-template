@@ -13,6 +13,7 @@ Cloud provider tests use mocking to avoid requiring actual packages.
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -28,7 +29,7 @@ from {{ project_slug }}.core.storage import (
 class TestLocalStorageProvider:
     """Test local filesystem storage provider (always available)."""
 
-    def test_local_storage_instantiation(self, test_settings_factory: type[Settings]) -> None:
+    def test_local_storage_instantiation(self, test_settings_factory: Callable[..., Settings]) -> None:
         """Local storage should instantiate without additional dependencies."""
         settings = test_settings_factory(storage_provider=StorageProvider.LOCAL)
         with patch("{{ project_slug }}.core.storage.settings", settings):
@@ -40,7 +41,7 @@ class TestLocalStorageProvider:
             assert hasattr(storage, "delete")
 
     def test_local_storage_with_custom_path(
-        self, test_settings_factory: type[Settings]
+        self, test_settings_factory: Callable[..., Settings]
     ) -> None:
         """Local storage should accept custom path configuration."""
         custom_path = "/custom/storage/path"
@@ -59,7 +60,7 @@ class TestAzureStorageProvider:
     """Test Azure Blob Storage provider with optional dependency handling."""
 
     def test_azure_storage_missing_dependency(
-        self, test_settings_factory: type[Settings]
+        self, test_settings_factory: Callable[..., Settings]
     ) -> None:
         """Should raise helpful error when azure-storage-blob is not installed."""
         settings = test_settings_factory(
@@ -80,7 +81,7 @@ class TestAzureStorageProvider:
                     get_storage_service()
 
     def test_azure_storage_missing_configuration(
-        self, test_settings_factory: type[Settings]
+        self, test_settings_factory: Callable[..., Settings]
     ) -> None:
         """Should raise error when Azure configuration is incomplete."""
         # Missing connection string
@@ -95,7 +96,7 @@ class TestAzureStorageProvider:
                 get_storage_service()
 
     def test_azure_storage_missing_container(
-        self, test_settings_factory: type[Settings]
+        self, test_settings_factory: Callable[..., Settings]
     ) -> None:
         """Should raise error when container name is missing."""
         settings = test_settings_factory(
@@ -113,7 +114,7 @@ class TestAWSS3StorageProvider:
     """Test AWS S3 provider with optional dependency handling."""
 
     def test_s3_storage_missing_dependency(
-        self, test_settings_factory: type[Settings]
+        self, test_settings_factory: Callable[..., Settings]
     ) -> None:
         """Should raise helpful error when aioboto3 is not installed."""
         settings = test_settings_factory(
@@ -133,7 +134,7 @@ class TestAWSS3StorageProvider:
                     get_storage_service()
 
     def test_s3_storage_missing_bucket(
-        self, test_settings_factory: type[Settings]
+        self, test_settings_factory: Callable[..., Settings]
     ) -> None:
         """Should raise error when S3 bucket name is missing."""
         settings = test_settings_factory(
@@ -147,7 +148,7 @@ class TestAWSS3StorageProvider:
                 get_storage_service()
 
     def test_s3_storage_missing_region(
-        self, test_settings_factory: type[Settings]
+        self, test_settings_factory: Callable[..., Settings]
     ) -> None:
         """Should raise error when AWS region is missing."""
         settings = test_settings_factory(
@@ -165,7 +166,7 @@ class TestGCSStorageProvider:
     """Test Google Cloud Storage provider with optional dependency handling."""
 
     def test_gcs_storage_missing_dependency(
-        self, test_settings_factory: type[Settings]
+        self, test_settings_factory: Callable[..., Settings]
     ) -> None:
         """Should raise helpful error when google-cloud-storage is not installed."""
         settings = test_settings_factory(
@@ -185,7 +186,7 @@ class TestGCSStorageProvider:
                     get_storage_service()
 
     def test_gcs_storage_missing_bucket(
-        self, test_settings_factory: type[Settings]
+        self, test_settings_factory: Callable[..., Settings]
     ) -> None:
         """Should raise error when GCS bucket name is missing."""
         settings = test_settings_factory(
@@ -199,7 +200,7 @@ class TestGCSStorageProvider:
                 get_storage_service()
 
     def test_gcs_storage_missing_project_id(
-        self, test_settings_factory: type[Settings]
+        self, test_settings_factory: Callable[..., Settings]
     ) -> None:
         """Should raise error when GCS project ID is missing."""
         settings = test_settings_factory(
@@ -217,7 +218,7 @@ class TestStorageProviderFactory:
     """Test factory function behavior with different configurations."""
 
     def test_factory_invalid_provider(
-        self, test_settings_factory: type[Settings]
+        self, test_settings_factory: Callable[..., Settings]
     ) -> None:
         """Should raise error for unrecognized provider."""
         settings = test_settings_factory(storage_provider="invalid_provider")  # type: ignore[arg-type]
@@ -227,7 +228,7 @@ class TestStorageProviderFactory:
                 get_storage_service()
 
     def test_factory_returns_correct_provider_local(
-        self, test_settings_factory: type[Settings]
+        self, test_settings_factory: Callable[..., Settings]
     ) -> None:
         """Factory should return local storage service for LOCAL provider."""
         settings = test_settings_factory(storage_provider=StorageProvider.LOCAL)
@@ -239,7 +240,7 @@ class TestStorageProviderFactory:
             assert hasattr(storage, "base_path")
 
     def test_error_messages_include_installation_instructions(
-        self, test_settings_factory: type[Settings]
+        self, test_settings_factory: Callable[..., Settings]
     ) -> None:
         """Error messages should include pip install instructions."""
         settings = test_settings_factory(

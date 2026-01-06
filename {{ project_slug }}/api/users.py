@@ -81,7 +81,10 @@ async def get_user_endpoint(
 ) -> UserRead:
     user = await get_user(session, user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
     organizations = await list_organizations_for_user(session, user_id)
     response = UserRead.model_validate(user)
     response.organizations = [
@@ -99,7 +102,10 @@ async def update_user_endpoint(
 ) -> UserRead:
     user = await get_user(session, user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
     updated = await update_user(session, user, payload)
     organizations = await list_organizations_for_user(session, user_id)
     response = UserRead.model_validate(updated)
@@ -119,5 +125,8 @@ async def delete_user_endpoint(
 ) -> None:
     user = await get_user(session, user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
     await delete_user(session, user)

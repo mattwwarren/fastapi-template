@@ -29,15 +29,18 @@ Usage:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID
 
 import pytest
 
+from {{ project_slug }}.core.config import Settings
+
 
 @pytest.fixture
-def mock_s3_storage(test_settings_factory: type) -> MagicMock:
+def mock_s3_storage(test_settings_factory: Callable[..., Settings]) -> MagicMock:
     """Mock AWS S3 storage provider.
 
     Fixtures provides:
@@ -111,7 +114,7 @@ def mock_s3_storage(test_settings_factory: type) -> MagicMock:
 
 
 @pytest.fixture
-def mock_azure_storage(test_settings_factory: type) -> MagicMock:
+def mock_azure_storage(test_settings_factory: Callable[..., Settings]) -> MagicMock:
     """Mock Azure Blob Storage provider.
 
     Provides:
@@ -182,7 +185,7 @@ def mock_azure_storage(test_settings_factory: type) -> MagicMock:
 
 
 @pytest.fixture
-def mock_gcs_storage(test_settings_factory: type) -> MagicMock:
+def mock_gcs_storage(test_settings_factory: Callable[..., Settings]) -> MagicMock:
     """Mock Google Cloud Storage provider.
 
     Provides:

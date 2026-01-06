@@ -71,7 +71,10 @@ async def get_org(
 ) -> OrganizationRead:
     organization = await get_organization(session, organization_id)
     if not organization:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found",
+        )
     users = await list_users_for_organization(session, organization_id)
     response = OrganizationRead.model_validate(organization)
     response.users = [UserInfo.model_validate(user) for user in users]
@@ -87,7 +90,10 @@ async def update_org(
 ) -> OrganizationRead:
     organization = await get_organization(session, organization_id)
     if not organization:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found",
+        )
     updated = await update_organization(session, organization, payload)
     users = await list_users_for_organization(session, organization_id)
     response = OrganizationRead.model_validate(updated)
@@ -105,5 +111,8 @@ async def delete_org(
 ) -> None:
     organization = await get_organization(session, organization_id)
     if not organization:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found",
+        )
     await delete_organization(session, organization)

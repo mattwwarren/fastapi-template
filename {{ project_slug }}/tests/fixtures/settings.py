@@ -15,6 +15,7 @@ allowing tests to run in parallel without interference.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 from uuid import uuid4
 
@@ -24,7 +25,7 @@ from {{ project_slug }}.core.config import Settings
 
 
 @pytest.fixture
-def test_settings_factory() -> type[Settings]:
+def test_settings_factory() -> Callable[..., Settings]:
     """Factory for creating isolated Settings instances.
 
     Returns a callable that creates fresh Settings with custom overrides.
@@ -56,7 +57,7 @@ def test_settings_factory() -> type[Settings]:
 
 
 @pytest.fixture
-def test_settings(test_settings_factory: type[Settings]) -> Settings:
+def test_settings(test_settings_factory: Callable[..., Settings]) -> Settings:
     """Fresh Settings instance for testing.
 
     Creates an isolated Settings instance using default test configuration.
@@ -74,7 +75,7 @@ def test_settings(test_settings_factory: type[Settings]) -> Settings:
 
 
 @pytest.fixture
-def test_settings_with_auth(test_settings_factory: type[Settings]) -> Settings:
+def test_settings_with_auth(test_settings_factory: Callable[..., Settings]) -> Settings:
     """Settings configured for authentication testing.
 
     Pre-configures settings with a test auth provider setup.
@@ -95,7 +96,7 @@ def test_settings_with_auth(test_settings_factory: type[Settings]) -> Settings:
 
 
 @pytest.fixture
-def test_settings_with_storage(test_settings_factory: type[Settings]) -> Settings:
+def test_settings_with_storage(test_settings_factory: Callable[..., Settings]) -> Settings:
     """Settings configured for cloud storage testing.
 
     Pre-configures settings with Azure Blob Storage for testing.
@@ -112,7 +113,7 @@ def test_settings_with_storage(test_settings_factory: type[Settings]) -> Setting
 
 @pytest.fixture
 def test_settings_with_activity_logging_disabled(
-    test_settings_factory: type[Settings],
+    test_settings_factory: Callable[..., Settings],
 ) -> Settings:
     """Settings with activity logging disabled.
 

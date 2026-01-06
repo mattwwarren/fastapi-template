@@ -292,7 +292,7 @@ def log_activity_decorator(
         """
 
         @wraps(func)
-        async def wrapper(*args: object, **kwargs: object) -> object:
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             """Execute endpoint and log activity on success.
 
             Args:
@@ -303,7 +303,7 @@ def log_activity_decorator(
                 Result from wrapped endpoint function
             """
             # Extract session dependency from kwargs
-            session = kwargs.get("session") if isinstance(kwargs, dict) else None
+            session = kwargs.get("session")
 
             # Execute endpoint function
             result = await func(*args, **kwargs)
@@ -321,8 +321,7 @@ def log_activity_decorator(
             # Fallback: extract from path parameter if response didn't have ID
             # (for DELETE endpoints returning 204 No Content)
             if resource_id is None and resource_id_param_name is not None:
-                if isinstance(kwargs, dict) and resource_id_param_name in kwargs:
-                    resource_id = kwargs[resource_id_param_name]
+                resource_id = kwargs.get(resource_id_param_name)
 
             # Log activity (best-effort, doesn't fail request)
             if session is not None:
