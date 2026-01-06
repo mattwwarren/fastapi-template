@@ -32,6 +32,9 @@ SOCKET_TIMEOUT_SECONDS = 1
 DOCKER_TIMEOUT_SECONDS = 30.0
 DOCKER_PAUSE_SECONDS = 0.5
 
+# HTTP status codes
+HTTP_201_CREATED = 201
+
 
 @pytest.fixture(scope="session")
 def database_url(docker_ip: str, docker_services: object) -> str:
@@ -68,7 +71,7 @@ def alembic_config(database_url: str) -> Config:
 
 
 @pytest.fixture(scope="session")
-def alembic_engine(database_url: str) -> Generator[Engine, None, None]:
+def alembic_engine(database_url: str) -> Generator[Engine]:
     url = make_url(database_url)
     if url.drivername.endswith("asyncpg"):
         url = url.set(drivername=url.drivername.replace("asyncpg", "psycopg"))
@@ -126,7 +129,7 @@ async def engine(
     database_url: str,
     alembic_config: Config,
     alembic_engine: Engine,
-) -> AsyncGenerator[AsyncEngine, None]:
+) -> AsyncGenerator[AsyncEngine]:
     await asyncio.to_thread(run_migrations, alembic_config, alembic_engine)
     old_engine = db_session.engine
     engine = create_async_engine(database_url, poolclass=NullPool)
@@ -144,7 +147,7 @@ async def engine(
 
 
 @pytest.fixture
-def session_maker(engine) -> async_sessionmaker[AsyncSession]:
+def session_maker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
     return async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
@@ -158,8 +161,8 @@ async def reset_db(
 @pytest.fixture
 async def client(
     session_maker: async_sessionmaker[AsyncSession],
-) -> AsyncGenerator[AsyncClient, None]:
-    async def get_session_override():
+) -> AsyncGenerator[AsyncClient]:
+    async def get_session_override() -> AsyncGenerator[AsyncSession]:
         async with session_maker() as session:
             yield session
 
@@ -180,7 +183,7 @@ async def test_user(client: AsyncClient) -> dict[str, Any]:
             "email": "testuser@example.com",
         },
     )
-    assert response.status_code == 201
+    assert response.status_code == HTTP_201_CREATED
     return response.json()
 
 
@@ -191,7 +194,7 @@ async def test_organization(client: AsyncClient) -> dict[str, Any]:
         "/organizations",
         json={"name": "Test Organization"},
     )
-    assert response.status_code == 201
+    assert response.status_code == HTTP_201_CREATED
     return response.json()
 
 
@@ -207,7 +210,7 @@ async def multiple_users(client: AsyncClient) -> list[dict[str, Any]]:
                 "email": f"user{i}@example.com",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTP_201_CREATED
         users.append(response.json())
     return users
 
@@ -227,7 +230,7 @@ async def user_with_org(
             "organization_id": test_organization["id"],
         },
     )
-    assert membership_response.status_code == 201
+    assert membership_response.status_code == HTTP_201_CREATED
 
     # Return user and org
     return test_user, test_organization

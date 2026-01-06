@@ -1,4 +1,4 @@
-"""Comprehensive membership endpoint tests covering CRUD, constraints, cascade delete, and error handling."""
+"""Membership endpoint tests for CRUD, constraints, cascade delete, and errors."""
 
 from http import HTTPStatus
 

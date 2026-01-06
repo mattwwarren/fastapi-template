@@ -26,8 +26,8 @@ def test_model_definitions_match_ddl(alembic_runner: MigrationContext) -> None:
     has_changes = False
 
     def check_revision(
-        context: AlembicMigrationContext,
-        revision: str,
+        _context: AlembicMigrationContext,
+        _revision: str,
         directives: Sequence[object],
     ) -> None:
         nonlocal has_changes

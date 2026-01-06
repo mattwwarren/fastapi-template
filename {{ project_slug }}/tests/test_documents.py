@@ -1,4 +1,4 @@
-"""Comprehensive document endpoint tests covering upload, download, validation, and size limits."""
+"""Comprehensive document endpoint tests for upload, download, validation, limits."""
 
 from http import HTTPStatus
 from io import BytesIO
@@ -7,6 +7,10 @@ import pytest
 from httpx import AsyncClient
 
 from {{ project_slug }}.core.config import settings
+
+# Test file sizes
+TEST_BINARY_FILE_SIZE = 256  # bytes - size of test binary data (0-255)
+TEST_LARGE_FILE_SIZE = 10000  # bytes - 10KB for streaming tests
 
 
 class TestDocumentUpload:
@@ -42,7 +46,7 @@ class TestDocumentUpload:
         doc = response.json()
         assert doc["filename"] == "image.png"
         assert doc["content_type"] == "image/png"
-        assert doc["file_size"] == 256
+        assert doc["file_size"] == TEST_BINARY_FILE_SIZE
 
     @pytest.mark.asyncio
     async def test_upload_document_no_filename(self, client: AsyncClient) -> None:
@@ -108,15 +112,18 @@ class TestDocumentDownload:
         assert download_response.status_code == HTTPStatus.OK
         assert download_response.content == file_content
         assert download_response.headers["content-type"] == "text/plain"
-        assert "attachment" in download_response.headers.get("content-disposition", "")
-        assert "download.txt" in download_response.headers.get("content-disposition", "")
+        content_disposition = download_response.headers.get("content-disposition", "")
+        assert "attachment" in content_disposition
+        assert "download.txt" in content_disposition
 
     @pytest.mark.asyncio
     async def test_download_binary_document(self, client: AsyncClient) -> None:
         """Download a binary document and verify content."""
         # Upload binary document
         file_content = bytes(range(256))
-        files = {"file": ("binary.bin", BytesIO(file_content), "application/octet-stream")}
+        files = {
+            "file": ("binary.bin", BytesIO(file_content), "application/octet-stream")
+        }
         upload_response = await client.post("/documents", files=files)
         doc_id = upload_response.json()["id"]
 
@@ -136,7 +143,7 @@ class TestDocumentDownload:
     async def test_download_streaming_response(self, client: AsyncClient) -> None:
         """Verify document is returned as streaming response."""
         # Upload larger document to test streaming
-        file_content = b"x" * 10000  # 10KB
+        file_content = b"x" * TEST_LARGE_FILE_SIZE  # 10KB
         files = {"file": ("stream.txt", BytesIO(file_content), "text/plain")}
         upload_response = await client.post("/documents", files=files)
         doc_id = upload_response.json()["id"]
@@ -144,7 +151,7 @@ class TestDocumentDownload:
         # Download document (should stream)
         download_response = await client.get(f"/documents/{doc_id}")
         assert download_response.status_code == HTTPStatus.OK
-        assert len(download_response.content) == 10000
+        assert len(download_response.content) == TEST_LARGE_FILE_SIZE
 
 
 class TestDocumentValidation:

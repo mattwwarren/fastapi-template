@@ -389,7 +389,7 @@ class AzureBlobStorageService:
         except AzureResourceNotFoundError:
             return False
         except Exception as e:
-            storage_error = f"Failed to delete from Azure Blob Storage: {e}"
+            storage_error = f"Failed to delete from Azure Blob Storage: {e}"  # noqa: S608
             raise StorageError(storage_error) from e
         else:
             return True
@@ -607,7 +607,7 @@ class S3StorageService:
                 # To check existence, we'd need a head_object call first
                 return True
         except Exception as e:
-            storage_error = f"Failed to delete from AWS S3: {e}"
+            storage_error = f"Failed to delete from AWS S3: {e}"  # noqa: S608
             raise StorageError(storage_error) from e
 
     async def get_download_url(
@@ -805,7 +805,7 @@ class GCSStorageService:
         except NotFound:
             return False
         except Exception as e:
-            storage_error = f"Failed to delete from Google Cloud Storage: {e}"
+            storage_error = f"Failed to delete from Google Cloud Storage: {e}"  # noqa: S608
             raise StorageError(storage_error) from e
         else:
             return True

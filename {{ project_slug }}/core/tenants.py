@@ -59,6 +59,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
+from {{ project_slug }}.core.auth import CurrentUser
 from {{ project_slug }}.core.config import settings
 from {{ project_slug }}.db.session import async_session_maker
 from {{ project_slug }}.models.membership import Membership
@@ -172,7 +173,6 @@ def _extract_org_id_from_path(request: Request) -> tuple[UUID | None, Response |
         org_id_str = request.path_params["org_id"]
         organization_id = UUID(org_id_str)
         LOGGER.debug("Extracted tenant from path parameter: %s", str(organization_id))
-        return organization_id, None
     except (ValueError, TypeError) as err:
         invalid_org_msg = "Invalid organization ID format in path"
         LOGGER.warning("Invalid org_id in path: %s", str(err))
@@ -181,6 +181,8 @@ def _extract_org_id_from_path(request: Request) -> tuple[UUID | None, Response |
             content={"detail": invalid_org_msg},
         )
         return None, error_response
+    else:
+        return organization_id, None
 
 
 def _extract_org_id_from_query(request: Request) -> tuple[UUID | None, Response | None]:
@@ -201,7 +203,6 @@ def _extract_org_id_from_query(request: Request) -> tuple[UUID | None, Response 
     try:
         organization_id = UUID(org_id_query)
         LOGGER.debug("Extracted tenant from query param: %s", str(organization_id))
-        return organization_id, None
     except (ValueError, TypeError) as err:
         invalid_org_msg = "Invalid organization ID format in query"
         LOGGER.warning("Invalid org_id in query: %s", str(err))
@@ -210,6 +211,72 @@ def _extract_org_id_from_query(request: Request) -> tuple[UUID | None, Response 
             content={"detail": invalid_org_msg},
         )
         return None, error_response
+    else:
+        return organization_id, None
+
+
+async def _validate_tenant_context(
+    request: Request,
+    current_user: CurrentUser,
+) -> tuple[TenantContext | None, Response | None]:
+    """Validate and extract tenant context for request.
+
+    Returns (tenant_context, error_response) tuple:
+    - On success: (TenantContext, None)
+    - On failure: (None, JSONResponse with 401/403)
+    """
+    # Extract organization_id from multiple sources with priority order
+    organization_id = _extract_org_id_from_jwt(current_user)
+
+    if not organization_id:
+        organization_id, error_response = _extract_org_id_from_path(request)
+        if error_response:
+            return None, error_response
+
+    if not organization_id:
+        organization_id, error_response = _extract_org_id_from_query(request)
+        if error_response:
+            return None, error_response
+
+    # Fail closed if no organization_id found
+    if not organization_id:
+        no_org_msg = "Organization context required but not provided"
+        LOGGER.warning("Tenant isolation check failed: no organization_id found")
+        return None, JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"detail": no_org_msg},
+        )
+
+    # Validate user has access to this organization
+    async with async_session_maker() as session:
+        has_access = await _validate_user_org_access(
+            session, current_user.id, organization_id
+        )
+
+    if not has_access:
+        access_denied_msg = "User does not have access to this organization"
+        LOGGER.warning(
+            "Tenant isolation check failed: user %s attempted access to org %s",
+            str(current_user.id),
+            str(organization_id),
+        )
+        return None, JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"detail": access_denied_msg},
+        )
+
+    tenant_context = TenantContext(
+        organization_id=organization_id,
+        user_id=current_user.id,
+    )
+    LOGGER.debug(
+        "Tenant isolation validated",
+        extra={
+            "user_id": str(current_user.id),
+            "organization_id": str(organization_id),
+        },
+    )
+    return tenant_context, None
 
 
 class TenantIsolationMiddleware(BaseHTTPMiddleware):
@@ -275,61 +342,14 @@ class TenantIsolationMiddleware(BaseHTTPMiddleware):
                 content={"detail": missing_auth_msg},
             )
 
-        # Extract organization_id from multiple sources with priority order
-        organization_id = _extract_org_id_from_jwt(current_user)
-
-        if not organization_id:
-            organization_id, error_response = _extract_org_id_from_path(request)
-            if error_response:
-                return error_response
-
-        if not organization_id:
-            organization_id, error_response = _extract_org_id_from_query(request)
-            if error_response:
-                return error_response
-
-        # Fail closed if no organization_id found
-        if not organization_id:
-            no_org_msg = "Organization context required but not provided"
-            LOGGER.warning("Tenant isolation check failed: no organization_id found")
-            return JSONResponse(
-                status_code=status.HTTP_403_FORBIDDEN,
-                content={"detail": no_org_msg},
-            )
-
-        # Validate user has access to this organization
-        # This prevents users from accessing other orgs by manipulating requests
-        async with async_session_maker() as session:
-            has_access = await _validate_user_org_access(
-                session, current_user.id, organization_id
-            )
-
-        if not has_access:
-            access_denied_msg = "User does not have access to this organization"
-            LOGGER.warning(
-                "Tenant isolation check failed: user %s attempted access to org %s",
-                str(current_user.id),
-                str(organization_id),
-            )
-            return JSONResponse(
-                status_code=status.HTTP_403_FORBIDDEN,
-                content={"detail": access_denied_msg},
-            )
+        tenant_context, error_response = await _validate_tenant_context(
+            request, current_user
+        )
+        if error_response:
+            return error_response
 
         # Set tenant context for downstream use
-        request.state.tenant = TenantContext(
-            organization_id=organization_id,
-            user_id=current_user.id,
-        )
-
-        LOGGER.debug(
-            "Tenant isolation validated",
-            extra={
-                "user_id": str(current_user.id),
-                "organization_id": str(organization_id),
-            },
-        )
-
+        request.state.tenant = tenant_context
         return await call_next(request)
 
 
