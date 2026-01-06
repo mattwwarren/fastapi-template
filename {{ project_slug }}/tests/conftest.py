@@ -4,6 +4,7 @@ import asyncio
 import os
 import socket
 from collections.abc import AsyncGenerator, Generator
+from http import HTTPStatus
 from typing import Any
 
 import pytest
@@ -26,18 +27,39 @@ from {{ project_slug }}.db import session as db_session
 from {{ project_slug }}.db.session import get_session
 from {{ project_slug }}.main import app
 
+# Import settings fixtures for test isolation and pytest-xdist compatibility
+# noqa: F401 - Fixtures imported for pytest auto-discovery
+from {{ project_slug }}.tests.fixtures.settings import (  # noqa: F401
+    test_settings,
+    test_settings_factory,
+    test_settings_with_activity_logging_disabled,
+    test_settings_with_auth,
+    test_settings_with_storage,
+)
+
 # Port constants
 POSTGRES_PORT = 5432
 SOCKET_TIMEOUT_SECONDS = 1
 DOCKER_TIMEOUT_SECONDS = 30.0
 DOCKER_PAUSE_SECONDS = 0.5
 
-# HTTP status codes
-HTTP_201_CREATED = 201
-
 
 @pytest.fixture(scope="session")
 def database_url(docker_ip: str, docker_services: object) -> str:
+    """Get database URL from docker container without mutating global settings.
+
+    Sets DATABASE_URL environment variable for Alembic migrations (which run in
+    subprocess), but does NOT mutate the global settings singleton to preserve
+    pytest-xdist compatibility. Individual test sessions create fresh Settings
+    instances via test_settings fixture.
+
+    Args:
+        docker_ip: Docker host IP from docker_services
+        docker_services: pytest-docker services fixture
+
+    Returns:
+        Database URL for test Postgres instance
+    """
     port = docker_services.port_for("postgres", POSTGRES_PORT)  # type: ignore[attr-defined]
 
     def is_responsive() -> bool:
@@ -56,7 +78,6 @@ def database_url(docker_ip: str, docker_services: object) -> str:
     )
     url = f"postgresql+asyncpg://app:app@{docker_ip}:{port}/app_test"
     os.environ["DATABASE_URL"] = url
-    settings.database_url = url
     return url
 
 
@@ -183,7 +204,7 @@ async def test_user(client: AsyncClient) -> dict[str, Any]:
             "email": "testuser@example.com",
         },
     )
-    assert response.status_code == HTTP_201_CREATED
+    assert response.status_code == HTTPStatus.CREATED
     return response.json()
 
 
@@ -194,7 +215,7 @@ async def test_organization(client: AsyncClient) -> dict[str, Any]:
         "/organizations",
         json={"name": "Test Organization"},
     )
-    assert response.status_code == HTTP_201_CREATED
+    assert response.status_code == HTTPStatus.CREATED
     return response.json()
 
 
@@ -210,7 +231,7 @@ async def multiple_users(client: AsyncClient) -> list[dict[str, Any]]:
                 "email": f"user{i}@example.com",
             },
         )
-        assert response.status_code == HTTP_201_CREATED
+        assert response.status_code == HTTPStatus.CREATED
         users.append(response.json())
     return users
 
@@ -230,7 +251,7 @@ async def user_with_org(
             "organization_id": test_organization["id"],
         },
     )
-    assert membership_response.status_code == HTTP_201_CREATED
+    assert membership_response.status_code == HTTPStatus.CREATED
 
     # Return user and org
     return test_user, test_organization

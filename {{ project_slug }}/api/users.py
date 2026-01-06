@@ -44,10 +44,9 @@ async def create_user_endpoint(
     user = await create_user(session, payload)
 
     # Send welcome email in background (non-blocking, fire-and-forget)
-    if user.id is not None:
-        # RUF006: Store task reference. Task lifecycle is managed by event loop;
-        # variable prevents premature garbage collection in CPython.
-        asyncio.create_task(send_welcome_email_task(user.id, user.email))  # noqa: RUF006
+    # RUF006: Store task reference. Task lifecycle is managed by event loop;
+    # variable prevents premature garbage collection in CPython.
+    asyncio.create_task(send_welcome_email_task(user.id, user.email))  # noqa: RUF006
 
     response = UserRead.model_validate(user)
     response.organizations = []
@@ -61,12 +60,10 @@ async def list_users_endpoint(
 ) -> Page[UserRead]:
     page = await apaginate(session, select(User).order_by(User.created_at), params)
     users = page.items
-    user_ids = [user.id for user in users if user.id is not None]
+    user_ids = [user.id for user in users]
     organizations_by_user = await list_organizations_for_users(session, user_ids)
     responses: list[UserRead] = []
     for user in users:
-        if user.id is None:
-            raise HTTPException(status_code=500, detail="User id missing")
         response = UserRead.model_validate(user)
         response.organizations = [
             OrganizationInfo.model_validate(org)
@@ -84,9 +81,7 @@ async def get_user_endpoint(
 ) -> UserRead:
     user = await get_user(session, user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    if user.id is None:
-        raise HTTPException(status_code=500, detail="User id missing")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     organizations = await list_organizations_for_user(session, user_id)
     response = UserRead.model_validate(user)
     response.organizations = [
@@ -104,7 +99,7 @@ async def update_user_endpoint(
 ) -> UserRead:
     user = await get_user(session, user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     updated = await update_user(session, user, payload)
     organizations = await list_organizations_for_user(session, user_id)
     response = UserRead.model_validate(updated)
@@ -115,12 +110,14 @@ async def update_user_endpoint(
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-@log_activity_decorator(ActivityAction.DELETE, "user")
+@log_activity_decorator(
+    ActivityAction.DELETE, "user", resource_id_param_name="user_id"
+)
 async def delete_user_endpoint(
     user_id: UUID,
     session: SessionDep,
 ) -> None:
     user = await get_user(session, user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     await delete_user(session, user)

@@ -30,10 +30,10 @@ async def create_membership_endpoint(
 ) -> MembershipRead:
     user = await get_user(session, payload.user_id)
     if not user:
-        raise HTTPException(status_code=400, detail="User does not exist")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User does not exist")
     organization = await get_organization(session, payload.organization_id)
     if not organization:
-        raise HTTPException(status_code=400, detail="Organization does not exist")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Organization does not exist")
     membership = await create_membership(session, payload)
     return MembershipRead.model_validate(membership)
 
@@ -49,12 +49,14 @@ async def list_memberships_endpoint(
 
 
 @router.delete("/{membership_id}", status_code=status.HTTP_204_NO_CONTENT)
-@log_activity_decorator(ActivityAction.DELETE, "membership")
+@log_activity_decorator(
+    ActivityAction.DELETE, "membership", resource_id_param_name="membership_id"
+)
 async def delete_membership_endpoint(
     membership_id: UUID,
     session: SessionDep,
 ) -> None:
     membership = await get_membership(session, membership_id)
     if not membership:
-        raise HTTPException(status_code=404, detail="Membership not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Membership not found")
     await delete_membership(session, membership)

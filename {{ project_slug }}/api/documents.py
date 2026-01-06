@@ -264,7 +264,9 @@ async def download_document(
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
-@log_activity_decorator(ActivityAction.DELETE, "document")
+@log_activity_decorator(
+    ActivityAction.DELETE, "document", resource_id_param_name="document_id"
+)
 async def delete_document(
     document_id: UUID,
     session: SessionDep,

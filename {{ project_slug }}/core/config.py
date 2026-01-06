@@ -1,5 +1,7 @@
 """Runtime configuration sourced from environment variables."""
 
+from __future__ import annotations
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -61,11 +63,12 @@ class Settings(BaseSettings):
         alias="JWT_PUBLIC_KEY",
         description="Public key for JWT validation (PEM format) or path to key file",
     )
-    cors_allowed_origins: list[str] = Field(
-        default=["http://localhost:3000"],
+    _cors_allowed_origins_raw: str | list[str] = Field(
+        default="http://localhost:3000",
         alias="CORS_ALLOWED_ORIGINS",
-        description="List of allowed CORS origins (comma-separated)",
+        description="List of allowed CORS origins (comma-separated string or list)",
     )
+    _cors_allowed_origins_cache: list[str] | None = None
     enforce_tenant_isolation: bool = Field(
         default=True,
         alias="ENFORCE_TENANT_ISOLATION",
@@ -139,32 +142,44 @@ class Settings(BaseSettings):
         description="Google Cloud project ID",
     )
 
-    @staticmethod
-    def parse_comma_separated(value: str | list[str]) -> list[str]:
-        """Parse comma-separated string into list of strings.
+    @property
+    def cors_allowed_origins(self) -> list[str]:
+        """Get parsed list of allowed CORS origins.
 
-        Handles both comma-separated strings from environment variables
-        and lists that may already be parsed.
+        Parses comma-separated string from environment variable into list.
+        Results are cached to avoid re-parsing on every access.
+
+        Returns:
+            List of allowed CORS origins (e.g., ["http://localhost:3000"])
 
         Examples:
-            "http://localhost:3000,http://localhost:3001" -> ["http://localhost:3000", "http://localhost:3001"]
-            ["http://localhost:3000"] -> ["http://localhost:3000"]
-        """
-        if isinstance(value, str):
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
-        return value
+            # From comma-separated string
+            Settings(CORS_ALLOWED_ORIGINS="http://localhost:3000,http://localhost:3001")
+            .cors_allowed_origins
+            # ["http://localhost:3000", "http://localhost:3001"]
 
-    def model_post_init(self, __context: object) -> None:
-        """Process fields after model initialization.
-
-        Parses comma-separated environment variables into lists.
-        This runs after Pydantic validates the initial values.
+            # From list
+            Settings(CORS_ALLOWED_ORIGINS=["http://localhost:3000"])
+            .cors_allowed_origins
+            # ["http://localhost:3000"]
         """
-        # Parse CORS_ALLOWED_ORIGINS if it came in as comma-separated string
-        if isinstance(self.cors_allowed_origins, str):
-            self.cors_allowed_origins = self.parse_comma_separated(
-                self.cors_allowed_origins
-            )
+        # Return cached value if available
+        if self._cors_allowed_origins_cache is not None:
+            return self._cors_allowed_origins_cache
+
+        # Parse raw value (either string or list)
+        if isinstance(self._cors_allowed_origins_raw, str):
+            parsed = [
+                origin.strip()
+                for origin in self._cors_allowed_origins_raw.split(",")
+                if origin.strip()
+            ]
+        else:
+            parsed = self._cors_allowed_origins_raw
+
+        # Cache the result
+        self._cors_allowed_origins_cache = parsed
+        return parsed
 
 
 settings = Settings()

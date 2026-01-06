@@ -218,12 +218,24 @@ def _extract_org_id_from_query(request: Request) -> tuple[UUID | None, Response 
 async def _validate_tenant_context(
     request: Request,
     current_user: CurrentUser,
+    session: AsyncSession | None = None,
 ) -> tuple[TenantContext | None, Response | None]:
     """Validate and extract tenant context for request.
 
-    Returns (tenant_context, error_response) tuple:
-    - On success: (TenantContext, None)
-    - On failure: (None, JSONResponse with 401/403)
+    Validates that the authenticated user has access to the requested organization.
+    If session is not provided, creates a temporary session for validation.
+
+    Args:
+        request: FastAPI Request object
+        current_user: Authenticated user from auth middleware
+        session: Optional AsyncSession to reuse (avoids creating new connection).
+            If None, creates a temporary session for validation. Useful when called
+            from endpoints that already have a session to avoid extra connections.
+
+    Returns:
+        Tuple of (tenant_context, error_response):
+        - On success: (TenantContext, None)
+        - On failure: (None, JSONResponse with 401/403)
     """
     # Extract organization_id from multiple sources with priority order
     organization_id = _extract_org_id_from_jwt(current_user)
@@ -248,10 +260,18 @@ async def _validate_tenant_context(
         )
 
     # Validate user has access to this organization
-    async with async_session_maker() as session:
+    # Reuse provided session if available, otherwise create temporary one
+    if session is not None:
+        # Session provided - use it directly without creating new connection
         has_access = await _validate_user_org_access(
             session, current_user.id, organization_id
         )
+    else:
+        # No session provided - create temporary one for validation
+        async with async_session_maker() as temp_session:
+            has_access = await _validate_user_org_access(
+                temp_session, current_user.id, organization_id
+            )
 
     if not has_access:
         access_denied_msg = "User does not have access to this organization"

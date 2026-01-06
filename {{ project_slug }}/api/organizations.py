@@ -50,12 +50,10 @@ async def list_orgs(
         session, select(Organization).order_by(Organization.created_at), params
     )
     organizations = page.items
-    organization_ids = [org.id for org in organizations if org.id is not None]
+    organization_ids = [org.id for org in organizations]
     users_by_org = await list_users_for_organizations(session, organization_ids)
     items: list[OrganizationRead] = []
     for organization in organizations:
-        if organization.id is None:
-            raise HTTPException(status_code=500, detail="Organization id missing")
         response = OrganizationRead.model_validate(organization)
         response.users = [
             UserInfo.model_validate(user)
@@ -73,9 +71,7 @@ async def get_org(
 ) -> OrganizationRead:
     organization = await get_organization(session, organization_id)
     if not organization:
-        raise HTTPException(status_code=404, detail="Organization not found")
-    if organization.id is None:
-        raise HTTPException(status_code=500, detail="Organization id missing")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
     users = await list_users_for_organization(session, organization_id)
     response = OrganizationRead.model_validate(organization)
     response.users = [UserInfo.model_validate(user) for user in users]
@@ -91,9 +87,7 @@ async def update_org(
 ) -> OrganizationRead:
     organization = await get_organization(session, organization_id)
     if not organization:
-        raise HTTPException(status_code=404, detail="Organization not found")
-    if organization.id is None:
-        raise HTTPException(status_code=500, detail="Organization id missing")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
     updated = await update_organization(session, organization, payload)
     users = await list_users_for_organization(session, organization_id)
     response = OrganizationRead.model_validate(updated)
@@ -102,12 +96,14 @@ async def update_org(
 
 
 @router.delete("/{organization_id}", status_code=status.HTTP_204_NO_CONTENT)
-@log_activity_decorator(ActivityAction.DELETE, "organization")
+@log_activity_decorator(
+    ActivityAction.DELETE, "organization", resource_id_param_name="organization_id"
+)
 async def delete_org(
     organization_id: UUID,
     session: SessionDep,
 ) -> None:
     organization = await get_organization(session, organization_id)
     if not organization:
-        raise HTTPException(status_code=404, detail="Organization not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
     await delete_organization(session, organization)

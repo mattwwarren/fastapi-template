@@ -148,11 +148,35 @@ async def log_activity(
                         "transaction_mode": "fire_and_forget",
                     },
                 )
-    except Exception:  # Bare except justified: catch ALL errors to never fail primary
-        # Best-effort logging: never interrupt primary operation.
-        # Use bare except to catch all exceptions including database errors,
-        # validation errors, and unexpected failures. Log error for debugging
-        # but do not propagate to caller.
+    except Exception:  # noqa: BLE001 - Bare except is intentional, see below
+        """Best-Effort Exception Handling
+
+        Rationale for Bare Exception Clause:
+        =====================================
+        Activity logging is a best-effort service. If logging fails for ANY reason,
+        we MUST NOT interrupt the primary operation. This requires catching all
+        possible exceptions:
+
+        1. Database Errors: Connection failures, deadlocks, constraint violations
+        2. Validation Errors: Invalid ActivityLog data, serialization failures
+        3. Async Errors: Task cancellation, event loop issues
+        4. Unexpected Errors: Any exception we didn't anticipate
+
+        Using bare `except Exception:` (not `except BaseException:`) ensures we:
+        - Catch all application errors (safe to suppress)
+        - Still respect KeyboardInterrupt and SystemExit (allow graceful shutdown)
+        - Log the error for debugging without failing the user request
+
+        Alternative approaches rejected:
+        - Catching specific exceptions: Would miss unexpected errors
+        - Re-raising: Would break the primary operation
+        - Silent ignoring: Would hide logging bugs in production
+
+        This pattern is appropriate for background/fire-and-forget operations where
+        the side effect (activity log) is less critical than the primary operation
+        (user request handling).
+        """
+        # Log error without propagating to caller
         context = get_logging_context()
         LOGGER.exception(
             "activity_logging_failed",
@@ -166,12 +190,15 @@ async def log_activity(
 
 
 def log_activity_decorator(
-    action: ActivityAction, resource_type: str
+    action: ActivityAction,
+    resource_type: str,
+    resource_id_param_name: str | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to automatically log API endpoint activity.
 
     Wraps an endpoint to record activity after successful execution.
-    Handles response model inspection to extract resource IDs automatically.
+    Handles response model inspection to extract resource IDs automatically,
+    with fallback to path parameters for endpoints that return no response body.
 
     Transaction Model:
         The decorator extracts the session from endpoint kwargs and passes it to
@@ -188,12 +215,17 @@ def log_activity_decorator(
         action: ActivityAction enum for the audit log
         resource_type: String identifier for resource type (e.g., "user",
             "organization")
+        resource_id_param_name: Optional name of the path parameter containing
+            the resource ID (e.g., "user_id", "organization_id"). Used when
+            response body doesn't contain an ID field (e.g., DELETE endpoints
+            returning 204 No Content). If provided, decorator will extract the
+            resource ID from kwargs using this parameter name as a fallback.
 
     Returns:
         Decorator function for API endpoints
 
     Examples:
-        Basic usage with CREATE action:
+        CREATE action with automatic ID extraction from response:
             >>> @router.post("", response_model=UserRead, status_code=201)
             ... @log_activity_decorator(ActivityAction.CREATE, "user")
             ... async def create_user_endpoint(
@@ -204,9 +236,25 @@ def log_activity_decorator(
             ...     session.add(user)
             ...     await session.commit()
             ...     # Activity log committed atomically with user creation
+            ...     # resource_id extracted from response.id
             ...     return user
 
-        UPDATE action with explicit resource_id:
+        DELETE action with resource_id from path parameter:
+            >>> @router.delete("/{user_id}", status_code=204)
+            ... @log_activity_decorator(
+            ...     ActivityAction.DELETE, "user",
+            ...     resource_id_param_name="user_id"
+            ... )
+            ... async def delete_user_endpoint(
+            ...     user_id: UUID,
+            ...     session: SessionDep,
+            ... ) -> None:
+            ...     user = await get_user(session, user_id)
+            ...     await delete_user(session, user)
+            ...     # Activity log committed atomically with user deletion
+            ...     # resource_id extracted from path parameter user_id
+
+        UPDATE action (automatic extraction from response):
             >>> @router.patch("/{user_id}", response_model=UserRead)
             ... @log_activity_decorator(ActivityAction.UPDATE, "user")
             ... async def update_user_endpoint(
@@ -223,6 +271,7 @@ def log_activity_decorator(
     Security Notes:
         - Never log passwords, tokens, API keys, or other secrets
         - The decorator extracts only the 'id' field from response objects
+        - Only path parameter IDs are extracted (not user input from body/query)
         - Additional details should be logged explicitly via log_activity() if needed
         - Sanitize user input before including in activity log details
 
@@ -259,13 +308,21 @@ def log_activity_decorator(
             # Execute endpoint function
             result = await func(*args, **kwargs)
 
-            # Extract resource_id if present in result
+            # Extract resource_id from response or path parameter
             resource_id: UUID | None = None
+
+            # First, try to extract from response body (for CREATE/READ/UPDATE)
             if result is not None:
                 if hasattr(result, "id"):
                     resource_id = getattr(result, "id", None)
                 elif isinstance(result, dict) and "id" in result:
                     resource_id = result["id"]
+
+            # Fallback: extract from path parameter if response didn't have ID
+            # (for DELETE endpoints returning 204 No Content)
+            if resource_id is None and resource_id_param_name is not None:
+                if isinstance(kwargs, dict) and resource_id_param_name in kwargs:
+                    resource_id = kwargs[resource_id_param_name]
 
             # Log activity (best-effort, doesn't fail request)
             if session is not None:
