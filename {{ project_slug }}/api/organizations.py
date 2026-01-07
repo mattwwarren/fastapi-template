@@ -60,7 +60,7 @@ async def list_orgs(
             for user in users_by_org.get(organization.id, [])
         ]
         items.append(response)
-    return create_page(items, total=page.total, params=params)
+    return create_page(items, total=page.total, params=params)  # type: ignore[return-value]
 
 
 @router.get("/{organization_id}", response_model=OrganizationRead)

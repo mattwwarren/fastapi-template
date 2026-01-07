@@ -17,7 +17,7 @@ MAX_NAME_LENGTH = 100
 
 
 class UserBase(SQLModel):
-    email: EmailStr = Field(description="User email address", examples=["user@example.com"])
+    email: EmailStr = Field(description="User email address")
     name: str = Field(min_length=1, description="User full name")
 
 

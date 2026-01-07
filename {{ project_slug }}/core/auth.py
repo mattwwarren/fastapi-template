@@ -209,7 +209,7 @@ async def _verify_token_remote_ory(token: str) -> dict[str, Any] | None:
 
             if response.status_code != SUCCESSFUL_HTTP_STATUS:
                 context = get_logging_context()
-                context["status_code"] = response.status_code
+                context["status_code"] = str(response.status_code)
                 LOGGER.info(
                     "ory_introspection_failed",
                     extra=context,
@@ -276,7 +276,7 @@ async def _verify_token_remote_auth0(token: str) -> dict[str, Any] | None:
 
             if response.status_code != SUCCESSFUL_HTTP_STATUS:
                 context = get_logging_context()
-                context["status_code"] = response.status_code
+                context["status_code"] = str(response.status_code)
                 LOGGER.info(
                     "auth0_userinfo_failed",
                     extra=context,
@@ -339,7 +339,7 @@ async def _verify_token_remote_keycloak(token: str) -> dict[str, Any] | None:
 
             if response.status_code != SUCCESSFUL_HTTP_STATUS:
                 context = get_logging_context()
-                context["status_code"] = response.status_code
+                context["status_code"] = str(response.status_code)
                 LOGGER.info(
                     "keycloak_introspection_failed",
                     extra=context,
@@ -439,7 +439,9 @@ async def verify_token(token: str) -> dict[str, Any] | None:
         AuthProviderType.KEYCLOAK: _verify_token_remote_keycloak,
         AuthProviderType.COGNITO: _verify_token_remote_cognito,
     }
-    validator = provider_validators.get(settings.auth_provider_type)
+    validator = provider_validators.get(
+        AuthProviderType(settings.auth_provider_type)  # type: ignore[arg-type]
+    )
     if validator:
         return await validator(token)
 

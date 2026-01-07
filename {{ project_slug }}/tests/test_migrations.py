@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from alembic.operations import MigrationContext as AlembicMigrationContext
+from alembic.runtime.migration import MigrationContext as AlembicMigrationContext
 from pytest_alembic.runner import MigrationContext
 
 # Constants for migration testing
@@ -34,9 +34,9 @@ def test_model_definitions_match_ddl(alembic_runner: MigrationContext) -> None:
         script = directives[FIRST_DIRECTIVE_INDEX]
         has_changes = not script.upgrade_ops.is_empty()  # type: ignore[attr-defined]
 
-    alembic_runner.config.alembic_config.attributes[
-        "process_revision_directives"
-    ] = check_revision
+    alembic_config = alembic_runner.config.alembic_config
+    assert alembic_config is not None
+    alembic_config.attributes["process_revision_directives"] = check_revision
     alembic_runner.generate_revision(autogenerate=True)
     assert (
         not has_changes

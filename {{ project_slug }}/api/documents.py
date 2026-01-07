@@ -135,9 +135,10 @@ async def upload_document(
     )
 
     session.add(document)
-    await session.flush()  # Get document.id without committing
+    await session.flush()  # type: ignore[attr-defined]  # Get document.id without committing
 
     # Upload to object storage with organization_id for tenant isolation
+    assert document.id is not None, "Document ID should be set after flush"
     try:
         storage_url = await storage_service.upload(
             document_id=document.id,

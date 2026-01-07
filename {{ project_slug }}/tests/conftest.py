@@ -108,7 +108,7 @@ def run_migrations(config: Config, engine: Engine) -> None:
             command.upgrade(config, "head")
         finally:
             config.attributes.pop("connection", None)
-        connection.commit()  # type: ignore[attr-defined]
+        connection.commit()
 
 
 async def truncate_tables(
