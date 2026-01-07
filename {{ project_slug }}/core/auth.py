@@ -440,7 +440,7 @@ async def verify_token(token: str) -> dict[str, Any] | None:
         AuthProviderType.COGNITO: _verify_token_remote_cognito,
     }
     validator = provider_validators.get(
-        AuthProviderType(settings.auth_provider_type)  # type: ignore[arg-type]
+        AuthProviderType(settings.auth_provider_type)
     )
     if validator:
         return await validator(token)
