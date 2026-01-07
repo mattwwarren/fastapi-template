@@ -39,7 +39,12 @@ from {{ project_slug }}.core.metrics import (
     database_query_duration_seconds,
     document_upload_size_bytes,
 )
-from {{ project_slug }}.core.storage import StorageError, StorageProvider, StorageService, get_storage_service
+from {{ project_slug }}.core.storage import (
+    StorageError,
+    StorageProvider,
+    StorageService,
+    get_storage_service,
+)
 from {{ project_slug }}.core.tenants import TenantDep, add_tenant_filter
 from {{ project_slug }}.db.session import SessionDep
 from {{ project_slug }}.models.document import Document, DocumentRead
@@ -137,8 +142,12 @@ async def upload_document(
     session.add(document)
     await session.flush()  # type: ignore[attr-defined]  # Get document.id without committing
 
+    # After flush, UUID should be assigned by database
+    if document.id is None:
+        document_id_error_msg = "Document ID not assigned after flush"
+        raise RuntimeError(document_id_error_msg)
+
     # Upload to object storage with organization_id for tenant isolation
-    assert document.id is not None, "Document ID should be set after flush"
     try:
         storage_url = await storage_service.upload(
             document_id=document.id,

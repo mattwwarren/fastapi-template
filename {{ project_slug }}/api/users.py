@@ -46,8 +46,8 @@ async def create_user_endpoint(
     # Send welcome email in background (non-blocking, fire-and-forget)
     # RUF006: Store task reference. Task lifecycle is managed by event loop;
     # variable prevents premature garbage collection in CPython.
-    assert user.id is not None, "User ID should be set after creation"
-    asyncio.create_task(send_welcome_email_task(user.id, user.email))  # noqa: RUF006
+    if user.id is not None:
+        asyncio.create_task(send_welcome_email_task(user.id, user.email))  # noqa: RUF006
 
     response = UserRead.model_validate(user)
     response.organizations = []
