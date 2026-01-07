@@ -6,7 +6,7 @@ Track all instances of the fastapi-template for coordinated updates, maintenance
 
 | Project | Location | Last Updated | Template Commit | Status | Notes |
 |---------|----------|--------------|-----------------|--------|-------|
-| test-instance | `~/workspace/meta-work/fastapi-template-test-instance` | 2026-01-07 | HEAD | ✅ Up-to-date | Persistent test instance for template verification |
+| test-instance | `$HOME/workspace/meta-work/fastapi-template-test-instance` | 2026-01-07 | HEAD | ✅ Up-to-date | Persistent test instance for template verification |
 
 ## Adding New Instance
 
@@ -15,7 +15,7 @@ When you create a new project from this template:
 ### 1. Generate from Template
 
 ```bash
-copier copy ~/workspace/meta-work/fastapi-template /path/to/new-project \
+copier copy $HOME/workspace/meta-work/fastapi-template /path/to/new-project \
   --data "project_name=My Project" \
   --trust
 ```

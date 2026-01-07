@@ -40,7 +40,7 @@ main() {
 	# Validate arguments
 	if [[ $# -ne 1 ]]; then
 		_error "Usage: $0 <instance-path>"
-		echo "Example: $0 ~/workspace/meta-work/fastapi-template-test-instance"
+		echo "Example: $0 $HOME/workspace/meta-work/fastapi-template-test-instance"
 		return 1
 	fi
 

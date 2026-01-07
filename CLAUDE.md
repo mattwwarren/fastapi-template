@@ -187,7 +187,7 @@ Only lint/test the generated output, not the template source.
 
 ## Test Instance Workflow
 
-**Persistent test instance**: `~/workspace/meta-work/fastapi-template-test-instance/`
+**Persistent test instance**: `$HOME/workspace/meta-work/fastapi-template-test-instance/`
 
 ### Quick Commands
 

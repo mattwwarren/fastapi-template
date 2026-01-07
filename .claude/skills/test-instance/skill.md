@@ -35,7 +35,7 @@ Manages the persistent test instance for FastAPI template verification and devel
 
 ## Test Instance Location
 
-`~/workspace/meta-work/fastapi-template-test-instance/`
+`$HOME/workspace/meta-work/fastapi-template-test-instance/`
 
 ## Key Features
 
@@ -50,7 +50,7 @@ Manages the persistent test instance for FastAPI template verification and devel
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT="~/workspace/meta-work/fastapi-template/scripts/manage-test-instance.sh"
+SCRIPT="$HOME/workspace/meta-work/fastapi-template/scripts/manage-test-instance.sh"
 COMMAND="${1:-help}"
 
 exec "$SCRIPT" "$COMMAND"

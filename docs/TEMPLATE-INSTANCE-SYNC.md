@@ -72,7 +72,7 @@ Both the template's fix and your customization are preserved!
 Copier stores metadata about the instance:
 
 ```yaml
-_src_path: ~/workspace/meta-work/fastapi-template
+_src_path: $HOME/workspace/meta-work/fastapi-template
 _commit: abc123def456  # Last template commit that was applied
 project_name: FastAPI Template Test
 project_slug: fastapi_template_test
@@ -98,7 +98,7 @@ Always test in the persistent test instance first:
 
 ```bash
 # Modify template source
-cd ~/workspace/meta-work/fastapi-template
+cd $HOME/workspace/meta-work/fastapi-template
 vim "{{ project_slug }}/services/user_service.py"
 
 # Commit template change
