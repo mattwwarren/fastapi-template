@@ -40,7 +40,9 @@ from {{ project_slug }}.core.config import Settings
 
 
 @pytest.fixture
-def mock_s3_storage(test_settings_factory: Callable[..., Settings]) -> Generator[dict[str, Any], None, None]:
+def mock_s3_storage(
+    _test_settings_factory: Callable[..., Settings],
+) -> Generator[dict[str, Any]]:
     """Mock AWS S3 storage provider.
 
     Fixtures provides:
@@ -67,10 +69,14 @@ def mock_s3_storage(test_settings_factory: Callable[..., Settings]) -> Generator
     }
 
     async def mock_upload(
-        document_id: UUID, file_data: bytes, content_type: str, organization_id: UUID | None = None
+        document_id: UUID,
+        file_data: bytes,
+        content_type: str,
+        organization_id: UUID | None = None,
     ) -> str:
+        msg = storage_data["failure_reason"] or "S3 error"
         if storage_data["should_fail"]:
-            raise Exception(storage_data["failure_reason"] or "S3 error")
+            raise RuntimeError(msg)
         storage_data["uploaded_files"].append({
             "document_id": str(document_id),
             "size": len(file_data),
@@ -80,27 +86,35 @@ def mock_s3_storage(test_settings_factory: Callable[..., Settings]) -> Generator
         return f"s3://test-bucket/{document_id}"
 
     async def mock_download(
-        document_id: UUID, organization_id: UUID | None = None
+        document_id: UUID, _organization_id: UUID | None = None
     ) -> bytes | None:
+        msg = storage_data["failure_reason"] or "S3 error"
         if storage_data["should_fail"]:
-            raise Exception(storage_data["failure_reason"] or "S3 error")
+            raise RuntimeError(msg)
         storage_data["downloaded_files"].append(str(document_id))
         return b"mock file content"
 
     async def mock_delete(
-        document_id: UUID, organization_id: UUID | None = None
+        document_id: UUID, _organization_id: UUID | None = None
     ) -> bool:
+        msg = storage_data["failure_reason"] or "S3 error"
         if storage_data["should_fail"]:
-            raise Exception(storage_data["failure_reason"] or "S3 error")
+            raise RuntimeError(msg)
         storage_data["deleted_files"].append(str(document_id))
         return True
 
     async def mock_get_download_url(
-        document_id: UUID, organization_id: UUID | None = None, expiry_seconds: int = 3600
+        document_id: UUID,
+        _organization_id: UUID | None = None,
+        expiry_seconds: int = 3600,
     ) -> str:
+        msg = storage_data["failure_reason"] or "S3 error"
         if storage_data["should_fail"]:
-            raise Exception(storage_data["failure_reason"] or "S3 error")
-        return f"https://test-bucket.s3.amazonaws.com/{document_id}?expires={expiry_seconds}"
+            raise RuntimeError(msg)
+        return (
+            f"https://test-bucket.s3.amazonaws.com/{document_id}"
+            f"?expires={expiry_seconds}"
+        )
 
     mock_service = MagicMock()
     mock_service.upload = mock_upload
@@ -114,7 +128,9 @@ def mock_s3_storage(test_settings_factory: Callable[..., Settings]) -> Generator
 
 
 @pytest.fixture
-def mock_azure_storage(test_settings_factory: Callable[..., Settings]) -> Generator[dict[str, Any], None, None]:
+def mock_azure_storage(
+    _test_settings_factory: Callable[..., Settings],
+) -> Generator[dict[str, Any]]:
     """Mock Azure Blob Storage provider.
 
     Provides:
@@ -139,39 +155,54 @@ def mock_azure_storage(test_settings_factory: Callable[..., Settings]) -> Genera
     }
 
     async def mock_upload(
-        document_id: UUID, file_data: bytes, content_type: str, organization_id: UUID | None = None
+        document_id: UUID,
+        file_data: bytes,
+        content_type: str,
+        organization_id: UUID | None = None,  # noqa: ARG001
     ) -> str:
+        msg = storage_data["failure_reason"] or "Azure error"
         if storage_data["should_fail"]:
-            raise Exception(storage_data["failure_reason"] or "Azure error")
+            raise RuntimeError(msg)
         storage_data["uploaded_files"].append({
             "document_id": str(document_id),
             "size": len(file_data),
             "content_type": content_type,
         })
-        return f"https://teststorage.blob.core.windows.net/test-container/{document_id}"
+        return (
+            "https://teststorage.blob.core.windows.net/"
+            f"test-container/{document_id}"
+        )
 
     async def mock_download(
-        document_id: UUID, organization_id: UUID | None = None
+        document_id: UUID, _organization_id: UUID | None = None
     ) -> bytes | None:
+        msg = storage_data["failure_reason"] or "Azure error"
         if storage_data["should_fail"]:
-            raise Exception(storage_data["failure_reason"] or "Azure error")
+            raise RuntimeError(msg)
         storage_data["downloaded_files"].append(str(document_id))
         return b"mock file content"
 
     async def mock_delete(
-        document_id: UUID, organization_id: UUID | None = None
+        document_id: UUID, _organization_id: UUID | None = None
     ) -> bool:
+        msg = storage_data["failure_reason"] or "Azure error"
         if storage_data["should_fail"]:
-            raise Exception(storage_data["failure_reason"] or "Azure error")
+            raise RuntimeError(msg)
         storage_data["deleted_files"].append(str(document_id))
         return True
 
     async def mock_get_download_url(
-        document_id: UUID, organization_id: UUID | None = None, expiry_seconds: int = 3600
+        document_id: UUID,
+        _organization_id: UUID | None = None,
+        _expiry_seconds: int = 3600,
     ) -> str:
+        msg = storage_data["failure_reason"] or "Azure error"
         if storage_data["should_fail"]:
-            raise Exception(storage_data["failure_reason"] or "Azure error")
-        return f"https://teststorage.blob.core.windows.net/test-container/{document_id}?sv=test"
+            raise RuntimeError(msg)
+        return (
+            "https://teststorage.blob.core.windows.net/"
+            f"test-container/{document_id}?sv=test"
+        )
 
     mock_service = MagicMock()
     mock_service.upload = mock_upload
@@ -185,7 +216,9 @@ def mock_azure_storage(test_settings_factory: Callable[..., Settings]) -> Genera
 
 
 @pytest.fixture
-def mock_gcs_storage(test_settings_factory: Callable[..., Settings]) -> Generator[dict[str, Any], None, None]:
+def mock_gcs_storage(
+    _test_settings_factory: Callable[..., Settings],
+) -> Generator[dict[str, Any]]:
     """Mock Google Cloud Storage provider.
 
     Provides:
@@ -211,10 +244,14 @@ def mock_gcs_storage(test_settings_factory: Callable[..., Settings]) -> Generato
     }
 
     async def mock_upload(
-        document_id: UUID, file_data: bytes, content_type: str, organization_id: UUID | None = None
+        document_id: UUID,
+        file_data: bytes,
+        content_type: str,
+        organization_id: UUID | None = None,  # noqa: ARG001
     ) -> str:
+        msg = storage_data["failure_reason"] or "GCS error"
         if storage_data["should_fail"]:
-            raise Exception(storage_data["failure_reason"] or "GCS error")
+            raise RuntimeError(msg)
         storage_data["uploaded_files"].append({
             "document_id": str(document_id),
             "size": len(file_data),
@@ -223,27 +260,35 @@ def mock_gcs_storage(test_settings_factory: Callable[..., Settings]) -> Generato
         return f"gs://test-bucket/{document_id}"
 
     async def mock_download(
-        document_id: UUID, organization_id: UUID | None = None
+        document_id: UUID, _organization_id: UUID | None = None
     ) -> bytes | None:
+        msg = storage_data["failure_reason"] or "GCS error"
         if storage_data["should_fail"]:
-            raise Exception(storage_data["failure_reason"] or "GCS error")
+            raise RuntimeError(msg)
         storage_data["downloaded_files"].append(str(document_id))
         return b"mock file content"
 
     async def mock_delete(
-        document_id: UUID, organization_id: UUID | None = None
+        document_id: UUID, _organization_id: UUID | None = None
     ) -> bool:
+        msg = storage_data["failure_reason"] or "GCS error"
         if storage_data["should_fail"]:
-            raise Exception(storage_data["failure_reason"] or "GCS error")
+            raise RuntimeError(msg)
         storage_data["deleted_files"].append(str(document_id))
         return True
 
     async def mock_get_download_url(
-        document_id: UUID, organization_id: UUID | None = None, expiry_seconds: int = 3600
+        document_id: UUID,
+        _organization_id: UUID | None = None,
+        expiry_seconds: int = 3600,
     ) -> str:
+        msg = storage_data["failure_reason"] or "GCS error"
         if storage_data["should_fail"]:
-            raise Exception(storage_data["failure_reason"] or "GCS error")
-        return f"https://storage.googleapis.com/test-bucket/{document_id}?expires={expiry_seconds}"
+            raise RuntimeError(msg)
+        return (
+            f"https://storage.googleapis.com/test-bucket/{document_id}"
+            f"?expires={expiry_seconds}"
+        )
 
     mock_service = MagicMock()
     mock_service.upload = mock_upload

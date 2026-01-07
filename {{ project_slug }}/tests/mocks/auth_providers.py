@@ -29,6 +29,7 @@ from __future__ import annotations
 from collections.abc import Callable, Generator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -36,7 +37,9 @@ from {{ project_slug }}.core.config import Settings
 
 
 @pytest.fixture
-def mock_ory_provider(test_settings_factory: Callable[..., Settings]) -> Generator[dict[str, Any], None, None]:
+def mock_ory_provider(
+    _test_settings_factory: Callable[..., Settings],
+) -> Generator[dict[str, Any]]:
     """Mock Ory authentication provider.
 
     Patches Ory endpoint to return valid tokens without network requests.
@@ -48,12 +51,12 @@ def mock_ory_provider(test_settings_factory: Callable[..., Settings]) -> Generat
 
     Usage:
         def test_with_ory(mock_ory_provider, client):
-            headers = {"Authorization": f"Bearer {mock_ory_provider['test_token']}"}
+            headers = {
+                "Authorization": f"Bearer {mock_ory_provider['test_token']}"
+            }
             response = await client.get("/users", headers=headers)
             assert response.status_code == 200
     """
-    from uuid import uuid4
-
     test_user_id = str(uuid4())
     test_token = "ory_test_token_12345"
 
@@ -67,7 +70,11 @@ def mock_ory_provider(test_settings_factory: Callable[..., Settings]) -> Generat
 
     # Mock HTTP client for token introspection
     mock_http = AsyncMock()
-    mock_http.get = AsyncMock(return_value=MagicMock(json=AsyncMock(return_value=mock_response)))
+    mock_http.get = AsyncMock(
+        return_value=MagicMock(
+            json=AsyncMock(return_value=mock_response)
+        )
+    )
 
     fixture_data: dict[str, Any] = {
         "test_token": test_token,
@@ -84,7 +91,9 @@ def mock_ory_provider(test_settings_factory: Callable[..., Settings]) -> Generat
 
 
 @pytest.fixture
-def mock_auth0_provider(test_settings_factory: Callable[..., Settings]) -> Generator[dict[str, Any], None, None]:
+def mock_auth0_provider(
+    _test_settings_factory: Callable[..., Settings],
+) -> Generator[dict[str, Any]]:
     """Mock Auth0 authentication provider.
 
     Patches Auth0 endpoints to return valid tokens without Auth0 credentials.
@@ -101,8 +110,6 @@ def mock_auth0_provider(test_settings_factory: Callable[..., Settings]) -> Gener
             response = await client.get("/users")
             assert response.status_code == 200
     """
-    from uuid import uuid4
-
     test_user_id = str(uuid4())
     test_user_email = "test@auth0.example.com"
     test_token = "auth0_test_token_12345"
@@ -137,7 +144,9 @@ def mock_auth0_provider(test_settings_factory: Callable[..., Settings]) -> Gener
 
 
 @pytest.fixture
-def mock_keycloak_provider(test_settings_factory: Callable[..., Settings]) -> Generator[dict[str, Any], None, None]:
+def mock_keycloak_provider(
+    _test_settings_factory: Callable[..., Settings],
+) -> Generator[dict[str, Any]]:
     """Mock Keycloak authentication provider.
 
     Patches Keycloak endpoints for token validation without Keycloak server.
@@ -154,8 +163,6 @@ def mock_keycloak_provider(test_settings_factory: Callable[..., Settings]) -> Ge
             response = await client.post("/login", json={"...": "..."})
             assert response.status_code == 200
     """
-    from uuid import uuid4
-
     test_user_id = str(uuid4())
     test_realm = "test-realm"
     test_token = "keycloak_test_token_12345"
@@ -166,25 +173,28 @@ def mock_keycloak_provider(test_settings_factory: Callable[..., Settings]) -> Ge
         "expires_in": 3600,
     }
 
+    provider_url = (
+        f"https://test-keycloak.example.com/auth/realms/{test_realm}"
+    )
     fixture_data: dict[str, Any] = {
         "test_token": test_token,
         "test_user_id": test_user_id,
         "test_realm": test_realm,
-        "provider_url": f"https://test-keycloak.example.com/auth/realms/{test_realm}",
+        "provider_url": provider_url,
         "token_endpoint": "/protocol/openid-connect/token",
         "mock_token_response": mock_token_response,
     }
 
     with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
         mock_settings.auth_provider_type = "keycloak"
-        mock_settings.auth_provider_url = (
-            f"https://test-keycloak.example.com/auth/realms/{test_realm}"
-        )
+        mock_settings.auth_provider_url = provider_url
         yield fixture_data
 
 
 @pytest.fixture
-def mock_cognito_provider(test_settings_factory: Callable[..., Settings]) -> Generator[dict[str, Any], None, None]:
+def mock_cognito_provider(
+    _test_settings_factory: Callable[..., Settings],
+) -> Generator[dict[str, Any]]:
     """Mock AWS Cognito authentication provider.
 
     Patches Cognito endpoints for testing without AWS credentials.
@@ -201,25 +211,24 @@ def mock_cognito_provider(test_settings_factory: Callable[..., Settings]) -> Gen
             response = await client.get("/profile")
             assert response.status_code == 200
     """
-    from uuid import uuid4
-
     test_user_id = str(uuid4())
     test_user_pool_id = "us-east-1_abcdef123"
     test_client_id = "1a2b3c4d5e6f7g8h9i0j"
     test_token = "cognito_test_token_12345"
 
+    provider_url = (
+        f"https://cognito-idp.us-east-1.amazonaws.com/{test_user_pool_id}"
+    )
     fixture_data: dict[str, Any] = {
         "test_token": test_token,
         "test_user_id": test_user_id,
         "test_user_pool_id": test_user_pool_id,
         "test_client_id": test_client_id,
-        "provider_url": f"https://cognito-idp.us-east-1.amazonaws.com/{test_user_pool_id}",
+        "provider_url": provider_url,
         "jwks_endpoint": "/.well-known/jwks.json",
     }
 
     with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
         mock_settings.auth_provider_type = "cognito"
-        mock_settings.auth_provider_url = (
-            f"https://cognito-idp.us-east-1.amazonaws.com/{test_user_pool_id}"
-        )
+        mock_settings.auth_provider_url = provider_url
         yield fixture_data

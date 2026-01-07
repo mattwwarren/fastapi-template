@@ -19,7 +19,9 @@ from typing import Any
 from uuid import UUID
 
 
-def validate_uuid_field(value: Any, field_name: str = "id") -> UUID:
+def validate_uuid_field(
+    value: Any, field_name: str = "id"  # noqa: ANN401
+) -> UUID:
     """Validate that a value is a valid UUID string.
 
     Args:
@@ -30,17 +32,21 @@ def validate_uuid_field(value: Any, field_name: str = "id") -> UUID:
         UUID object if valid
 
     Raises:
-        AssertionError: If value is not a valid UUID string
+        TypeError: If value is not a valid UUID string
     """
     if not isinstance(value, str):
-        raise AssertionError(f"{field_name} must be a string, got {type(value)}")
+        msg = f"{field_name} must be a string, got {type(value)}"
+        raise TypeError(msg)
     try:
         return UUID(value)
     except ValueError as e:
-        raise AssertionError(f"{field_name} is not a valid UUID: {value}") from e
+        msg = f"{field_name} is not a valid UUID: {value}"
+        raise AssertionError(msg) from e
 
 
-def validate_datetime_iso_format(value: Any, field_name: str = "timestamp") -> datetime:
+def validate_datetime_iso_format(
+    value: Any, field_name: str = "timestamp"  # noqa: ANN401
+) -> datetime:
     """Validate that a value is a valid ISO 8601 datetime string.
 
     Args:
@@ -51,17 +57,17 @@ def validate_datetime_iso_format(value: Any, field_name: str = "timestamp") -> d
         Parsed datetime object if valid
 
     Raises:
-        AssertionError: If value is not a valid ISO format datetime
+        TypeError: If value is not a valid ISO format datetime
     """
     if not isinstance(value, str):
-        raise AssertionError(f"{field_name} must be a string, got {type(value)}")
+        msg = f"{field_name} must be a string, got {type(value)}"
+        raise TypeError(msg)
     try:
         # Try parsing with timezone first (most common)
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as e:
-        raise AssertionError(
-            f"{field_name} is not valid ISO 8601 format: {value}"
-        ) from e
+        msg = f"{field_name} is not valid ISO 8601 format: {value}"
+        raise AssertionError(msg) from e
 
 
 def validate_pagination_response(
@@ -88,9 +94,10 @@ def validate_pagination_response(
     assert "total" in response_data, "Response must have 'total' field"
     assert isinstance(response_data["items"], list), "'items' must be a list"
     assert isinstance(response_data["total"], int), "'total' must be an integer"
+    item_count = len(response_data["items"])
     assert (
-        min_items <= len(response_data["items"]) <= max_items
-    ), f"Item count {len(response_data['items'])} not in range [{min_items}, {max_items}]"
+        min_items <= item_count <= max_items
+    ), f"Item count {item_count} not in range [{min_items}, {max_items}]"
     assert (
         response_data["total"] >= len(response_data["items"])
     ), "total must be >= items count"

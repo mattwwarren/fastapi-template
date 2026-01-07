@@ -12,10 +12,9 @@ Cloud provider tests use mocking to avoid requiring actual packages.
 
 from __future__ import annotations
 
-import sys
 from collections.abc import Callable
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -29,7 +28,9 @@ from {{ project_slug }}.core.storage import (
 class TestLocalStorageProvider:
     """Test local filesystem storage provider (always available)."""
 
-    def test_local_storage_instantiation(self, test_settings_factory: Callable[..., Settings]) -> None:
+    def test_local_storage_instantiation(
+        self, test_settings_factory: Callable[..., Settings]
+    ) -> None:
         """Local storage should instantiate without additional dependencies."""
         settings = test_settings_factory(storage_provider=StorageProvider.LOCAL)
         with patch("{{ project_slug }}.core.storage.settings", settings):
@@ -70,15 +71,20 @@ class TestAzureStorageProvider:
         )
 
         # Mock ImportError to simulate missing azure-storage-blob
-        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        def mock_import(
+            name: str, *args: Any, **kwargs: Any  # noqa: ANN401
+        ) -> Any:  # noqa: ANN401
             if "AzureBlobStorageService" in str(name):
-                raise ImportError("No module named 'azure.storage.blob'")
+                msg = "No module named 'azure.storage.blob'"
+                raise ImportError(msg)
             return __import__(name, *args, **kwargs)
 
-        with patch("{{ project_slug }}.core.storage.settings", settings):
-            with patch("builtins.__import__", side_effect=mock_import):
-                with pytest.raises(ValueError, match="azure-storage-blob"):
-                    get_storage_service()
+        with (
+            patch("{{ project_slug }}.core.storage.settings", settings),
+            patch("builtins.__import__", side_effect=mock_import),
+            pytest.raises(ValueError, match="azure-storage-blob"),
+        ):
+            get_storage_service()
 
     def test_azure_storage_missing_configuration(
         self, test_settings_factory: Callable[..., Settings]
@@ -91,9 +97,11 @@ class TestAzureStorageProvider:
             storage_azure_connection_string=None,
         )
 
-        with patch("{{ project_slug }}.core.storage.settings", settings):
-            with pytest.raises(ValueError, match="STORAGE_AZURE_CONTAINER"):
-                get_storage_service()
+        with (
+            patch("{{ project_slug }}.core.storage.settings", settings),
+            pytest.raises(ValueError, match="STORAGE_AZURE_CONTAINER"),
+        ):
+            get_storage_service()
 
     def test_azure_storage_missing_container(
         self, test_settings_factory: Callable[..., Settings]
@@ -105,9 +113,11 @@ class TestAzureStorageProvider:
             storage_azure_connection_string="test-connection",
         )
 
-        with patch("{{ project_slug }}.core.storage.settings", settings):
-            with pytest.raises(ValueError, match="STORAGE_AZURE"):
-                get_storage_service()
+        with (
+            patch("{{ project_slug }}.core.storage.settings", settings),
+            pytest.raises(ValueError, match="STORAGE_AZURE"),
+        ):
+            get_storage_service()
 
 
 class TestAWSS3StorageProvider:
@@ -123,15 +133,20 @@ class TestAWSS3StorageProvider:
             storage_aws_region="us-east-1",
         )
 
-        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        def mock_import(
+            name: str, *args: Any, **kwargs: Any  # noqa: ANN401
+        ) -> Any:  # noqa: ANN401
             if "S3StorageService" in str(name):
-                raise ImportError("No module named 'aioboto3'")
+                msg = "No module named 'aioboto3'"
+                raise ImportError(msg)
             return __import__(name, *args, **kwargs)
 
-        with patch("{{ project_slug }}.core.storage.settings", settings):
-            with patch("builtins.__import__", side_effect=mock_import):
-                with pytest.raises(ValueError, match="aioboto3"):
-                    get_storage_service()
+        with (
+            patch("{{ project_slug }}.core.storage.settings", settings),
+            patch("builtins.__import__", side_effect=mock_import),
+            pytest.raises(ValueError, match="aioboto3"),
+        ):
+            get_storage_service()
 
     def test_s3_storage_missing_bucket(
         self, test_settings_factory: Callable[..., Settings]
@@ -143,9 +158,11 @@ class TestAWSS3StorageProvider:
             storage_aws_region="us-east-1",
         )
 
-        with patch("{{ project_slug }}.core.storage.settings", settings):
-            with pytest.raises(ValueError, match="STORAGE_AWS"):
-                get_storage_service()
+        with (
+            patch("{{ project_slug }}.core.storage.settings", settings),
+            pytest.raises(ValueError, match="STORAGE_AWS"),
+        ):
+            get_storage_service()
 
     def test_s3_storage_missing_region(
         self, test_settings_factory: Callable[..., Settings]
@@ -157,9 +174,11 @@ class TestAWSS3StorageProvider:
             storage_aws_region=None,
         )
 
-        with patch("{{ project_slug }}.core.storage.settings", settings):
-            with pytest.raises(ValueError, match="STORAGE_AWS"):
-                get_storage_service()
+        with (
+            patch("{{ project_slug }}.core.storage.settings", settings),
+            pytest.raises(ValueError, match="STORAGE_AWS"),
+        ):
+            get_storage_service()
 
 
 class TestGCSStorageProvider:
@@ -175,15 +194,20 @@ class TestGCSStorageProvider:
             storage_gcs_project_id="test-project",
         )
 
-        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        def mock_import(
+            name: str, *args: Any, **kwargs: Any  # noqa: ANN401
+        ) -> Any:  # noqa: ANN401
             if "GCSStorageService" in str(name):
-                raise ImportError("No module named 'google.cloud.storage'")
+                msg = "No module named 'google.cloud.storage'"
+                raise ImportError(msg)
             return __import__(name, *args, **kwargs)
 
-        with patch("{{ project_slug }}.core.storage.settings", settings):
-            with patch("builtins.__import__", side_effect=mock_import):
-                with pytest.raises(ValueError, match="google-cloud-storage"):
-                    get_storage_service()
+        with (
+            patch("{{ project_slug }}.core.storage.settings", settings),
+            patch("builtins.__import__", side_effect=mock_import),
+            pytest.raises(ValueError, match="google-cloud-storage"),
+        ):
+            get_storage_service()
 
     def test_gcs_storage_missing_bucket(
         self, test_settings_factory: Callable[..., Settings]
@@ -195,9 +219,11 @@ class TestGCSStorageProvider:
             storage_gcs_project_id="test-project",
         )
 
-        with patch("{{ project_slug }}.core.storage.settings", settings):
-            with pytest.raises(ValueError, match="STORAGE_GCS"):
-                get_storage_service()
+        with (
+            patch("{{ project_slug }}.core.storage.settings", settings),
+            pytest.raises(ValueError, match="STORAGE_GCS"),
+        ):
+            get_storage_service()
 
     def test_gcs_storage_missing_project_id(
         self, test_settings_factory: Callable[..., Settings]
@@ -209,9 +235,11 @@ class TestGCSStorageProvider:
             storage_gcs_project_id=None,
         )
 
-        with patch("{{ project_slug }}.core.storage.settings", settings):
-            with pytest.raises(ValueError, match="STORAGE_GCS"):
-                get_storage_service()
+        with (
+            patch("{{ project_slug }}.core.storage.settings", settings),
+            pytest.raises(ValueError, match="STORAGE_GCS"),
+        ):
+            get_storage_service()
 
 
 class TestStorageProviderFactory:
@@ -223,9 +251,11 @@ class TestStorageProviderFactory:
         """Should raise error for unrecognized provider."""
         settings = test_settings_factory(storage_provider="invalid_provider")
 
-        with patch("{{ project_slug }}.core.storage.settings", settings):
-            with pytest.raises(ValueError, match="Unrecognized storage provider"):
-                get_storage_service()
+        with (
+            patch("{{ project_slug }}.core.storage.settings", settings),
+            pytest.raises(ValueError, match="Unrecognized storage provider"),
+        ):
+            get_storage_service()
 
     def test_factory_returns_correct_provider_local(
         self, test_settings_factory: Callable[..., Settings]
@@ -249,18 +279,23 @@ class TestStorageProviderFactory:
             storage_azure_connection_string="string",
         )
 
-        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        def mock_import(
+            name: str, *args: Any, **kwargs: Any  # noqa: ANN401
+        ) -> Any:  # noqa: ANN401
             if "AzureBlobStorageService" in str(name):
-                raise ImportError("No module named 'azure'")
+                msg = "No module named 'azure'"
+                raise ImportError(msg)
             return __import__(name, *args, **kwargs)
 
-        with patch("{{ project_slug }}.core.storage.settings", settings):
-            with patch("builtins.__import__", side_effect=mock_import):
-                with pytest.raises(ValueError) as exc_info:
-                    get_storage_service()
-                # Verify error message includes installation instruction
-                assert "pip install" in str(exc_info.value)
-                assert "[azure]" in str(exc_info.value)
+        with (
+            patch("{{ project_slug }}.core.storage.settings", settings),
+            patch("builtins.__import__", side_effect=mock_import),
+            pytest.raises(ValueError) as exc_info,
+        ):
+            get_storage_service()
+        # Verify error message includes installation instruction
+        assert "pip install" in str(exc_info.value)
+        assert "[azure]" in str(exc_info.value)
 
 
 class TestStorageProviderEnum:

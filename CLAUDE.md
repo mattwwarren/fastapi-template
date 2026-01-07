@@ -101,6 +101,54 @@ See [PYTHON-PATTERNS.md](../PYTHON-PATTERNS.md) for coding standards
 - Permissions: read, write, delete
 ```
 
+## Template Testing Protocol
+
+**Critical prerequisite:** This is a Copier template, not runnable code. Before running any verification tools (ruff, mypy, pytest), you must generate a project from the template using Copier.
+
+### Generation Required Before Testing
+
+Templates themselves cannot be linted or tested directly. You must instantiate them first:
+
+```bash
+# Step 1: Generate project from template
+copier copy /path/to/fastapi-template /path/to/generated-project
+
+# Step 2: Only THEN run verification
+cd /path/to/generated-project
+ruff check .
+mypy .
+pytest
+```
+
+### Agent Guidance
+
+**When working on this template:**
+
+1. **Before modifying template files:** Generate a test instance
+2. **After making changes:** Regenerate to verify template renders correctly
+3. **Before running tools:** Always verify project was generated first
+
+**Agent prompts should include:**
+
+```
+This is a Copier template, not runnable code.
+
+Before running ruff/mypy/pytest:
+1. Run: copier copy <template> <output>
+2. cd into <output>
+3. Then run verification commands on the generated project
+
+Template itself may have {% jinja %} syntax that looks like code but isn't.
+Only lint/test the generated output, not the template source.
+```
+
+### Why This Matters
+
+- Templates contain Jinja2 templating syntax `{% if %} {{ var }}`, not valid Python
+- Verification tools will fail on template syntax
+- Generated projects are valid Python and can be linted/tested
+- Any changes to template files must work when instantiated
+
 ## Key Patterns Enforced
 
 ### Code Quality
