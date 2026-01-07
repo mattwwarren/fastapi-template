@@ -231,9 +231,28 @@ curl http://localhost:8000/users
 
 ---
 
-## Complete Verification Script
+## Complete Verification (Recommended)
 
-Copy and run this for full template validation:
+Use the persistent test instance for faster verification without repeated approvals:
+
+```bash
+# First time setup
+/test-instance generate
+
+# After template changes
+/test-instance sync     # Pull template changes
+/test-instance verify   # Run ruff, mypy, pytest
+```
+
+**Why prefer persistent instance?**
+- Faster (no repeated generation)
+- No user approval needed for verification
+- Git-tracked for copier update
+- Reusable across sessions
+
+### Alternative: One-Off Temporary Verification
+
+For quick testing of one-time variations, the original temporary workflow still works:
 
 ```bash
 #!/bin/bash

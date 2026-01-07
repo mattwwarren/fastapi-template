@@ -185,6 +185,50 @@ Only lint/test the generated output, not the template source.
 - Proper async context manager usage
 - Session lifecycle management
 
+## Test Instance Workflow
+
+**Persistent test instance**: `/home/matthew/workspace/meta-work/fastapi-template-test-instance/`
+
+### Quick Commands
+
+```bash
+# Via skill (recommended)
+/test-instance generate   # Create fresh instance
+/test-instance verify     # Check quality (ruff, mypy, pytest)
+/test-instance sync       # Update from template changes
+
+# Via script (direct)
+./scripts/manage-test-instance.sh generate
+./scripts/manage-test-instance.sh verify
+```
+
+### Workflow: Making Template Changes
+
+1. Modify template source files
+2. Run `/test-instance sync` to pull changes into test instance
+3. Run `/test-instance verify` to check generated code
+4. If passes: commit template changes
+5. If fails: fix template, repeat
+
+### Auto-Approved Commands
+
+Claude Code auto-runs these in test instance without approval:
+- `git status/diff/log/checkout` (read-only + branch switching)
+- `uv run ruff check`
+- `uv run mypy`
+- `uv run pytest`
+- `copier update`
+
+### Why Git in Test Instance?
+
+Copier's `update` mechanism uses git three-way merge to:
+- Track which template version generated the instance
+- Merge template changes with instance customizations
+- Detect conflicts and preserve both sets of changes
+- Enable true bidirectional learning between template and instances
+
+See `docs/TEMPLATE-INSTANCE-SYNC.md` for comprehensive sync strategy.
+
 ## Review Process
 
 ### Quick Review (<5 files)
