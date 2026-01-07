@@ -11,7 +11,11 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import bindparam, create_engine, text
+from sqlalchemy import bindparam, create_engine, select, text
+
+from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -22,6 +26,8 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool
 from sqlmodel import SQLModel
 
+from {{ project_slug }}.core.auth import AuthMiddleware, AuthProviderType, CurrentUser, get_current_user
+from {{ project_slug }}.core.tenants import TenantContext
 from {{ project_slug }}.core.config import settings
 from {{ project_slug }}.db import session as db_session
 from {{ project_slug }}.db.session import get_session
@@ -189,6 +195,31 @@ async def reset_db(
     await truncate_tables(engine, alembic_config, alembic_engine)
 
 
+class TestAuthMiddleware(BaseHTTPMiddleware):
+    """Test middleware that injects a test user and tenant context into all requests."""
+
+    async def dispatch(
+        self, request: Request, call_next: Any
+    ) -> Response:
+        """Inject test user and tenant context into request state."""
+        test_user = CurrentUser(
+            id="00000000-0000-0000-0000-000000000000",
+            email="testuser@example.com",
+            organization_id="00000000-0000-0000-0000-000000000000",
+            is_admin=False,
+        )
+        request.state.user = test_user
+
+        # Also set tenant context for endpoints that require TenantDep
+        request.state.tenant = TenantContext(
+            organization_id=test_user.organization_id,
+            user_id=test_user.id,
+        )
+
+        response = await call_next(request)
+        return response
+
+
 @pytest.fixture
 async def client(
     session_maker: async_sessionmaker[AsyncSession],
@@ -197,10 +228,37 @@ async def client(
         async with session_maker() as session:
             yield session
 
+    # Override session dependency
     app.dependency_overrides[get_session] = get_session_override
+
+    # Remove AuthMiddleware if present and add TestAuthMiddleware that injects test user
+    app.user_middleware = [
+        m for m in app.user_middleware if m.cls != AuthMiddleware
+    ]
+    app.add_middleware(TestAuthMiddleware)
+
+    # Need to rebuild the middleware stack
+    app.middleware_stack = app.build_middleware_stack()
+
+    # Create test organization in database (needed for tests that reference this org_id)
+    from uuid import UUID
+    from {{ project_slug }}.models.organization import Organization
+    test_org_id = UUID("00000000-0000-0000-0000-000000000000")
+    async with session_maker() as session:
+        # Check if organization already exists
+        result = await session.execute(
+            select(Organization).where(Organization.id == test_org_id)
+        )
+        if not result.scalar_one_or_none():
+            # Create test organization with the same ID used in TestAuthMiddleware
+            test_org = Organization(id=test_org_id, name="Test Organization")
+            session.add(test_org)
+            await session.commit()
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
+
     app.dependency_overrides.clear()
 
 
