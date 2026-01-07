@@ -231,6 +231,9 @@ async def client(
     # Override session dependency
     app.dependency_overrides[get_session] = get_session_override
 
+    # Reset middleware stack to allow modifications
+    app.middleware_stack = None
+
     # Remove AuthMiddleware if present and add TestAuthMiddleware that injects test user
     app.user_middleware = [
         m for m in app.user_middleware if m.cls != AuthMiddleware
