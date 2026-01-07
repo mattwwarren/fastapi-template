@@ -68,7 +68,7 @@ max-complexity = 10
 [tool.ruff.lint.per-file-ignores]
 # Security checks are valuable in production code but add noise in tests
 # where we intentionally create insecure test data (hardcoded passwords, etc.)
-"{{ project_slug }}/tests/**" = ["S"]
+"{{ project_slug }}/tests/**" = ["S", "B101"]
 
 [tool.ruff.format]
 quote-style = "double"

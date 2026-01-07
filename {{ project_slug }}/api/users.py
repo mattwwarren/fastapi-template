@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi_pagination import Page, create_page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from {{ project_slug }}.core.activity_logging import ActivityAction, log_activity_decorator
 from {{ project_slug }}.core.background_tasks import send_welcome_email_task
@@ -41,7 +42,15 @@ async def create_user_endpoint(
     The API response is returned immediately without waiting for email delivery.
     Email failures are logged but do not affect user creation.
     """
-    user = await create_user(session, payload)
+    try:
+        user = await create_user(session, payload)
+    except IntegrityError as e:
+        if "app_user_email_key" in str(e) or "unique" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="User with this email already exists",
+            ) from None
+        raise
 
     # Send welcome email in background (non-blocking, fire-and-forget)
     # RUF006: Store task reference. Task lifecycle is managed by event loop;

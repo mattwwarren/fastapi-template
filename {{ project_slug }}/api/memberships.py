@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from {{ project_slug }}.core.activity_logging import ActivityAction, log_activity_decorator
 from {{ project_slug }}.core.pagination import ParamsDep
@@ -40,7 +41,15 @@ async def create_membership_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Organization does not exist",
         )
-    membership = await create_membership(session, payload)
+    try:
+        membership = await create_membership(session, payload)
+    except IntegrityError as e:
+        if "uq_membership_user_org" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="User is already a member of this organization",
+            ) from None
+        raise
     return MembershipRead.model_validate(membership)
 
 

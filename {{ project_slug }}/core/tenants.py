@@ -94,9 +94,7 @@ class TenantContext(BaseModel):
         user_id: UUID of the authenticated user making the request
     """
 
-    organization_id: UUID = Field(
-        ..., description="Current tenant/organization identifier"
-    )
+    organization_id: UUID = Field(..., description="Current tenant/organization identifier")
     user_id: UUID = Field(..., description="Authenticated user making the request")
 
     @property
@@ -109,9 +107,7 @@ class TenantContext(BaseModel):
         return bool(self.organization_id and self.user_id)
 
 
-async def _validate_user_org_access(
-    session: AsyncSession, user_id: UUID, organization_id: UUID
-) -> bool:
+async def _validate_user_org_access(session: AsyncSession, user_id: UUID, organization_id: UUID) -> bool:
     """Validate that user has access to the specified organization.
 
     This is a critical security check that prevents users from accessing
@@ -131,9 +127,7 @@ async def _validate_user_org_access(
         Failure to validate membership allows cross-tenant access.
     """
     result = await session.execute(
-        select(Membership)
-        .where(Membership.user_id == user_id)
-        .where(Membership.organization_id == organization_id)
+        select(Membership).where(Membership.user_id == user_id).where(Membership.organization_id == organization_id)
     )
     membership = result.scalar_one_or_none()
     return membership is not None
@@ -263,15 +257,11 @@ async def _validate_tenant_context(
     # Reuse provided session if available, otherwise create temporary one
     if session is not None:
         # Session provided - use it directly without creating new connection
-        has_access = await _validate_user_org_access(
-            session, current_user.id, organization_id
-        )
+        has_access = await _validate_user_org_access(session, current_user.id, organization_id)
     else:
         # No session provided - create temporary one for validation
         async with async_session_maker() as temp_session:
-            has_access = await _validate_user_org_access(
-                temp_session, current_user.id, organization_id
-            )
+            has_access = await _validate_user_org_access(temp_session, current_user.id, organization_id)
 
     if not has_access:
         access_denied_msg = "User does not have access to this organization"
@@ -326,9 +316,7 @@ class TenantIsolationMiddleware(BaseHTTPMiddleware):
         app.add_middleware(TenantIsolationMiddleware)
     """
 
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         """Process request and enforce tenant isolation.
 
         Args:
@@ -362,9 +350,7 @@ class TenantIsolationMiddleware(BaseHTTPMiddleware):
                 content={"detail": missing_auth_msg},
             )
 
-        tenant_context, error_response = await _validate_tenant_context(
-            request, current_user
-        )
+        tenant_context, error_response = await _validate_tenant_context(request, current_user)
         if error_response:
             return error_response
 
@@ -487,9 +473,7 @@ async def validate_tenant_ownership(
     _ = session
 
     if organization_id != tenant.organization_id:
-        ownership_violation_msg = (
-            "Cannot create resource for different organization"
-        )
+        ownership_violation_msg = "Cannot create resource for different organization"
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=ownership_violation_msg,

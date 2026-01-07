@@ -10,7 +10,7 @@ Architecture:
     - get_storage_service(): Factory function to instantiate the configured provider
 
 Usage:
-    from {{ project_slug }}.core.storage import get_storage_service
+    from fastapi_template_test.core.storage import get_storage_service
 
     storage = get_storage_service()
     storage_url = await storage.upload(
@@ -40,8 +40,14 @@ Migration Path:
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from {{ project_slug }}.core.config import Settings
+
+# Module-level settings reference (populated at import time after config is loaded)
+settings: Settings | None = None
 
 
 class StorageProvider(StrEnum):
@@ -181,16 +187,13 @@ class StorageError(Exception):
 
 def _get_local_storage() -> StorageService:
     """Create local filesystem storage service."""
-    from {{ project_slug }}.core.config import settings  # noqa: PLC0415
     from {{ project_slug }}.core.storage_providers import LocalStorageService  # noqa: PLC0415
 
-    return LocalStorageService(base_path=settings.storage_local_path)
+    return LocalStorageService(base_path=settings.storage_local_path)  # type: ignore[union-attr]
 
 
 def _get_azure_storage() -> StorageService:
     """Create Azure Blob Storage service."""
-    from {{ project_slug }}.core.config import settings  # noqa: PLC0415
-
     try:
         from {{ project_slug }}.core.storage_providers import (  # noqa: PLC0415
             AzureBlobStorageService,
@@ -203,8 +206,8 @@ def _get_azure_storage() -> StorageService:
         raise ValueError(msg) from e
 
     if (
-        not settings.storage_azure_container
-        or not settings.storage_azure_connection_string
+        not settings.storage_azure_container  # type: ignore[union-attr]
+        or not settings.storage_azure_connection_string  # type: ignore[union-attr]
     ):
         msg = (
             "Azure storage requires STORAGE_AZURE_CONTAINER and "
@@ -213,15 +216,13 @@ def _get_azure_storage() -> StorageService:
         raise ValueError(msg)
 
     return AzureBlobStorageService(
-        container_name=settings.storage_azure_container,
-        connection_string=settings.storage_azure_connection_string,
+        container_name=settings.storage_azure_container,  # type: ignore[union-attr]
+        connection_string=settings.storage_azure_connection_string,  # type: ignore[union-attr]
     )
 
 
 def _get_s3_storage() -> StorageService:
     """Create AWS S3 storage service."""
-    from {{ project_slug }}.core.config import settings  # noqa: PLC0415
-
     try:
         from {{ project_slug }}.core.storage_providers import (  # noqa: PLC0415
             S3StorageService,
@@ -233,7 +234,7 @@ def _get_s3_storage() -> StorageService:
         )
         raise ValueError(msg) from e
 
-    if not settings.storage_aws_bucket or not settings.storage_aws_region:
+    if not settings.storage_aws_bucket or not settings.storage_aws_region:  # type: ignore[union-attr]
         msg = (
             "AWS S3 storage requires STORAGE_AWS_BUCKET and "
             "STORAGE_AWS_REGION environment variables"
@@ -241,15 +242,13 @@ def _get_s3_storage() -> StorageService:
         raise ValueError(msg)
 
     return S3StorageService(
-        bucket_name=settings.storage_aws_bucket,
-        region=settings.storage_aws_region,
+        bucket_name=settings.storage_aws_bucket,  # type: ignore[union-attr]
+        region=settings.storage_aws_region,  # type: ignore[union-attr]
     )
 
 
 def _get_gcs_storage() -> StorageService:
     """Create Google Cloud Storage service."""
-    from {{ project_slug }}.core.config import settings  # noqa: PLC0415
-
     try:
         from {{ project_slug }}.core.storage_providers import (  # noqa: PLC0415
             GCSStorageService,
@@ -261,7 +260,7 @@ def _get_gcs_storage() -> StorageService:
         )
         raise ValueError(msg) from e
 
-    if not settings.storage_gcs_bucket or not settings.storage_gcs_project_id:
+    if not settings.storage_gcs_bucket or not settings.storage_gcs_project_id:  # type: ignore[union-attr]
         msg = (
             "GCS storage requires STORAGE_GCS_BUCKET and "
             "STORAGE_GCS_PROJECT_ID environment variables"
@@ -269,8 +268,8 @@ def _get_gcs_storage() -> StorageService:
         raise ValueError(msg)
 
     return GCSStorageService(
-        bucket_name=settings.storage_gcs_bucket,
-        project_id=settings.storage_gcs_project_id,
+        bucket_name=settings.storage_gcs_bucket,  # type: ignore[union-attr]
+        project_id=settings.storage_gcs_project_id,  # type: ignore[union-attr]
     )
 
 
@@ -291,7 +290,13 @@ def get_storage_service() -> StorageService:
         storage = get_storage_service()
         url = await storage.upload(doc_id, file_bytes, "image/png")
     """
-    from {{ project_slug }}.core.config import settings  # noqa: PLC0415
+    # Ensure settings is initialized (handles circular imports)
+    _init_settings()
+
+    # Type guard for mypy (settings is always initialized by _init_settings)
+    if settings is None:
+        msg = "Settings not initialized"
+        raise RuntimeError(msg)
 
     providers = {
         StorageProvider.LOCAL: _get_local_storage,
@@ -309,3 +314,12 @@ def get_storage_service() -> StorageService:
         f"Must be one of: {', '.join(StorageProvider)}"
     )
     raise ValueError(msg)
+
+
+# Initialize module-level settings reference when first accessed
+def _init_settings() -> None:
+    """Initialize module-level settings reference after config is loaded."""
+    global settings  # noqa: PLW0603
+    if settings is None:
+        from fastapi_template_test.core.config import settings as _settings  # noqa: PLC0415
+        settings = _settings

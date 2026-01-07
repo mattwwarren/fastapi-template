@@ -10,13 +10,19 @@ Provides cross-cutting middleware for:
 from __future__ import annotations
 
 import logging
-from typing import Awaitable, Callable
+import time
+from collections.abc import Awaitable, Callable
 
 from fastapi import Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
+from starlette.types import ASGIApp
 
 LOGGER = logging.getLogger(__name__)
+
+# Constants
+MAX_REQUEST_SIZE_BYTES_DEFAULT = 50 * 1024 * 1024
+ERROR_STATUS_CODE_THRESHOLD = 400
 
 
 class RequestSizeValidationMiddleware(BaseHTTPMiddleware):
@@ -36,7 +42,7 @@ class RequestSizeValidationMiddleware(BaseHTTPMiddleware):
 
     Examples:
         # In main.py
-        from {{ project_slug }}.core.middleware import RequestSizeValidationMiddleware
+        from fastapi_template_test.core.middleware import RequestSizeValidationMiddleware
         app.add_middleware(RequestSizeValidationMiddleware, max_size_bytes=100*1024*1024)
 
     Security Notes:
@@ -46,7 +52,7 @@ class RequestSizeValidationMiddleware(BaseHTTPMiddleware):
         - Monitor for clients repeatedly hitting limit
     """
 
-    def __init__(self, app, max_size_bytes: int = 50 * 1024 * 1024):
+    def __init__(self, app: ASGIApp, max_size_bytes: int = MAX_REQUEST_SIZE_BYTES_DEFAULT) -> None:
         """Initialize middleware with max request size.
 
         Args:
@@ -123,7 +129,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
     Examples:
         # In main.py
-        from {{ project_slug }}.core.middleware import RequestLoggingMiddleware
+        from fastapi_template_test.core.middleware import RequestLoggingMiddleware
         app.add_middleware(RequestLoggingMiddleware)
     """
 
@@ -139,8 +145,6 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         Returns:
             Response from endpoint
         """
-        import time
-
         # Start timer
         start_time = time.perf_counter()
 
@@ -155,7 +159,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         except Exception as exc:
             # Log exceptions but don't suppress them
             duration = time.perf_counter() - start_time
-            LOGGER.error(
+            LOGGER.exception(
                 "request_failed",
                 extra={
                     "method": method,
@@ -171,11 +175,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         response_size = int(response.headers.get("content-length", 0))
 
         # Log based on status code
-        log_level = (
-            "warning" if response.status_code >= 400 else "info"
-        )
         log_func = (
-            LOGGER.warning if response.status_code >= 400 else LOGGER.info
+            LOGGER.warning if response.status_code >= ERROR_STATUS_CODE_THRESHOLD else LOGGER.info
         )
 
         log_func(

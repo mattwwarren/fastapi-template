@@ -9,8 +9,7 @@ from sqlmodel import Field, SQLModel
 
 
 class TimestampedTable(SQLModel):
-    id: UUID | None = Field(  # type: ignore[call-overload]
-        default=None,
+    id: UUID = Field(  # type: ignore[call-overload]
         primary_key=True,
         sa_type=PGUUID(as_uuid=True),
         sa_column_kwargs={

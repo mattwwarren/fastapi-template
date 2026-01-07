@@ -148,7 +148,7 @@ async def log_activity(
                         "transaction_mode": "fire_and_forget",
                     },
                 )
-    except Exception:  # noqa: BLE001 - Bare except is intentional, see below
+    except Exception:
         """Best-Effort Exception Handling
 
         Rationale for Bare Exception Clause:
@@ -292,7 +292,7 @@ def log_activity_decorator(
         """
 
         @wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        async def wrapper(*args: object, **kwargs: object) -> Any:  # noqa: ANN401
             """Execute endpoint and log activity on success.
 
             Args:
@@ -303,7 +303,7 @@ def log_activity_decorator(
                 Result from wrapped endpoint function
             """
             # Extract session dependency from kwargs
-            session = kwargs.get("session")
+            session: AsyncSession | None = kwargs.get("session")  # type: ignore[assignment]
 
             # Execute endpoint function
             result = await func(*args, **kwargs)
@@ -321,7 +321,7 @@ def log_activity_decorator(
             # Fallback: extract from path parameter if response didn't have ID
             # (for DELETE endpoints returning 204 No Content)
             if resource_id is None and resource_id_param_name is not None:
-                resource_id = kwargs.get(resource_id_param_name)
+                resource_id = kwargs.get(resource_id_param_name)  # type: ignore[assignment]
 
             # Log activity (best-effort, doesn't fail request)
             if session is not None:
