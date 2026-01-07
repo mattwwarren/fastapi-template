@@ -26,7 +26,7 @@ build-backend = "hatchling.build"
 packages = ["{{ project_slug }}"]
 
 [tool.ruff]
-line-length = 88
+line-length = 119
 src = ["{{ project_slug }}"]
 show-fixes = true
 extend-exclude = ["stubs"]
