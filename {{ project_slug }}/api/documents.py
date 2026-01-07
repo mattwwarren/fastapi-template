@@ -200,7 +200,9 @@ async def download_document(
     start = time.perf_counter()
     stmt = select(Document).where(col(Document.id) == document_id)
     # Apply tenant filter to prevent cross-tenant access
-    stmt = add_tenant_filter(stmt, tenant, col(Document.organization_id))
+    stmt = add_tenant_filter(
+        stmt, tenant, Document.organization_id  # type: ignore[arg-type]
+    )
 
     result = await session.execute(stmt)
     document = result.scalar_one_or_none()
@@ -299,7 +301,9 @@ async def delete_document(
     """
     # Fetch document with tenant filter
     stmt = select(Document).where(col(Document.id) == document_id)
-    stmt = add_tenant_filter(stmt, tenant, col(Document.organization_id))
+    stmt = add_tenant_filter(
+        stmt, tenant, Document.organization_id  # type: ignore[arg-type]
+    )
 
     result = await session.execute(stmt)
     document = result.scalar_one_or_none()
