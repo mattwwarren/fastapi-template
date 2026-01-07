@@ -9,8 +9,8 @@ set -euo pipefail
 # Configuration
 # ============================================================================
 
-TEMPLATE_DIR="/home/matthew/workspace/meta-work/fastapi-template"
-TEST_INSTANCE_DIR="/home/matthew/workspace/meta-work/fastapi-template-test-instance"
+TEMPLATE_DIR="~/workspace/meta-work/fastapi-template"
+TEST_INSTANCE_DIR="~/workspace/meta-work/fastapi-template-test-instance"
 PROJECT_NAME="FastAPI Template Test"
 PROJECT_SLUG="fastapi_template_test"
 DESCRIPTION="Test instance for template verification and development"
