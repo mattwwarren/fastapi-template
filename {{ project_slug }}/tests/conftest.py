@@ -172,6 +172,16 @@ def session_maker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
     return async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
+@pytest.fixture
+async def session(
+    session_maker: async_sessionmaker[AsyncSession],
+    reset_db: None,  # Ensure DB reset happens first
+) -> AsyncGenerator[AsyncSession]:
+    """Provide a database session for tests that need direct database access."""
+    async with session_maker() as session:
+        yield session
+
+
 @pytest.fixture(autouse=True)
 async def reset_db(
     engine: AsyncEngine, alembic_config: Config, alembic_engine: Engine
