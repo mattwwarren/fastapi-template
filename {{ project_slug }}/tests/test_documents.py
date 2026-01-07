@@ -236,3 +236,52 @@ class TestDocumentErrorHandling:
         """Uploading without file should fail."""
         response = await client.post("/documents", data={})
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+class TestDocumentPathTraversalSecurity:
+    """Test security against path traversal attacks in local storage.
+
+    Path traversal attacks attempt to escape the storage directory by using
+    special path components like .. or absolute paths. UUIDs prevent most
+    attacks, but validation ensures defense in depth.
+    """
+
+    @pytest.mark.asyncio
+    async def test_document_id_must_be_uuid_format(self, client: AsyncClient) -> None:
+        """Path traversal attempts with non-UUID document IDs should fail.
+
+        The API enforces UUID format on document_id path parameter.
+        This prevents injection of path traversal sequences.
+        """
+        # Attempt to use .. for path traversal
+        response = await client.get("/documents/../../etc/passwd")
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        # Attempt absolute path
+        response = await client.get("/documents//etc/passwd")
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        # Attempt dot-dot sequences
+        response = await client.get("/documents/..%2F..%2Fetc%2Fpasswd")
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    @pytest.mark.asyncio
+    async def test_valid_uuid_stays_within_storage_directory(
+        self, client: AsyncClient
+    ) -> None:
+        """Valid UUIDs cannot escape storage directory.
+
+        Even valid UUIDs cannot escape the storage directory because:
+        1. UUID format is strictly validated in path parameters
+        2. Storage backend validates resolved path is within base_path
+        3. Combination provides defense in depth against path traversal
+        """
+        # A valid UUID that doesn't exist
+        response = await client.get("/documents/00000000-0000-0000-0000-000000000000")
+        # Should return 404 (not found), not allow traversal
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+        # Another valid UUID
+        response = await client.get("/documents/ffffffff-ffff-ffff-ffff-ffffffffffff")
+        # Should return 404 (not found), not allow traversal
+        assert response.status_code == HTTPStatus.NOT_FOUND
