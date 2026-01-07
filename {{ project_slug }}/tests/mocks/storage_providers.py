@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Generator
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from uuid import UUID
 
 import pytest

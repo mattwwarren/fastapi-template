@@ -22,11 +22,11 @@ Usage:
 """
 
 __all__ = [
-    "mock_ory_provider",
     "mock_auth0_provider",
-    "mock_keycloak_provider",
-    "mock_cognito_provider",
     "mock_azure_storage",
-    "mock_s3_storage",
+    "mock_cognito_provider",
     "mock_gcs_storage",
+    "mock_keycloak_provider",
+    "mock_ory_provider",
+    "mock_s3_storage",
 ]

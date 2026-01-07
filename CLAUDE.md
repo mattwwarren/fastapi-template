@@ -130,6 +130,7 @@ pytest
 
 **Agent prompts should include:**
 
+{% raw %}
 ```
 This is a Copier template, not runnable code.
 
@@ -141,10 +142,13 @@ Before running ruff/mypy/pytest:
 Template itself may have {% jinja %} syntax that looks like code but isn't.
 Only lint/test the generated output, not the template source.
 ```
+{% endraw %}
 
 ### Why This Matters
 
+{% raw %}
 - Templates contain Jinja2 templating syntax `{% if %} {{ var }}`, not valid Python
+{% endraw %}
 - Verification tools will fail on template syntax
 - Generated projects are valid Python and can be linted/tested
 - Any changes to template files must work when instantiated

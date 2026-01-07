@@ -290,11 +290,10 @@ class TestStorageProviderFactory:
         with (
             patch("{{ project_slug }}.core.storage.settings", settings),
             patch("builtins.__import__", side_effect=mock_import),
-            pytest.raises(ValueError) as exc_info,
+            pytest.raises(ValueError, match="pip install") as exc_info,
         ):
             get_storage_service()
         # Verify error message includes installation instruction
-        assert "pip install" in str(exc_info.value)
         assert "[azure]" in str(exc_info.value)
 
 
