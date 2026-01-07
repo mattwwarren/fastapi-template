@@ -106,12 +106,30 @@ class LocalStorageService:
 
         Returns:
             Path object for the document file
+
+        Raises:
+            StorageError: If resulting path escapes base_path (path traversal attempt)
         """
         if organization_id:
             org_dir = self.base_path / str(organization_id)
             org_dir.mkdir(parents=True, exist_ok=True)
-            return org_dir / str(document_id)
-        return self.base_path / str(document_id)
+            file_path = org_dir / str(document_id)
+        else:
+            file_path = self.base_path / str(document_id)
+
+        # Validate that resolved path stays within base_path (prevent path traversal)
+        try:
+            resolved_file_path = file_path.resolve()
+            resolved_base_path = self.base_path.resolve()
+            # Ensure the file path is within or equals base_path
+            if not str(resolved_file_path).startswith(str(resolved_base_path)):
+                msg = f"Path traversal attempt detected: {document_id}"
+                raise StorageError(msg)
+        except (OSError, ValueError) as e:
+            storage_error = f"Invalid file path: {e}"
+            raise StorageError(storage_error) from e
+
+        return file_path
 
     async def upload(
         self,
