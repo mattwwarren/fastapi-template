@@ -171,7 +171,7 @@ async def upload_document(
     return DocumentRead.model_validate(document)
 
 
-@router.get("/{document_id}")
+@router.get("/{document_id}", response_model=None)
 @log_activity_decorator(ActivityAction.READ, "document")
 async def download_document(
     document_id: UUID,
