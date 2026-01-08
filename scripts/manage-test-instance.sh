@@ -330,21 +330,25 @@ _reverse_sync() {
 		local template_path
 		template_path=$(_map_instance_path_to_template "$file")
 
-		echo ""
-		_blue "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-		_blue "File $file_count/${#changed_files[@]}: $file"
-		_blue "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-		echo ""
-		echo "Template path: $template_path"
-		echo ""
-		echo "Changes:"
-		git diff --color=always "$file" | head -30
-		if [[ $(git diff "$file" | wc -l) -gt 30 ]]; then
-			_yellow "(... truncated, showing first 30 lines)"
+		if [[ $auto_mode -eq 0 ]]; then
+			echo ""
+			_blue "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+			_blue "File $file_count/${#changed_files[@]}: $file"
+			_blue "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+			echo ""
+			echo "Template path: $template_path"
+			echo ""
+			echo "Changes:"
+			git diff --color=always "$file" | head -30
+			if [[ $(git diff "$file" | wc -l) -gt 30 ]]; then
+				_yellow "(... truncated, showing first 30 lines)"
+			fi
+			echo ""
 		fi
-		echo ""
 
 		if [[ $auto_mode -eq 1 ]]; then
+			echo ""
+			_info "File $file_count/${#changed_files[@]}: $file"
 			_success "Syncing in auto mode"
 			files_to_sync+=("$file")
 		else
