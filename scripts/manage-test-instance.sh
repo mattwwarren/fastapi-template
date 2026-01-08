@@ -318,7 +318,7 @@ _reverse_sync() {
 
 	# Determine if auto mode (--auto flag)
 	local auto_mode=0
-	if [[ "${2:-}" == "--auto" ]]; then
+	if [[ "${1:-}" == "--auto" ]]; then
 		auto_mode=1
 	fi
 
