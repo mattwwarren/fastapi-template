@@ -324,9 +324,8 @@ _reverse_sync() {
 
 	# Interactive review of each file
 	local files_to_sync=()
-	local file_count=0
+	local file_count=1
 	for file in "${changed_files[@]}"; do
-		((file_count++))
 		local template_path
 		template_path=$(_map_instance_path_to_template "$file")
 
@@ -367,6 +366,7 @@ _reverse_sync() {
 				;;
 			esac
 		fi
+		file_count=$((file_count + 1))
 	done
 
 	# Apply changes to template
