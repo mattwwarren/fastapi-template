@@ -278,7 +278,16 @@ _reverse_sync() {
 
 	cd "$TEST_INSTANCE_DIR"
 
-	# Get list of changed files (excluding certain patterns)
+	# Get the template commit this instance was generated from
+	local template_commit
+	if [[ ! -f ".copier-answers.yml" ]]; then
+		_error "No .copier-answers.yml found - not a copier-generated instance"
+		return 1
+	fi
+	template_commit=$(grep "_commit:" .copier-answers.yml | awk '{print $2}')
+
+	# Get list of changed files since template generation (uncommitted + committed)
+	# This captures both: git diff (uncommitted) and git diff TEMPLATE_COMMIT..HEAD (committed since generation)
 	local changed_files=()
 	while IFS= read -r file; do
 		# Skip these files - they're regenerated or instance-specific
@@ -288,7 +297,10 @@ _reverse_sync() {
 			;;
 		esac
 		changed_files+=("$file")
-	done < <(git diff --name-only)
+	done < <({
+		git diff --name-only
+		git diff --name-only "$template_commit..HEAD"
+	} | sort -u)
 
 	if [[ ${#changed_files[@]} -eq 0 ]]; then
 		_info "No changes to sync"
@@ -365,8 +377,16 @@ _reverse_sync() {
 		template_path=$(_map_instance_path_to_template "$file")
 
 		# Generate patch with transformed paths
+		# Use git diff between template commit and HEAD to capture all changes (committed + uncommitted)
 		local patch_file="$temp_dir/$(echo "$file" | tr '/' '_').patch"
-		git diff "$file" > "$patch_file"
+
+		# Try committed changes first (since template generation)
+		if git diff "$template_commit..HEAD" "$file" | grep -q .; then
+			git diff "$template_commit..HEAD" "$file" > "$patch_file"
+		else
+			# Fall back to uncommitted changes if no committed changes
+			git diff "$file" > "$patch_file"
+		fi
 
 		# Transform paths in patch
 		sed -i "s|a/${PROJECT_SLUG}/|a/{{ project_slug }}/|g" "$patch_file"
