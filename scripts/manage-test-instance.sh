@@ -278,16 +278,22 @@ _reverse_sync() {
 
 	cd "$TEST_INSTANCE_DIR"
 
-	# Get the template commit this instance was generated from
-	local template_commit
+	# Get the base commit - find the commit that generated this instance
+	# This is usually the first commit or a commit message containing "generation"
+	local base_commit
 	if [[ ! -f ".copier-answers.yml" ]]; then
 		_error "No .copier-answers.yml found - not a copier-generated instance"
 		return 1
 	fi
-	template_commit=$(grep "_commit:" .copier-answers.yml | awk '{print $2}')
 
-	# Get list of changed files since template generation (uncommitted + committed)
-	# This captures both: git diff (uncommitted) and git diff TEMPLATE_COMMIT..HEAD (committed since generation)
+	# Look for the "generation" commit (where copier created the instance)
+	base_commit=$(git log --oneline --all | grep -i "generation\|initial" | tail -1 | awk '{print $1}')
+	if [[ -z "$base_commit" ]]; then
+		# Fall back to the first commit if we can't find a generation commit
+		base_commit=$(git rev-list --max-parents=0 HEAD)
+	fi
+
+	# Get list of changed files since instance generation (uncommitted + committed)
 	local changed_files=()
 	while IFS= read -r file; do
 		# Skip these files - they're regenerated or instance-specific
@@ -299,7 +305,7 @@ _reverse_sync() {
 		changed_files+=("$file")
 	done < <({
 		git diff --name-only
-		git diff --name-only "$template_commit..HEAD"
+		git diff --name-only "$base_commit..HEAD"
 	} | sort -u)
 
 	if [[ ${#changed_files[@]} -eq 0 ]]; then
@@ -377,12 +383,12 @@ _reverse_sync() {
 		template_path=$(_map_instance_path_to_template "$file")
 
 		# Generate patch with transformed paths
-		# Use git diff between template commit and HEAD to capture all changes (committed + uncommitted)
+		# Use git diff between base commit and HEAD to capture all changes (committed + uncommitted)
 		local patch_file="$temp_dir/$(echo "$file" | tr '/' '_').patch"
 
-		# Try committed changes first (since template generation)
-		if git diff "$template_commit..HEAD" "$file" | grep -q .; then
-			git diff "$template_commit..HEAD" "$file" > "$patch_file"
+		# Try committed changes first (since instance generation)
+		if git diff "$base_commit..HEAD" "$file" | grep -q .; then
+			git diff "$base_commit..HEAD" "$file" > "$patch_file"
 		else
 			# Fall back to uncommitted changes if no committed changes
 			git diff "$file" > "$patch_file"
