@@ -17,11 +17,11 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from {{ project_slug }}.core.tenants import TenantContext, add_tenant_filter
-from {{ project_slug }}.models.document import Document
-from {{ project_slug }}.models.membership import Membership
-from {{ project_slug }}.models.organization import Organization
-from {{ project_slug }}.models.user import User
+from fastapi_template_test.core.tenants import TenantContext, add_tenant_filter
+from fastapi_template_test.models.document import Document
+from fastapi_template_test.models.membership import Membership
+from fastapi_template_test.models.organization import Organization
+from fastapi_template_test.models.user import User
 
 # Test constants
 NONEXISTENT_UUID = "ffffffff-ffff-ffff-ffff-ffffffffffff"
@@ -374,10 +374,10 @@ class TestTenantIsolationMiddlewareIntegration:
     ) -> None:
         """Protected endpoints enforce tenant isolation when accessed.
 
-        When accessing /documents endpoint with tenant context (injected by TestAuthMiddleware),
+        When accessing /organizations endpoint with tenant context (injected by TestAuthMiddleware),
         the endpoint should:
         1. Return 200 OK (endpoint is accessible with valid tenant context)
-        2. Return empty list (no documents created yet)
+        2. Return paginated result with organization data
         3. Apply tenant isolation filters automatically
 
         In production, missing tenant context would result in 401/403.
@@ -387,11 +387,13 @@ class TestTenantIsolationMiddlewareIntegration:
 
         # Access endpoint with tenant context (injected by TestAuthMiddleware)
         response = await client.get(
-            "/documents",
+            "/organizations",
             headers={},  # TestAuthMiddleware provides tenant context automatically
         )
 
-        # ASSERTION: Endpoint should be accessible with tenant context and return empty list
+        # ASSERTION: Endpoint should be accessible with tenant context and return paginated results
         assert response.status_code == HTTPStatus.OK
-        documents = response.json()
-        assert documents == []
+        result = response.json()
+        # Result should be a paginated response with items list
+        assert "items" in result
+        assert isinstance(result["items"], list)
