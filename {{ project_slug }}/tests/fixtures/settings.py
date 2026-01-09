@@ -41,41 +41,37 @@ def test_settings_factory() -> Callable[..., Settings]:
     """
 
     def _factory(**overrides: dict) -> Settings:
-        # Get a base Settings instance to read current defaults
-        base_settings = Settings(_env_file=None)
-
-        # Build field dictionary with test defaults and current values
+        # Build field dictionary with test defaults
         fields = {
             "database_url": "postgresql+asyncpg://app:app@localhost:5432/app_test",
             "environment": "test",
             "log_level": "debug",
             "activity_logging_enabled": True,
             "auth_provider_type": "none",
-            # Include all other fields from base to ensure complete coverage
-            "app_name": base_settings.app_name,
-            "sqlalchemy_echo": base_settings.sqlalchemy_echo,
-            "enable_metrics": base_settings.enable_metrics,
-            "pagination_page_size": base_settings.pagination_page_size,
-            "pagination_page_size_max": base_settings.pagination_page_size_max,
-            "pagination_page_class": base_settings.pagination_page_class,
-            "activity_log_retention_days": base_settings.activity_log_retention_days,
-            "max_file_size_bytes": base_settings.max_file_size_bytes,
-            "auth_provider_url": base_settings.auth_provider_url,
-            "auth_provider_issuer": base_settings.auth_provider_issuer,
-            "jwt_algorithm": base_settings.jwt_algorithm,
-            "jwt_public_key": base_settings.jwt_public_key,
-            "cors_allowed_origins_raw": base_settings.cors_allowed_origins_raw,
-            "enforce_tenant_isolation": base_settings.enforce_tenant_isolation,
-            "request_id_header": base_settings.request_id_header,
-            "include_request_context_in_logs": base_settings.include_request_context_in_logs,
-            "storage_provider": base_settings.storage_provider,
-            "storage_local_path": base_settings.storage_local_path,
-            "storage_azure_container": base_settings.storage_azure_container,
-            "storage_azure_connection_string": base_settings.storage_azure_connection_string,
-            "storage_aws_bucket": base_settings.storage_aws_bucket,
-            "storage_aws_region": base_settings.storage_aws_region,
-            "storage_gcs_bucket": base_settings.storage_gcs_bucket,
-            "storage_gcs_project_id": base_settings.storage_gcs_project_id,
+            "app_name": "{{ project_slug }}",
+            "sqlalchemy_echo": False,
+            "enable_metrics": True,
+            "pagination_page_size": 50,
+            "pagination_page_size_max": 200,
+            "pagination_page_class": None,
+            "activity_log_retention_days": 90,
+            "max_file_size_bytes": 50 * 1024 * 1024,
+            "auth_provider_url": None,
+            "auth_provider_issuer": None,
+            "jwt_algorithm": "RS256",
+            "jwt_public_key": None,
+            "cors_allowed_origins_raw": "http://localhost:3000",
+            "enforce_tenant_isolation": True,
+            "request_id_header": "X-Request-ID",
+            "include_request_context_in_logs": False,
+            "storage_provider": "local",
+            "storage_local_path": "./uploads",
+            "storage_azure_container": None,
+            "storage_azure_connection_string": None,
+            "storage_aws_bucket": None,
+            "storage_aws_region": None,
+            "storage_gcs_bucket": None,
+            "storage_gcs_project_id": None,
         }
 
         # Apply overrides
@@ -92,8 +88,9 @@ def test_settings_factory() -> Callable[..., Settings]:
                 except ValueError as err:
                     error_msg = str(err)
                     # Raise ValidationError matching Pydantic's format
+                    error_title = "Settings"
                     raise ValidationError.from_exception_data(
-                        "Settings",
+                        error_title,
                         [
                             {
                                 "type": "enum",
@@ -106,8 +103,9 @@ def test_settings_factory() -> Callable[..., Settings]:
                     ) from err
 
         # NOTE: BaseSettings has extra='forbid' which prevents normal instantiation with kwargs.
-        # Use model_construct() to bypass BaseSettings' validation while still building a valid instance.
-        return Settings.model_construct(**fields)
+        # In tests, we must use model_construct with validated field data.
+        # This is acceptable in test context where we control all inputs.
+        return Settings.model_construct(**fields)  # type: ignore[arg-type]
 
     return _factory
 
@@ -160,8 +158,6 @@ def test_settings_with_storage(test_settings_factory: Callable[..., Settings]) -
     Returns:
         Fresh Settings instance with Azure storage configured
     """
-    from fastapi_template_test.core.storage import StorageProvider
-
     return test_settings_factory(
         storage_provider=StorageProvider.AZURE,
         storage_azure_container="test-container",
