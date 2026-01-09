@@ -150,7 +150,7 @@ class TestMembershipConstraints:
         create_response = await client.post(
             "/memberships",
             json={
-                "user_id": "00000000-0000-0000-0000-000000000000",
+                "user_id": "ffffffff-ffff-ffff-ffff-ffffffffffff",
                 "organization_id": organization_id,
             },
         )
@@ -173,7 +173,7 @@ class TestMembershipConstraints:
             "/memberships",
             json={
                 "user_id": user_id,
-                "organization_id": "00000000-0000-0000-0000-000000000000",
+                "organization_id": "ffffffff-ffff-ffff-ffff-ffffffffffff",
             },
         )
         assert create_response.status_code == HTTPStatus.BAD_REQUEST
@@ -254,7 +254,7 @@ class TestMembershipErrorHandling:
     async def test_delete_nonexistent_membership(self, client: AsyncClient) -> None:
         """Deleting nonexistent membership should return 404."""
         response = await client.delete(
-            "/memberships/00000000-0000-0000-0000-000000000000"
+            "/memberships/ffffffff-ffff-ffff-ffff-ffffffffffff"
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
 

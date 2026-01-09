@@ -16,11 +16,8 @@ allowing tests to run in parallel without interference.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
-from uuid import uuid4
 
 import pytest
-
 from {{ project_slug }}.core.config import Settings
 
 
@@ -41,7 +38,7 @@ def test_settings_factory() -> Callable[..., Settings]:
         Callable that accepts keyword arguments for Settings fields
     """
 
-    def _factory(**overrides: Any) -> Settings:
+    def _factory(**overrides: dict) -> Settings:
         # Merge overrides with test defaults
         config = {
             "database_url": "postgresql+asyncpg://app:app@localhost:5432/app_test",

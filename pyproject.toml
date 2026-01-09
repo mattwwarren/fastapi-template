@@ -1,6 +1,6 @@
 [project]
 name = "{{ project_slug }}"
-version = "0.1.0"
+version = "0.3.0"
 description = "{{ description }}"
 requires-python = ">=3.13"
 dependencies = [
@@ -30,7 +30,7 @@ packages = ["{{ project_slug }}"]
 line-length = 119
 src = ["{{ project_slug }}"]
 show-fixes = true
-extend-exclude = ["stubs"]
+extend-exclude = ["stubs", "alembic/versions/*"]
 
 [tool.ruff.lint]
 # Extended rule set for production-grade code quality:
@@ -68,7 +68,9 @@ max-complexity = 10
 [tool.ruff.lint.per-file-ignores]
 # Security checks are valuable in production code but add noise in tests
 # where we intentionally create insecure test data (hardcoded passwords, etc.)
-"{{ project_slug }}/tests/**" = ["S", "B101"]
+# PT009 allows raw assert statements which are appropriate for pytest
+# RUF059 allows unpacked variables in fixtures even if not all are used in that test
+"{{ project_slug }}/tests/**" = ["S", "PT009", "RUF059"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -80,8 +82,20 @@ python_version = "3.13"
 warn_unused_ignores = true
 warn_redundant_casts = true
 warn_unused_configs = true
-ignore_missing_imports = true
 mypy_path = "stubs"
+exclude = [
+    "alembic/versions/.*"
+]
+
+# Azure Blob Storage - no complete type stubs available
+[[tool.mypy.overrides]]
+module = ["azure.*"]
+ignore_missing_imports = true
+
+# Google Cloud - no complete type stubs available
+[[tool.mypy.overrides]]
+module = ["google.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 addopts = "--tb=short"
@@ -110,4 +124,6 @@ dev = [
   "aiosqlite>=0.20.0",
   "sphinx>=7.3.0",
   "furo>=2024.1.29",
+  "types-aioboto3>=13.0.0",
+  "types-aiobotocore[s3]",
 ]

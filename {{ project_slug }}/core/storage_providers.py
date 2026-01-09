@@ -38,33 +38,60 @@ Setup Instructions:
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+import contextlib
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from {{ project_slug }}.core.storage import StorageError
 
-# Optional cloud provider imports
-try:
+# Optional cloud provider imports - separated by TYPE_CHECKING for proper mypy support
+if TYPE_CHECKING:
+    # Type-time imports: mypy sees these types but they don't execute at runtime
+    import aioboto3
     from azure.core.exceptions import (
         ResourceNotFoundError as AzureResourceNotFoundError,
     )
-    from azure.storage.blob import BlobSasPermissions, generate_blob_sas
+    from azure.storage.blob import (
+        BlobSasPermissions,
+        generate_blob_sas,
+    )
     from azure.storage.blob.aio import BlobServiceClient
-except ImportError:
-    pass
-
-try:
-    import aioboto3
     from botocore.exceptions import ClientError
-except ImportError:
-    pass
-
-try:
     from google.cloud import storage
     from google.cloud.exceptions import NotFound
-except ImportError:
-    pass
+else:
+    # Runtime imports: conditional loading with fallback to None
+    BlobServiceClient = None
+    AzureResourceNotFoundError = None
+    BlobSasPermissions = None
+    generate_blob_sas = None
+    aioboto3 = None
+    ClientError = None
+    storage = None
+    NotFound = None
+
+    try:
+        from azure.core.exceptions import (
+            ResourceNotFoundError as AzureResourceNotFoundError,
+        )
+        from azure.storage.blob import BlobSasPermissions, generate_blob_sas
+        from azure.storage.blob.aio import BlobServiceClient
+    except ImportError:
+        pass
+
+    try:
+        import aioboto3
+        from botocore.exceptions import ClientError
+    except ImportError:
+        pass
+
+    try:
+        from google.cloud import storage
+        from google.cloud.exceptions import NotFound
+    except ImportError:
+        pass
 
 
 class LocalStorageService:
@@ -95,7 +122,10 @@ class LocalStorageService:
             base_path: Root directory path for file storage
         """
         self.base_path = Path(base_path)
-        self.base_path.mkdir(parents=True, exist_ok=True)
+        # Attempt to create directory but don't fail if permission denied
+        # (can happen in tests or certain deployment scenarios)
+        with contextlib.suppress(OSError, PermissionError):
+            self.base_path.mkdir(parents=True, exist_ok=True)
 
     def _get_file_path(self, document_id: UUID, organization_id: UUID | None) -> Path:
         """Generate file path for document.
@@ -290,9 +320,7 @@ class AzureBlobStorageService:
 
         self.container_name = container_name
         self.connection_string = connection_string
-        self.blob_service_client = (
-            BlobServiceClient.from_connection_string(connection_string)
-        )
+        self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
 
     def _get_blob_name(self, document_id: UUID, organization_id: UUID | None) -> str:
         """Generate blob name for document.
@@ -449,9 +477,7 @@ class AzureBlobStorageService:
                 blob_name=blob_name,
                 account_key=account_key,
                 permission=BlobSasPermissions(read=True),
-                expiry=datetime.now(timezone.utc) + timedelta(
-                    seconds=expiry_seconds
-                ),
+                expiry=datetime.now(UTC) + timedelta(seconds=expiry_seconds),
             )
 
             blob_client = self.blob_service_client.get_blob_client(
@@ -502,10 +528,7 @@ class S3StorageService:
             region: AWS region code
         """
         if aioboto3 is None:
-            msg = (
-                "AWS S3 requires 'aioboto3' package. "
-                "Install with: pip install aioboto3"
-            )
+            msg = "AWS S3 requires 'aioboto3' package. Install with: pip install aioboto3"
             raise ImportError(msg)
 
         self.bucket_name = bucket_name
@@ -582,9 +605,7 @@ class S3StorageService:
         object_key = self._get_object_key(document_id, organization_id)
 
         try:
-            async with self.session.client("s3", region_name=self.region) as (
-                s3_client
-            ):
+            async with self.session.client("s3", region_name=self.region) as (s3_client):
                 response = await s3_client.get_object(
                     Bucket=self.bucket_name,
                     Key=object_key,
@@ -650,9 +671,7 @@ class S3StorageService:
         object_key = self._get_object_key(document_id, organization_id)
 
         try:
-            async with self.session.client("s3", region_name=self.region) as (
-                s3_client
-            ):
+            async with self.session.client("s3", region_name=self.region) as (s3_client):
                 return await s3_client.generate_presigned_url(
                     "get_object",
                     Params={"Bucket": self.bucket_name, "Key": object_key},

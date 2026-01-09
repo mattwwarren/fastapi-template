@@ -17,6 +17,7 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
+from pydantic_core import ValidationError
 
 from {{ project_slug }}.core.config import Settings
 from {{ project_slug }}.core.storage import (
@@ -53,8 +54,8 @@ class TestLocalStorageProvider:
         with patch("{{ project_slug }}.core.storage.settings", settings):
             storage = get_storage_service()
             assert storage is not None
-            # Verify base_path is set correctly
-            assert storage.base_path == custom_path  # type: ignore[attr-defined]
+            # Verify base_path is set correctly (convert Path to string for comparison)
+            assert str(storage.base_path) == custom_path  # type: ignore[attr-defined]
 
 
 class TestAzureStorageProvider:
@@ -248,14 +249,14 @@ class TestStorageProviderFactory:
     def test_factory_invalid_provider(
         self, test_settings_factory: Callable[..., Settings]
     ) -> None:
-        """Should raise error for unrecognized provider."""
-        settings = test_settings_factory(storage_provider="invalid_provider")
+        """Should raise ValidationError for invalid provider in Settings.
 
-        with (
-            patch("{{ project_slug }}.core.storage.settings", settings),
-            pytest.raises(ValueError, match="Unrecognized storage provider"),
-        ):
-            get_storage_service()
+        Invalid storage providers are caught by Pydantic enum validation
+        at the Settings level, not in the factory function. This is correct
+        behavior - configuration errors should be caught during initialization.
+        """
+        with pytest.raises(ValidationError, match="storage_provider"):
+            test_settings_factory(storage_provider="invalid_provider")
 
     def test_factory_returns_correct_provider_local(
         self, test_settings_factory: Callable[..., Settings]

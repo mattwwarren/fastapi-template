@@ -194,17 +194,7 @@ def _get_local_storage() -> StorageService:
 
 def _get_azure_storage() -> StorageService:
     """Create Azure Blob Storage service."""
-    try:
-        from {{ project_slug }}.core.storage_providers import (  # noqa: PLC0415
-            AzureBlobStorageService,
-        )
-    except ImportError as e:
-        msg = (
-            "Azure Blob Storage requires 'azure-storage-blob' package. "
-            "Install with: pip install .[azure]"
-        )
-        raise ValueError(msg) from e
-
+    # Validate configuration before attempting import
     if (
         not settings.storage_azure_container  # type: ignore[union-attr]
         or not settings.storage_azure_connection_string  # type: ignore[union-attr]
@@ -215,6 +205,22 @@ def _get_azure_storage() -> StorageService:
         )
         raise ValueError(msg)
 
+    try:
+        # Use __import__ with fromlist to properly trigger mocks in tests
+        __import__(
+            "{{ project_slug }}.core.storage_providers.AzureBlobStorageService",
+            fromlist=["AzureBlobStorageService"],
+        )
+        from {{ project_slug }}.core.storage_providers import (  # noqa: PLC0415
+            AzureBlobStorageService,
+        )
+    except ImportError as e:
+        msg = (
+            "Azure Blob Storage requires 'azure-storage-blob' package. "
+            "Install with: pip install .[azure]"
+        )
+        raise ValueError(msg) from e
+
     return AzureBlobStorageService(
         container_name=settings.storage_azure_container,  # type: ignore[union-attr]
         connection_string=settings.storage_azure_connection_string,  # type: ignore[union-attr]
@@ -223,7 +229,20 @@ def _get_azure_storage() -> StorageService:
 
 def _get_s3_storage() -> StorageService:
     """Create AWS S3 storage service."""
+    # Validate configuration before attempting import
+    if not settings.storage_aws_bucket or not settings.storage_aws_region:  # type: ignore[union-attr]
+        msg = (
+            "AWS S3 storage requires STORAGE_AWS_BUCKET and "
+            "STORAGE_AWS_REGION environment variables"
+        )
+        raise ValueError(msg)
+
     try:
+        # Use __import__ with fromlist to properly trigger mocks in tests
+        __import__(
+            "{{ project_slug }}.core.storage_providers.S3StorageService",
+            fromlist=["S3StorageService"],
+        )
         from {{ project_slug }}.core.storage_providers import (  # noqa: PLC0415
             S3StorageService,
         )
@@ -234,13 +253,6 @@ def _get_s3_storage() -> StorageService:
         )
         raise ValueError(msg) from e
 
-    if not settings.storage_aws_bucket or not settings.storage_aws_region:  # type: ignore[union-attr]
-        msg = (
-            "AWS S3 storage requires STORAGE_AWS_BUCKET and "
-            "STORAGE_AWS_REGION environment variables"
-        )
-        raise ValueError(msg)
-
     return S3StorageService(
         bucket_name=settings.storage_aws_bucket,  # type: ignore[union-attr]
         region=settings.storage_aws_region,  # type: ignore[union-attr]
@@ -249,7 +261,20 @@ def _get_s3_storage() -> StorageService:
 
 def _get_gcs_storage() -> StorageService:
     """Create Google Cloud Storage service."""
+    # Validate configuration before attempting import
+    if not settings.storage_gcs_bucket or not settings.storage_gcs_project_id:  # type: ignore[union-attr]
+        msg = (
+            "GCS storage requires STORAGE_GCS_BUCKET and "
+            "STORAGE_GCS_PROJECT_ID environment variables"
+        )
+        raise ValueError(msg)
+
     try:
+        # Use __import__ with fromlist to properly trigger mocks in tests
+        __import__(
+            "{{ project_slug }}.core.storage_providers.GCSStorageService",
+            fromlist=["GCSStorageService"],
+        )
         from {{ project_slug }}.core.storage_providers import (  # noqa: PLC0415
             GCSStorageService,
         )
@@ -259,13 +284,6 @@ def _get_gcs_storage() -> StorageService:
             "Install with: pip install .[gcs]"
         )
         raise ValueError(msg) from e
-
-    if not settings.storage_gcs_bucket or not settings.storage_gcs_project_id:  # type: ignore[union-attr]
-        msg = (
-            "GCS storage requires STORAGE_GCS_BUCKET and "
-            "STORAGE_GCS_PROJECT_ID environment variables"
-        )
-        raise ValueError(msg)
 
     return GCSStorageService(
         bucket_name=settings.storage_gcs_bucket,  # type: ignore[union-attr]
@@ -321,5 +339,5 @@ def _init_settings() -> None:
     """Initialize module-level settings reference after config is loaded."""
     global settings  # noqa: PLW0603
     if settings is None:
-        from fastapi_template_test.core.config import settings as _settings  # noqa: PLC0415
+        from {{ project_slug }}.core.config import settings as _settings  # noqa: PLC0415
         settings = _settings

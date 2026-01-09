@@ -11,7 +11,7 @@ from httpx import AsyncClient
 # Test constants
 NUM_TEST_ORGS = 3
 NUM_TEST_USERS_PER_ORG = 3
-NONEXISTENT_UUID = "00000000-0000-0000-0000-000000000000"
+NONEXISTENT_UUID = "ffffffff-ffff-ffff-ffff-ffffffffffff"
 
 
 class TestOrganizationCRUD:
@@ -100,8 +100,10 @@ class TestOrganizationCRUD:
         list_response = await client.get("/organizations")
         assert list_response.status_code == HTTPStatus.OK
         data = list_response.json()
-        assert data["total"] == NUM_TEST_ORGS
-        assert len(data["items"]) == NUM_TEST_ORGS
+        # +1 accounts for the fixture organization (UUID 00000000-0000-0000-0000-000000000000)
+        # created in conftest.py that persists across tests
+        assert data["total"] == NUM_TEST_ORGS + 1
+        assert len(data["items"]) == NUM_TEST_ORGS + 1
         assert data["page"] == 1
         assert data["size"] >= NUM_TEST_ORGS
 
@@ -117,10 +119,10 @@ class TestOrganizationValidation:
             json={"name": ""},
         )
         # Should fail if name has min_length validation
-        # If no validation exists, this test documents the current behavior
+        # Pydantic validators raise ValueError which can be converted to either 400 or 422
         assert response.status_code in (
-            HTTPStatus.UNPROCESSABLE_ENTITY,
-            HTTPStatus.CREATED,
+            HTTPStatus.BAD_REQUEST,  # 400
+            HTTPStatus.UNPROCESSABLE_ENTITY,  # 422
         )
 
     @pytest.mark.asyncio
@@ -141,10 +143,10 @@ class TestOrganizationValidation:
             "/organizations",
             json={"name": "   "},
         )
-        # Depends on whether name has min_length or strip validation
+        # Pydantic validators raise ValueError which can be converted to either 400 or 422
         assert response.status_code in (
-            HTTPStatus.UNPROCESSABLE_ENTITY,
-            HTTPStatus.CREATED,
+            HTTPStatus.BAD_REQUEST,  # 400
+            HTTPStatus.UNPROCESSABLE_ENTITY,  # 422
         )
 
     @pytest.mark.asyncio

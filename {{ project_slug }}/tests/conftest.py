@@ -6,16 +6,14 @@ import socket
 from collections.abc import AsyncGenerator, Generator
 from http import HTTPStatus
 from typing import Any
+from uuid import UUID, uuid4
 
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi import Request
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import bindparam, create_engine, select, text
-
-from fastapi import Request
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -25,17 +23,18 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import NullPool
 from sqlmodel import SQLModel
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
-from {{ project_slug }}.core.auth import AuthMiddleware, AuthProviderType, CurrentUser, get_current_user
+from {{ project_slug }}.core.auth import AuthMiddleware, CurrentUser
 from {{ project_slug }}.core.tenants import TenantContext
-from {{ project_slug }}.core.config import settings
 from {{ project_slug }}.db import session as db_session
 from {{ project_slug }}.db.session import get_session
 from {{ project_slug }}.main import app
+from {{ project_slug }}.models.organization import Organization
 
 # Import settings fixtures for test isolation and pytest-xdist compatibility
-# noqa: F401 - Fixtures imported for pytest auto-discovery
-from {{ project_slug }}.tests.fixtures.settings import (  # noqa: F401
+from fastapi_template_test.tests.fixtures.settings import (  # noqa: F401
     test_settings,
     test_settings_factory,
     test_settings_with_activity_logging_disabled,
@@ -70,9 +69,7 @@ def database_url(docker_ip: str, docker_services: object) -> str:
 
     def is_responsive() -> bool:
         try:
-            socket.create_connection(
-                (docker_ip, port), timeout=SOCKET_TIMEOUT_SECONDS
-            ).close()
+            socket.create_connection((docker_ip, port), timeout=SOCKET_TIMEOUT_SECONDS).close()
         except OSError:
             return False
         return True
@@ -117,18 +114,15 @@ def run_migrations(config: Config, engine: Engine) -> None:
         connection.commit()
 
 
-async def truncate_tables(
-    engine: AsyncEngine, alembic_config: Config, alembic_engine: Engine
-) -> None:
+async def truncate_tables(engine: AsyncEngine, alembic_config: Config, alembic_engine: Engine) -> None:
     table_names = [table.name for table in SQLModel.metadata.sorted_tables]
     if not table_names:
         return
     async with engine.begin() as connection:
         result = await connection.execute(
-            text(
-                "SELECT tablename FROM pg_tables "
-                "WHERE schemaname='public' AND tablename IN :names"
-            ).bindparams(bindparam("names", expanding=True)),
+            text("SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename IN :names").bindparams(
+                bindparam("names", expanding=True)
+            ),
             {"names": table_names},
         )
         existing = [row[0] for row in result.fetchall()]
@@ -136,19 +130,16 @@ async def truncate_tables(
         await asyncio.to_thread(run_migrations, alembic_config, alembic_engine)
         async with engine.begin() as connection:
             result = await connection.execute(
-                text(
-                    "SELECT tablename FROM pg_tables "
-                    "WHERE schemaname='public' AND tablename IN :names"
-                ).bindparams(bindparam("names", expanding=True)),
+                text("SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename IN :names").bindparams(
+                    bindparam("names", expanding=True)
+                ),
                 {"names": table_names},
             )
             existing = [row[0] for row in result.fetchall()]
     if not existing:
         return
     async with engine.begin() as connection:
-        await connection.execute(
-            text("TRUNCATE TABLE " + ", ".join(existing) + " RESTART IDENTITY CASCADE")
-        )
+        await connection.execute(text("TRUNCATE TABLE " + ", ".join(existing) + " RESTART IDENTITY CASCADE"))
 
 
 @pytest.fixture(scope="session")
@@ -181,7 +172,7 @@ def session_maker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
 @pytest.fixture
 async def session(
     session_maker: async_sessionmaker[AsyncSession],
-    reset_db: None,  # Ensure DB reset happens first
+    reset_db: None,  # noqa: ARG001 - Ensure DB reset happens first
 ) -> AsyncGenerator[AsyncSession]:
     """Provide a database session for tests that need direct database access."""
     async with session_maker() as session:
@@ -189,9 +180,7 @@ async def session(
 
 
 @pytest.fixture(autouse=True)
-async def reset_db(
-    engine: AsyncEngine, alembic_config: Config, alembic_engine: Engine
-) -> None:
+async def reset_db(engine: AsyncEngine, alembic_config: Config, alembic_engine: Engine) -> None:
     await truncate_tables(engine, alembic_config, alembic_engine)
 
 
@@ -199,25 +188,25 @@ class TestAuthMiddleware(BaseHTTPMiddleware):
     """Test middleware that injects a test user and tenant context into all requests."""
 
     async def dispatch(
-        self, request: Request, call_next: Any
+        self,
+        request: Request,
+        call_next: Any,  # noqa: ANN401
     ) -> Response:
         """Inject test user and tenant context into request state."""
         test_user = CurrentUser(
-            id="00000000-0000-0000-0000-000000000000",
+            id=uuid4(),
             email="testuser@example.com",
-            organization_id="00000000-0000-0000-0000-000000000000",
-            is_admin=False,
+            organization_id=UUID("00000000-0000-0000-0000-000000000000"),
         )
         request.state.user = test_user
 
         # Also set tenant context for endpoints that require TenantDep
         request.state.tenant = TenantContext(
-            organization_id=test_user.organization_id,
+            organization_id=test_user.organization_id,  # type: ignore[arg-type]
             user_id=test_user.id,
         )
 
-        response = await call_next(request)
-        return response
+        return await call_next(request)
 
 
 @pytest.fixture
@@ -235,23 +224,17 @@ async def client(
     app.middleware_stack = None
 
     # Remove AuthMiddleware if present and add TestAuthMiddleware that injects test user
-    app.user_middleware = [
-        m for m in app.user_middleware if m.cls != AuthMiddleware
-    ]
+    app.user_middleware = [m for m in app.user_middleware if m.cls != AuthMiddleware]
     app.add_middleware(TestAuthMiddleware)
 
     # Need to rebuild the middleware stack
     app.middleware_stack = app.build_middleware_stack()
 
     # Create test organization in database (needed for tests that reference this org_id)
-    from uuid import UUID
-    from {{ project_slug }}.models.organization import Organization
     test_org_id = UUID("00000000-0000-0000-0000-000000000000")
     async with session_maker() as session:
         # Check if organization already exists
-        result = await session.execute(
-            select(Organization).where(Organization.id == test_org_id)
-        )
+        result = await session.execute(select(Organization).where(Organization.id == test_org_id))
         if not result.scalar_one_or_none():
             # Create test organization with the same ID used in TestAuthMiddleware
             test_org = Organization(id=test_org_id, name="Test Organization")

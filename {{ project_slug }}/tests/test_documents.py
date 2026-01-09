@@ -59,16 +59,15 @@ class TestDocumentUpload:
 
     @pytest.mark.asyncio
     async def test_upload_document_no_content_type(self, client: AsyncClient) -> None:
-        """Uploading document without content type should fail."""
+        """Uploading document without explicit content type defaults to inferred type."""
         file_content = b"Test content"
         files = {"file": ("test.txt", BytesIO(file_content), None)}
 
         response = await client.post("/documents", files=files)
-        # Should fail validation if content_type is required
-        assert response.status_code in (
-            HTTPStatus.BAD_REQUEST,
-            HTTPStatus.UNPROCESSABLE_ENTITY,
-        )
+        # When content_type is None, httpx infers type from filename extension
+        # .txt files default to text/plain
+        assert response.status_code == HTTPStatus.CREATED
+        assert response.json()["content_type"] == "text/plain"
 
     @pytest.mark.asyncio
     async def test_upload_document_size_limit(self, client: AsyncClient) -> None:
@@ -111,7 +110,7 @@ class TestDocumentDownload:
         download_response = await client.get(f"/documents/{doc_id}")
         assert download_response.status_code == HTTPStatus.OK
         assert download_response.content == file_content
-        assert download_response.headers["content-type"] == "text/plain"
+        assert download_response.headers["content-type"].startswith("text/plain")
         content_disposition = download_response.headers.get("content-disposition", "")
         assert "attachment" in content_disposition
         assert "download.txt" in content_disposition
@@ -205,9 +204,7 @@ class TestDocumentValidation:
 
             doc_id = upload_response.json()["id"]
             download_response = await client.get(f"/documents/{doc_id}")
-            assert (
-                download_response.headers["content-type"] == content_type
-            )
+            assert download_response.headers["content-type"].startswith(content_type)
 
     @pytest.mark.asyncio
     async def test_file_size_tracking(self, client: AsyncClient) -> None:

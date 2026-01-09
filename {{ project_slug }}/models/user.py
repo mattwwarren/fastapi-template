@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import ClassVar
 from uuid import UUID
 
+import sqlalchemy as sa
 from pydantic import ConfigDict, EmailStr, ValidationInfo, field_validator
 from sqlmodel import Field, SQLModel
 
@@ -23,7 +24,13 @@ class UserBase(SQLModel):
 
 class User(TimestampedTable, UserBase, table=True):
     __tablename__ = "app_user"
-    pass
+
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "email",
+            name="uq_app_user_email",
+        ),
+    )
 
 
 class UserCreate(UserBase):
