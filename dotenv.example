@@ -1,0 +1,122 @@
+# FastAPI Template Configuration
+# Copy to .env and update values for your environment
+
+# Application
+APP_NAME={{ project_slug }}
+ENVIRONMENT=local
+LOG_LEVEL=debug
+
+# Database
+DATABASE_URL=postgresql+asyncpg://app:app@localhost:5432/app
+SQLALCHEMY_ECHO=false
+
+# API Behavior
+PAGINATION_PAGE_SIZE=50
+PAGINATION_PAGE_SIZE_MAX=200
+
+# Observability
+ENABLE_METRICS={{ 'true' if enable_metrics else 'false' }}
+ACTIVITY_LOGGING_ENABLED={{ 'true' if enable_activity_logging else 'false' }}
+ACTIVITY_LOG_RETENTION_DAYS=90
+
+# File uploads
+MAX_FILE_SIZE_BYTES=52428800  # 50MB in bytes
+
+# Object Storage Configuration
+# Storage provider: {{ storage_provider }}
+STORAGE_PROVIDER={{ storage_provider }}
+{% if storage_provider == 'local' -%}
+STORAGE_LOCAL_PATH=./uploads
+{% endif -%}
+
+{% if storage_provider == 'azure' -%}
+# Azure Blob Storage (requires: pip install .[azure])
+STORAGE_AZURE_CONTAINER=documents
+STORAGE_AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=myaccount;AccountKey=mykey;EndpointSuffix=core.windows.net
+# Get connection string from Azure Portal -> Storage Account -> Access Keys
+{% endif -%}
+
+{% if storage_provider == 's3' -%}
+# AWS S3 (requires: pip install .[aws])
+STORAGE_AWS_BUCKET=my-document-bucket
+STORAGE_AWS_REGION=us-east-1
+# AWS credentials from ~/.aws/credentials or IAM role (EC2, ECS, Lambda)
+# Or set: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY environment variables
+{% endif -%}
+
+{% if storage_provider == 'gcs' -%}
+# Google Cloud Storage (requires: pip install .[gcs])
+STORAGE_GCS_BUCKET=my-document-bucket
+STORAGE_GCS_PROJECT_ID=my-project-id
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
+# Get service account key from GCP Console -> IAM -> Service Accounts
+{% endif -%}
+
+# Tenant Isolation (Multi-tenant Security)
+# WARNING: Disabling this in multi-tenant environments creates severe data leak vulnerabilities
+# Only disable for single-tenant deployments or public APIs
+ENFORCE_TENANT_ISOLATION={{ 'true' if multi_tenant else 'false' }}
+
+# Authentication (JWT)
+# Authentication provider: {{ auth_provider if auth_enabled else 'none' }}
+AUTH_PROVIDER_TYPE={{ auth_provider if auth_enabled else 'none' }}
+{% if auth_enabled and auth_provider != 'none' -%}
+AUTH_PROVIDER_URL=https://your-auth-provider.com
+AUTH_PROVIDER_ISSUER=https://your-auth-provider.com/
+JWT_ALGORITHM=RS256
+JWT_PUBLIC_KEY=-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\n-----END PUBLIC KEY-----
+{% else -%}
+# AUTH_PROVIDER_URL=https://your-auth-provider.com
+# AUTH_PROVIDER_ISSUER=https://your-auth-provider.com/
+# JWT_ALGORITHM=RS256
+# JWT_PUBLIC_KEY=-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\n-----END PUBLIC KEY-----
+{% endif -%}
+
+# Example Ory Hydra Configuration:
+# AUTH_PROVIDER_TYPE=ory
+# AUTH_PROVIDER_URL=https://your-ory-instance.com
+# AUTH_PROVIDER_ISSUER=https://your-ory-instance.com/
+# JWT_ALGORITHM=RS256
+# JWT_PUBLIC_KEY=<fetch from /.well-known/jwks.json>
+
+# Example Auth0 Configuration:
+# AUTH_PROVIDER_TYPE=auth0
+# AUTH_PROVIDER_URL=https://your-tenant.auth0.com
+# AUTH_PROVIDER_ISSUER=https://your-tenant.auth0.com/
+# JWT_ALGORITHM=RS256
+# JWT_PUBLIC_KEY=<fetch from /.well-known/jwks.json>
+
+# Example Keycloak Configuration:
+# AUTH_PROVIDER_TYPE=keycloak
+# AUTH_PROVIDER_URL=https://keycloak.example.com/realms/your-realm
+# AUTH_PROVIDER_ISSUER=https://keycloak.example.com/realms/your-realm
+# JWT_ALGORITHM=RS256
+# JWT_PUBLIC_KEY=<fetch from /protocol/openid-connect/certs>
+
+# Example AWS Cognito Configuration:
+# AUTH_PROVIDER_TYPE=cognito
+# AUTH_PROVIDER_URL=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXXX
+# AUTH_PROVIDER_ISSUER=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXXX
+# JWT_ALGORITHM=RS256
+# JWT_PUBLIC_KEY=<fetch from /.well-known/jwks.json>
+
+# CORS Configuration
+# Comma-separated list of allowed origins for Cross-Origin Resource Sharing
+# CRITICAL: In production, only list your actual frontend domains
+# NEVER use "*" in production (security risk - allows any site to make requests)
+CORS_ALLOWED_ORIGINS={{ cors_origins }}
+
+# Rate Limiting (Optional)
+# Requires: pip install slowapi
+# Protects API from abuse by limiting requests per IP address
+# RATE_LIMIT_ENABLED=false
+# RATE_LIMIT_PER_MINUTE=100
+
+# Cross-service communication (when integrating with other services)
+# AUTH_SERVICE_URL=https://auth-service:8000
+# NOTIFICATION_SERVICE_URL=https://notification-service:8000
+# ANALYTICS_SERVICE_URL=https://analytics-service:8000
+
+# Environment-specific overrides
+# For production, set these via secrets manager or environment
+# Never commit actual secrets to version control

@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Welcome! You've generated a production-ready FastAPI template. This guide walks you through initial setup and optional feature configuration.
+Welcome! You've generated a production-ready FastAPI template with automated setup.
 
 ## Prerequisites
 
@@ -8,32 +8,34 @@ Welcome! You've generated a production-ready FastAPI template. This guide walks 
 - Docker (for PostgreSQL)
 - `uv` package manager (https://docs.astral.sh/uv/)
 
-## Initial Setup (5 minutes)
+## What Was Automated
 
-### 1. Environment Configuration
+During project generation, the following tasks were completed automatically:
 
-Copy the example environment file and update it:
+✅ Environment file (`.env`) created from template
+✅ Dependencies installed via `uv sync --dev` (if uv available)
+✅ Database migrations attempted via `alembic upgrade head` (if database configured)
+
+## Quick Start (2 minutes)
+
+### 1. Configure Database Connection
+
+The `.env` file was created automatically. Edit it to set your database connection:
 
 ```bash
-cp .env.example .env
-# Edit .env - at minimum, set DATABASE_URL to your PostgreSQL connection
+# Edit .env and update this line:
+DATABASE_URL=postgresql+asyncpg://app:app@localhost:5432/app
 ```
 
-### 2. Install Dependencies
+### 2. Run Database Migrations (if not already done)
 
-```bash
-uv sync --dev
-```
-
-### 3. Database Setup
-
-Run migrations to create schema:
+If the automated migration failed during generation, run it manually:
 
 ```bash
 uv run alembic upgrade head
 ```
 
-### 4. Run Development Server
+### 3. Start Development Server
 
 ```bash
 uv run fastapi dev {{ project_slug }}/main.py
@@ -45,55 +47,47 @@ Verify the server is running by visiting http://localhost:{{ port }}/health in y
 
 ---
 
-## Enabling Optional Features
+## Your Configuration
 
-By default, several features are disabled (commented out in code). Follow this checklist to enable the ones you need:
+During generation, you configured the following features:
 
-### Feature: Authentication
+{% if auth_enabled -%}
+### Authentication: ENABLED ({{ auth_provider }})
 
-**Status**: DISABLED by default
-**Why**: Allows local development without auth provider setup
-**Enable**: Uncomment in `{{ project_slug }}/main.py` around line 35
+**Status**: ✅ Enabled in `{{ project_slug }}/main.py`
+**Provider**: {{ auth_provider }}
 
-```python
-# Line 35: Uncomment to enable authentication
-app.add_middleware(AuthMiddleware)
-```
-
-**Configuration**: Update `.env`:
-- `AUTH_PROVIDER_TYPE=none` (local development, no auth)
-- `AUTH_PROVIDER_TYPE=ory` (use Ory identity platform)
-- `AUTH_PROVIDER_TYPE=auth0` (use Auth0)
-- `AUTH_PROVIDER_TYPE=keycloak` (use Keycloak)
-- `AUTH_PROVIDER_TYPE=cognito` (use AWS Cognito)
+**Configuration in `.env`**:
+- `AUTH_PROVIDER_TYPE={{ auth_provider }}`
+- Update `AUTH_PROVIDER_URL`, `AUTH_PROVIDER_ISSUER`, `JWT_PUBLIC_KEY` as needed
 
 For provider-specific setup, see [CONFIGURATION-GUIDE.md](CONFIGURATION-GUIDE.md#authentication)
+{% else -%}
+### Authentication: DISABLED
 
-**Test without authentication**:
+**Status**: ❌ Disabled (public API mode)
+
+To enable authentication later, regenerate the project with copier or manually:
+1. Uncomment AuthMiddleware in `{{ project_slug }}/main.py`
+2. Configure `.env` with your auth provider details
+
+**Test endpoints without authentication**:
 ```bash
-# These endpoints work without auth:
 curl http://localhost:{{ port }}/health
 curl http://localhost:{{ port }}/ping
 curl http://localhost:{{ port }}/docs
 ```
+{% endif -%}
 
 ---
 
-### Feature: Multi-Tenant Isolation
+{% if multi_tenant and auth_enabled -%}
+### Multi-Tenant Isolation: ENABLED
 
-**Status**: DISABLED by default
-**Why**: Single-tenant apps don't need this complexity
-**Enable**: Uncomment in `{{ project_slug }}/main.py` around line 45
+**Status**: ✅ Enabled in `{{ project_slug }}/main.py`
 
-```python
-# Line 45: Uncomment to enable tenant isolation
-# IMPORTANT: AuthMiddleware must be enabled first!
-app.add_middleware(TenantIsolationMiddleware)
-```
-
-**Configuration**: Update `.env`:
-- `ENFORCE_TENANT_ISOLATION=true` (default, recommended)
-- `ENFORCE_TENANT_ISOLATION=false` (for single-tenant)
+**Configuration in `.env`**:
+- `ENFORCE_TENANT_ISOLATION=true`
 
 **What this does**:
 - Prevents User A from accessing Organization B's data
@@ -102,72 +96,81 @@ app.add_middleware(TenantIsolationMiddleware)
 - Protects documents, users, memberships, and custom data
 
 For details, see [docs/TENANT_ISOLATION.md](docs/TENANT_ISOLATION.md)
+{% elif multi_tenant and not auth_enabled -%}
+### Multi-Tenant Isolation: DISABLED (requires authentication)
+
+**Status**: ⚠️ Multi-tenant mode requires authentication to be enabled
+
+To enable:
+1. Enable authentication (see above)
+2. Middleware will automatically enforce tenant isolation
+{% else -%}
+### Multi-Tenant Isolation: DISABLED
+
+**Status**: ❌ Disabled (single-tenant mode)
+
+**Configuration in `.env`**:
+- `ENFORCE_TENANT_ISOLATION=false`
+
+To enable later, regenerate with copier or manually uncomment TenantIsolationMiddleware.
+{% endif -%}
 
 ---
 
-### Feature: Cloud Storage
+### Storage Provider: {{ storage_provider }}
 
-**Status**: Local filesystem by default
-**Why**: Works out-of-the-box, no external dependencies
-**Configure**: Update `.env` for your provider
+**Configuration in `.env`**:
+- `STORAGE_PROVIDER={{ storage_provider }}`
+{% if storage_provider == 'local' -%}
+- `STORAGE_LOCAL_PATH=./uploads`
 
-**Local storage** (development):
-```bash
-STORAGE_PROVIDER=local
-STORAGE_LOCAL_PATH=./uploads
-```
+**Note**: Local storage is suitable for development. For production, consider cloud storage (S3, Azure, GCS).
+{% elif storage_provider == 's3' -%}
+- `STORAGE_AWS_BUCKET=my-bucket` (update with your bucket name)
+- `STORAGE_AWS_REGION=us-east-1` (update with your region)
 
-**AWS S3** (production):
-```bash
-STORAGE_PROVIDER=s3
-STORAGE_AWS_BUCKET=my-bucket
-STORAGE_AWS_REGION=us-east-1
-STORAGE_AWS_ACCESS_KEY_ID=your-access-key
-STORAGE_AWS_SECRET_ACCESS_KEY=your-secret-key
-```
+Configure AWS credentials via `~/.aws/credentials` or IAM role.
+{% elif storage_provider == 'azure' -%}
+- `STORAGE_AZURE_CONTAINER=documents` (update with your container name)
+- `STORAGE_AZURE_CONNECTION_STRING=...` (update with your connection string)
 
-**Azure Blob Storage** (production):
-```bash
-STORAGE_PROVIDER=azure
-STORAGE_AZURE_CONTAINER=my-container
-STORAGE_AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=https;...
-```
+Get connection string from Azure Portal → Storage Account → Access Keys.
+{% elif storage_provider == 'gcs' -%}
+- `STORAGE_GCS_BUCKET=my-bucket` (update with your bucket name)
+- `STORAGE_GCS_PROJECT_ID=my-project` (update with your project ID)
+- `GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json`
 
-**Google Cloud Storage** (production):
-```bash
-STORAGE_PROVIDER=gcs
-STORAGE_GCS_BUCKET=my-bucket
-STORAGE_GCS_PROJECT_ID=my-project
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
-```
+Get service account key from GCP Console → IAM → Service Accounts.
+{% endif -%}
 
 For setup guides, see [CONFIGURATION-GUIDE.md](CONFIGURATION-GUIDE.md#storage)
 
 ---
 
-### Feature: Activity Logging
+### Activity Logging: {{ 'ENABLED' if enable_activity_logging else 'DISABLED' }}
 
-**Status**: ENABLED by default
-**Why**: Audit trail for compliance and debugging
-**Disable**: Update `.env` if not needed
+**Configuration in `.env`**:
+- `ACTIVITY_LOGGING_ENABLED={{ 'true' if enable_activity_logging else 'false' }}`
 
-```bash
-ACTIVITY_LOGGING_ENABLED=false  # Disable if not needed
-```
-
+{% if enable_activity_logging -%}
 All create, read, update, and delete operations are logged with:
 - Timestamp
 - User ID and email
 - Action type (CREATE, READ, UPDATE, DELETE)
 - Resource type and ID
 - Changes made (for UPDATE)
+{% else -%}
+To enable, update `.env` and set `ACTIVITY_LOGGING_ENABLED=true`.
+{% endif -%}
 
 ---
 
-### Feature: Metrics (Prometheus)
+### Metrics (Prometheus): {{ 'ENABLED' if enable_metrics else 'DISABLED' }}
 
-**Status**: ENABLED by default
-**Why**: Observability and monitoring
+**Configuration in `.env`**:
+- `ENABLE_METRICS={{ 'true' if enable_metrics else 'false' }}`
+
+{% if enable_metrics -%}
 **Access**: http://localhost:{{ port }}/metrics
 
 Metrics include:
@@ -176,6 +179,9 @@ Metrics include:
 - Document uploads (documents_uploaded_total)
 - Database query duration
 - HTTP request latency
+{% else -%}
+To enable, update `.env` and set `ENABLE_METRICS=true`.
+{% endif -%}
 
 ---
 

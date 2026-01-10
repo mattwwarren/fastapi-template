@@ -4,134 +4,126 @@ Guide for configuring authentication providers during FastAPI template generatio
 
 ## Overview
 
-Copier allows users to select their preferred auth provider when generating a new project. This document explains the design and implementation.
+Copier allows users to select their preferred auth provider when generating a new project. This document explains the implementation.
 
-## Current Configuration
+## Implementation
 
-The `copier.yaml` file contains questions for project generation. Auth provider selection should be added.
+The `copier.yaml` file contains questions for project generation, including authentication provider selection.
 
-### Proposed Copier Configuration
+### Copier Configuration
 
-{% raw %}
 ```yaml
-# copier.yaml
+# copier.yaml (excerpt showing auth configuration)
 
-_envops:
-  autoescape: true
-  block_end_string: "-%}"
-  block_start_string: "{%"
-  comment_end_string: "#}"
-  comment_start_string: "{#"
-  keep_trailing_newline: true
-  variable_end_string: "}}"
-  variable_start_string: "{{"
+auth_enabled:
+  type: bool
+  help: "Enable authentication middleware? (Requires auth provider configuration)"
+  default: false
 
-_skip_if:
-  - "{% if not include_auth %}"
-{% endraw %}
-
-questions:
-  project_name:
-    type: str
-    help: Project name
-    default: My Project
-
-  project_slug:
-    type: str
-    help: Project slug (lowercase, no spaces)
-    default: "{{ project_name.lower().replace(' ', '_') }}"
-
-  # NEW: Authentication provider selection
-  use_authentication:
-    type: bool
-    help: Include authentication support?
-    default: true
-
-  auth_provider:
-    type: str
-    help: |
-      Authentication provider:
+auth_provider:
+  type: str
+  help: |
+    Authentication provider:
       - none: No authentication (public API)
       - ory: Ory (open source, self-hosted)
       - auth0: Auth0 (commercial SaaS)
       - keycloak: Keycloak (open source)
       - cognito: AWS Cognito (AWS managed)
-    default: ory
-    when: "{{ use_authentication }}"
-    choices:
-      - none
-      - ory
-      - auth0
-      - keycloak
-      - cognito
+  default: none
+  choices:
+    - none
+    - ory
+    - auth0
+    - keycloak
+    - cognito
+  when: "{{ auth_enabled }}"
 
-  auth_provider_url:
-    type: str
-    help: |
-      Auth provider base URL
-      Examples:
-      - Ory: https://your-project.ory.sh
-      - Auth0: https://your-tenant.auth0.com
-      - Keycloak: https://your-keycloak.example.com/auth
-      - Cognito: https://cognito-idp.region.amazonaws.com/region_code
-    when: "{{ auth_provider != 'none' and use_authentication }}"
+multi_tenant:
+  type: bool
+  help: "Enable multi-tenant isolation? (Requires authentication)"
+  default: true
 
-  auth_provider_issuer:
-    type: str
-    help: |
-      Expected token issuer (iss claim)
-      Usually same as auth provider URL
-    when: "{{ auth_provider != 'none' and use_authentication }}"
+storage_provider:
+  type: str
+  help: |
+    Storage provider for file uploads:
+      - local: Local filesystem (development)
+      - s3: AWS S3 (production)
+      - azure: Azure Blob Storage (production)
+      - gcs: Google Cloud Storage (production)
+  default: local
+  choices:
+    - local
+    - s3
+    - azure
+    - gcs
 
-  jwt_algorithm:
-    type: str
-    help: |
-      JWT algorithm for token validation:
-      - RS256: RSA (recommended)
-      - HS256: HMAC
-    default: RS256
-    choices:
-      - RS256
-      - HS256
-    when: "{{ auth_provider != 'none' and use_authentication }}"
+cors_origins:
+  type: str
+  help: "CORS allowed origins (comma-separated, e.g., 'http://localhost:3000')"
+  default: "http://localhost:3000"
 
-  jwt_public_key:
-    type: str
-    help: |
-      (Optional) JWT public key for local validation
-      Leave empty to always call auth provider
-    when: "{{ auth_provider != 'none' and use_authentication }}"
+enable_metrics:
+  type: bool
+  help: "Enable Prometheus metrics endpoint at /metrics?"
+  default: true
 
-  include_multi_tenancy:
-    type: bool
-    help: Include multi-tenant support (organizations)?
-    default: true
-
-  # ... other questions ...
+enable_activity_logging:
+  type: bool
+  help: "Enable activity logging for audit trails?"
+  default: true
 ```
 
 ## Template Customization
 
-Based on auth provider selection, templates adjust configuration:
+Based on configuration selections, templates adjust automatically using Jinja2 conditionals.
 
 ### .env Template
 
-{% raw %}
 ```bash
 # .env.example
 
-# Auth Configuration
-AUTH_PROVIDER_TYPE={{ auth_provider }}
-{% if auth_provider != 'none' %}
-AUTH_PROVIDER_URL={{ auth_provider_url }}
-AUTH_PROVIDER_ISSUER={{ auth_provider_issuer }}
-JWT_ALGORITHM={{ jwt_algorithm }}
-{% if jwt_public_key %}
-JWT_PUBLIC_KEY=<your-public-key>
-{% endif %}
-{% endif %}
+# Authentication (JWT)
+# Authentication provider: {{ auth_provider if auth_enabled else 'none' }}
+AUTH_PROVIDER_TYPE={{ auth_provider if auth_enabled else 'none' }}
+{% if auth_enabled and auth_provider != 'none' -%}
+AUTH_PROVIDER_URL=https://your-auth-provider.com
+AUTH_PROVIDER_ISSUER=https://your-auth-provider.com/
+JWT_ALGORITHM=RS256
+JWT_PUBLIC_KEY=-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----
+{% else -%}
+# AUTH_PROVIDER_URL=https://your-auth-provider.com
+# AUTH_PROVIDER_ISSUER=https://your-auth-provider.com/
+# JWT_ALGORITHM=RS256
+# JWT_PUBLIC_KEY=-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----
+{% endif -%}
+
+# Tenant Isolation
+ENFORCE_TENANT_ISOLATION={{ 'true' if multi_tenant else 'false' }}
+
+# Storage Configuration
+STORAGE_PROVIDER={{ storage_provider }}
+{% if storage_provider == 'local' -%}
+STORAGE_LOCAL_PATH=./uploads
+{% elif storage_provider == 's3' -%}
+STORAGE_AWS_BUCKET=my-document-bucket
+STORAGE_AWS_REGION=us-east-1
+{% elif storage_provider == 'azure' -%}
+STORAGE_AZURE_CONTAINER=documents
+STORAGE_AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=https;...
+{% elif storage_provider == 'gcs' -%}
+STORAGE_GCS_BUCKET=my-document-bucket
+STORAGE_GCS_PROJECT_ID=my-project-id
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
+{% endif -%}
+
+# CORS Configuration
+CORS_ALLOWED_ORIGINS={{ cors_origins }}
+
+# Observability
+ENABLE_METRICS={{ 'true' if enable_metrics else 'false' }}
+ACTIVITY_LOGGING_ENABLED={{ 'true' if enable_activity_logging else 'false' }}
 ```
-{% endraw %}
 
 ### pyproject.toml Conditional Dependencies
 
@@ -203,55 +195,38 @@ class Settings(BaseSettings):
 
 ### Auth Middleware Configuration
 
-{% raw %}
 ```python
-# {{ project_slug }}/main.py
+# {{ project_slug }}/main.py (excerpt)
 
-from {{ project_slug }}.core.config import settings
+{% if auth_enabled -%}
+# Authentication Middleware
+# JWT authentication for all endpoints (public endpoints excluded automatically)
 from {{ project_slug }}.core.auth import AuthMiddleware
 
-app = FastAPI()
-
-{% if auth_provider != 'none' %}
-# Add authentication middleware
 app.add_middleware(AuthMiddleware)
+{% else -%}
+# Authentication Middleware (DISABLED)
+# To enable authentication:
+#   1. Regenerate project with copier and set auth_enabled=true
+#   2. Or manually uncomment the following and configure .env:
+#
+# from {{ project_slug }}.core.auth import AuthMiddleware
+# app.add_middleware(AuthMiddleware)
+{% endif -%}
 
-# Auth provider specific setup
-{% if auth_provider == 'ory' %}
-# Ory setup
-from {{ project_slug }}.core.auth_providers import OryProvider
-auth_provider = OryProvider(settings.auth_provider_url)
+{% if multi_tenant and auth_enabled -%}
+# Tenant Isolation Middleware
+# Enforces tenant isolation for all endpoints
+from {{ project_slug }}.core.tenants import TenantIsolationMiddleware
 
-{% elif auth_provider == 'auth0' %}
-# Auth0 setup
-from {{ project_slug }}.core.auth_providers import Auth0Provider
-auth_provider = Auth0Provider(
-    domain=settings.auth_provider_url,
-    audience=settings.auth_provider_issuer,
-)
-
-{% elif auth_provider == 'keycloak' %}
-# Keycloak setup
-from {{ project_slug }}.core.auth_providers import KeycloakProvider
-auth_provider = KeycloakProvider(
-    server_url=settings.auth_provider_url,
-    realm=settings.keycloak_realm,
-)
-
-{% elif auth_provider == 'cognito' %}
-# Cognito setup
-from {{ project_slug }}.core.auth_providers import CognitoProvider
-auth_provider = CognitoProvider(
-    region=settings.cognito_region,
-    user_pool_id=settings.cognito_user_pool_id,
-)
-{% endif %}
-
-{% else %}
-# No authentication - all endpoints public
-{% endif %}
+app.add_middleware(TenantIsolationMiddleware)
+{% elif multi_tenant and not auth_enabled -%}
+# Tenant Isolation Middleware (DISABLED - Authentication Required)
+# Multi-tenant isolation requires authentication to be enabled first.
+{% else -%}
+# Tenant Isolation Middleware (DISABLED - Single Tenant Mode)
+{% endif -%}
 ```
-{% endraw %}
 
 ### Test Configuration
 
@@ -398,39 +373,58 @@ Mock fixtures already exist in `tests/mocks/auth_providers.py`
 ```
 copier copy <template-url> my-project
 ? Project name: My App
-? Include authentication? [Y/n] Y
-? Auth provider:
+? Project slug (auto): my_app
+? Brief project description: A FastAPI microservice
+? Development server port: 8000
+? Enable authentication middleware? [y/N] y
+? Authentication provider:
   > ory
     auth0
     keycloak
     cognito
     none
-? Auth provider URL: https://my-project.ory.sh
-? Token issuer: https://my-project.ory.sh
-? JWT algorithm: [RS256/HS256] RS256
-? Include multi-tenancy? [Y/n] Y
+? Enable multi-tenant isolation? [Y/n] Y
+? Storage provider for file uploads:
+  > local
+    s3
+    azure
+    gcs
+? CORS allowed origins: http://localhost:3000
+? Enable Prometheus metrics endpoint at /metrics? [Y/n] Y
+? Enable activity logging for audit trails? [Y/n] Y
 
-✓ Generated project with Ory authentication
-✓ See docs/auth_providers/ory_setup.md for next steps
+Running post-generation tasks...
+✓ Created .env from .env.example
+✓ Dependencies installed successfully
+⚠ Database migration skipped (configure DATABASE_URL first)
+
+🎉 Project My App generated successfully!
 ```
 
 ### Post-Generation
 
 After generation:
 
-```
+```bash
 cd my-project
-# 1. Follow provider-specific guide
-cat docs/auth_providers/ory_setup.md
 
-# 2. Update .env with provider credentials
-nano .env
+# 1. Configure database connection in .env
+# Edit DATABASE_URL to point to your PostgreSQL instance
 
-# 3. Run tests to verify setup
-pytest tests/
+# 2. Run database migrations (if not done automatically)
+uv run alembic upgrade head
 
-# 4. Start development
-uvicorn main:app --reload
+# 3. Configure auth provider (if authentication enabled)
+# Edit .env and set AUTH_PROVIDER_URL, AUTH_PROVIDER_ISSUER, JWT_PUBLIC_KEY
+
+# 4. Start development server
+uv run fastapi dev my_app/main.py
+
+# 5. View API docs
+open http://localhost:8000/docs
+
+# 6. Run tests to verify setup
+uv run pytest tests/ -v
 ```
 
 ## Advanced Configuration

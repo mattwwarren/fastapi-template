@@ -55,23 +55,23 @@ if settings.enable_metrics:
 # Middleware is processed in REVERSE order (last added = first executed)
 # Order them carefully to ensure correct request processing flow
 
-# CORS Middleware (Optional)
-# Uncomment to enable Cross-Origin Resource Sharing for frontend applications.
+# CORS Middleware
+# Cross-Origin Resource Sharing for frontend applications.
 # CRITICAL: In production, restrict origins to your actual frontend domains.
 # Never use allow_origins=["*"] in production (security risk).
 #
 # Configuration in .env:
-#   CORS_ALLOWED_ORIGINS=http://localhost:3000,https://app.example.com
+#   CORS_ALLOWED_ORIGINS={{ cors_origins }}
 #
-# from fastapi.middleware.cors import CORSMiddleware
-#
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=settings.cors_allowed_origins,  # ["http://localhost:3000"]
-#     allow_credentials=True,  # Allow cookies/auth headers
-#     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, DELETE, etc.)
-#     allow_headers=["*"],  # Allow all headers
-# )
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_allowed_origins,  # {{ cors_origins.split(',') }}
+    allow_credentials=True,  # Allow cookies/auth headers
+    allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Allow all headers
+)
 
 # Rate Limiting Middleware (Optional)
 # Uncomment to enable request rate limiting per IP address.
@@ -116,10 +116,29 @@ if settings.enable_metrics:
 #
 app.add_middleware(LoggingMiddleware)
 
-# Authentication Middleware (Optional)
-# Uncomment to enable JWT authentication for all endpoints
-# Public endpoints (/health, /ping, /docs, /openapi.json, /metrics) are
-# automatically excluded
+{% if auth_enabled -%}
+# Authentication Middleware
+# JWT authentication for all endpoints (public endpoints excluded automatically)
+# Public endpoints: /health, /ping, /docs, /openapi.json, /metrics
+#
+# Configuration in .env:
+#   AUTH_PROVIDER_TYPE={{ auth_provider }}
+#   AUTH_PROVIDER_URL=https://your-auth-provider.com
+#   AUTH_PROVIDER_ISSUER=https://your-auth-provider.com/
+#   JWT_ALGORITHM=RS256
+#   JWT_PUBLIC_KEY=<your-public-key-pem>
+#
+from {{ project_slug }}.core.auth import AuthMiddleware
+
+app.add_middleware(AuthMiddleware)
+{% else -%}
+# Authentication Middleware (DISABLED)
+# To enable authentication:
+#   1. Regenerate project with copier and set auth_enabled=true
+#   2. Or manually uncomment the following and configure .env:
+#
+# from {{ project_slug }}.core.auth import AuthMiddleware
+# app.add_middleware(AuthMiddleware)
 #
 # Configuration required in .env:
 #   AUTH_PROVIDER_TYPE=ory|auth0|keycloak|cognito
@@ -127,13 +146,12 @@ app.add_middleware(LoggingMiddleware)
 #   AUTH_PROVIDER_ISSUER=https://your-auth-provider.com/
 #   JWT_ALGORITHM=RS256
 #   JWT_PUBLIC_KEY=<your-public-key-pem>
-#
-# from {{ project_slug }}.core.auth import AuthMiddleware
-# app.add_middleware(AuthMiddleware)
+{% endif -%}
 
-# Tenant Isolation Middleware (Optional - Multi-Tenant Applications)
-# Uncomment to enforce tenant isolation for all endpoints
-# CRITICAL: Must be added AFTER AuthMiddleware (requires authenticated user)
+{% if multi_tenant and auth_enabled -%}
+# Tenant Isolation Middleware
+# Enforces tenant isolation for all endpoints
+# CRITICAL: Requires AuthMiddleware (must be added AFTER authentication)
 #
 # This middleware:
 # 1. Extracts organization_id from JWT claims, path params, or query params
@@ -153,8 +171,27 @@ app.add_middleware(LoggingMiddleware)
 #       # User verified as member of organization
 #       ...
 #
+from {{ project_slug }}.core.tenants import TenantIsolationMiddleware
+
+app.add_middleware(TenantIsolationMiddleware)
+{% elif multi_tenant and not auth_enabled -%}
+# Tenant Isolation Middleware (DISABLED - Authentication Required)
+# Multi-tenant isolation requires authentication to be enabled first.
+# To enable:
+#   1. Regenerate project with copier and set auth_enabled=true
+#   2. Or manually enable AuthMiddleware above, then uncomment:
+#
 # from {{ project_slug }}.core.tenants import TenantIsolationMiddleware
 # app.add_middleware(TenantIsolationMiddleware)
+{% else -%}
+# Tenant Isolation Middleware (DISABLED - Single Tenant Mode)
+# To enable multi-tenant isolation:
+#   1. Regenerate project with copier and set multi_tenant=true and auth_enabled=true
+#   2. Or manually enable AuthMiddleware above, then uncomment:
+#
+# from {{ project_slug }}.core.tenants import TenantIsolationMiddleware
+# app.add_middleware(TenantIsolationMiddleware)
+{% endif -%}
 
 # Global Exception Handlers
 # These provide consistent error responses across the entire API
