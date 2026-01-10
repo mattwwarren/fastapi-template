@@ -17,11 +17,11 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from fastapi_template_test.core.tenants import TenantContext, add_tenant_filter
-from fastapi_template_test.models.document import Document
-from fastapi_template_test.models.membership import Membership
-from fastapi_template_test.models.organization import Organization
-from fastapi_template_test.models.user import User
+from {{ project_slug }}.core.tenants import TenantContext, add_tenant_filter
+from {{ project_slug }}.models.document import Document
+from {{ project_slug }}.models.membership import Membership
+from {{ project_slug }}.models.organization import Organization
+from {{ project_slug }}.models.user import User
 
 # Test constants
 NONEXISTENT_UUID = "ffffffff-ffff-ffff-ffff-ffffffffffff"

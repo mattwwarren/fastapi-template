@@ -11,7 +11,11 @@ from {{ project_slug }}.core.metrics import (
     active_memberships_gauge,
     memberships_created_total,
 )
-from {{ project_slug }}.models.membership import Membership, MembershipCreate
+from {{ project_slug }}.models.membership import (
+    Membership,
+    MembershipCreate,
+    MembershipUpdate,
+)
 
 
 async def get_membership(
@@ -50,10 +54,35 @@ async def create_membership(
     return membership
 
 
+async def update_membership(
+    session: AsyncSession, membership: Membership, payload: MembershipUpdate
+) -> Membership:
+    """Update membership (primarily for role changes).
+
+    Security Note:
+        Caller MUST verify user has permission to update this membership.
+        Typically this means:
+        - User has OWNER role in the organization
+        - User cannot escalate their own role (should be enforced at endpoint)
+    """
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(membership, field, value)
+    session.add(membership)
+    await session.commit()
+    await session.refresh(membership)
+    return membership
+
+
 async def delete_membership(session: AsyncSession, membership: Membership) -> None:
     """Delete a membership.
 
     Decrements active_memberships_gauge after successful deletion.
+
+    Security Note:
+        Caller MUST verify user has permission to delete this membership.
+        Typically this means:
+        - User has ADMIN or OWNER role in the organization
     """
     await session.delete(membership)
     await session.commit()

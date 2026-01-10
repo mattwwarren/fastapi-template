@@ -165,6 +165,12 @@ async def create_organization(
 async def update_organization(
     session: AsyncSession, organization: Organization, payload: OrganizationUpdate
 ) -> Organization:
+    """Update organization settings.
+
+    Security Note:
+        Caller MUST verify user has permission to update this organization.
+        Required role: ADMIN or OWNER
+    """
     updates = payload.model_dump(exclude_unset=True)
     for field, value in updates.items():
         setattr(organization, field, value)
@@ -184,13 +190,9 @@ async def delete_organization(
 
     Security Note:
         Caller MUST verify user has permission to delete this organization.
-        Typically this means:
-        - User is a member of the organization
-          (verified by get_organization with user_id)
-        - User has admin/owner role
-          (role check not implemented in this template)
+        Required role: OWNER
 
-        Deletion will CASCADE to:
+        This is a destructive operation. Deletion will CASCADE to:
         - Memberships (users lose access)
         - Documents (all org data deleted)
         - Any other org-scoped resources

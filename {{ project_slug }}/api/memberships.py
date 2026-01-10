@@ -10,12 +10,20 @@ from sqlalchemy.exc import IntegrityError
 
 from {{ project_slug }}.core.activity_logging import ActivityAction, log_activity_decorator
 from {{ project_slug }}.core.pagination import ParamsDep
+from {{ project_slug }}.core.permissions import RequireAdmin, RequireOwner
+from {{ project_slug }}.core.tenants import TenantDep
 from {{ project_slug }}.db.session import SessionDep
-from {{ project_slug }}.models.membership import Membership, MembershipCreate, MembershipRead
+from {{ project_slug }}.models.membership import (
+    Membership,
+    MembershipCreate,
+    MembershipRead,
+    MembershipUpdate,
+)
 from {{ project_slug }}.services.membership_service import (
     create_membership,
     delete_membership,
     get_membership,
+    update_membership,
 )
 from {{ project_slug }}.services.organization_service import get_organization
 from {{ project_slug }}.services.user_service import get_user
@@ -28,7 +36,12 @@ router = APIRouter(prefix="/memberships", tags=["memberships"])
 async def create_membership_endpoint(
     payload: MembershipCreate,
     session: SessionDep,
+    role_check: RequireAdmin,  # noqa: ARG001
 ) -> MembershipRead:
+    """Add a member to the organization.
+
+    Requires ADMIN role or higher (OWNER).
+    """
     user = await get_user(session, payload.user_id)
     if not user:
         raise HTTPException(
@@ -63,6 +76,38 @@ async def list_memberships_endpoint(
     )
 
 
+@router.patch("/{membership_id}", response_model=MembershipRead)
+@log_activity_decorator(ActivityAction.UPDATE, "membership")
+async def update_membership_endpoint(
+    membership_id: UUID,
+    payload: MembershipUpdate,
+    session: SessionDep,
+    tenant: TenantDep,
+    role_check: RequireOwner,  # noqa: ARG001
+) -> MembershipRead:
+    """Update membership role.
+
+    Requires OWNER role. Only role changes are supported.
+    Users cannot escalate their own role.
+    """
+    membership = await get_membership(session, membership_id)
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Membership not found",
+        )
+
+    # Prevent self-role changes
+    if membership.user_id == tenant.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot change your own role",
+        )
+
+    updated = await update_membership(session, membership, payload)
+    return MembershipRead.model_validate(updated)
+
+
 @router.delete("/{membership_id}", status_code=status.HTTP_204_NO_CONTENT)
 @log_activity_decorator(
     ActivityAction.DELETE, "membership", resource_id_param_name="membership_id"
@@ -70,7 +115,12 @@ async def list_memberships_endpoint(
 async def delete_membership_endpoint(
     membership_id: UUID,
     session: SessionDep,
+    role_check: RequireAdmin,  # noqa: ARG001
 ) -> None:
+    """Remove a member from the organization.
+
+    Requires ADMIN role or higher (OWNER).
+    """
     membership = await get_membership(session, membership_id)
     if not membership:
         raise HTTPException(

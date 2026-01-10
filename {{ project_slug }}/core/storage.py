@@ -10,7 +10,7 @@ Architecture:
     - get_storage_service(): Factory function to instantiate the configured provider
 
 Usage:
-    from fastapi_template_test.core.storage import get_storage_service
+    from {{ project_slug }}.core.storage import get_storage_service
 
     storage = get_storage_service()
     storage_url = await storage.upload(

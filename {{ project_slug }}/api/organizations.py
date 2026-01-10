@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from {{ project_slug }}.core.activity_logging import ActivityAction, log_activity_decorator
 from {{ project_slug }}.core.pagination import ParamsDep
+from {{ project_slug }}.core.permissions import RequireAdmin, RequireOwner
 from {{ project_slug }}.db.session import SessionDep
 from {{ project_slug }}.models.organization import (
     Organization,
@@ -87,7 +88,12 @@ async def update_org(
     organization_id: UUID,
     payload: OrganizationUpdate,
     session: SessionDep,
+    role_check: RequireAdmin,  # noqa: ARG001
 ) -> OrganizationRead:
+    """Update organization settings.
+
+    Requires ADMIN role or higher (OWNER).
+    """
     organization = await get_organization(session, organization_id)
     if not organization:
         raise HTTPException(
@@ -108,7 +114,15 @@ async def update_org(
 async def delete_org(
     organization_id: UUID,
     session: SessionDep,
+    role_check: RequireOwner,  # noqa: ARG001
 ) -> None:
+    """Delete organization and all associated data.
+
+    Requires OWNER role. This is a destructive operation that cascades to:
+    - All memberships (users lose access)
+    - All documents and resources
+    - Cannot be undone
+    """
     organization = await get_organization(session, organization_id)
     if not organization:
         raise HTTPException(

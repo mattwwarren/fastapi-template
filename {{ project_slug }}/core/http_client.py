@@ -1,7 +1,7 @@
 """HTTP client for cross-service communication.
 
 Usage:
-    from fastapi_template_test.core.http_client import http_client
+    from {{ project_slug }}.core.http_client import http_client
 
     async with http_client() as client:
         response = await client.get("https://auth-service/verify",
@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 
 import httpx
 
-from fastapi_template_test.core.config import settings
+from {{ project_slug }}.core.config import settings
 
 # HTTP status codes
 HTTP_OK = 200
@@ -53,7 +53,7 @@ async def http_client(timeout: float = 30.0) -> AsyncGenerator[httpx.AsyncClient
     """
     async with httpx.AsyncClient(
         timeout=timeout,
-        headers={"User-Agent": f"fastapi_template_test/{settings.environment}"},
+        headers={"User-Agent": f"{{ project_slug }}/{settings.environment}"},
     ) as client:
         yield client
 

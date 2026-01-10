@@ -34,7 +34,7 @@ from {{ project_slug }}.main import app
 from {{ project_slug }}.models.organization import Organization
 
 # Import settings fixtures for test isolation and pytest-xdist compatibility
-from fastapi_template_test.tests.fixtures.settings import (  # noqa: F401
+from {{ project_slug }}.tests.fixtures.settings import (  # noqa: F401
     test_settings,
     test_settings_factory,
     test_settings_with_activity_logging_disabled,
@@ -185,19 +185,45 @@ async def reset_db(engine: AsyncEngine, alembic_config: Config, alembic_engine: 
 
 
 class TestAuthMiddleware(BaseHTTPMiddleware):
-    """Test middleware that injects a test user and tenant context into all requests."""
+    """Test middleware that injects a test user and tenant context into all requests.
+
+    Supports header-based user and organization specification for test isolation:
+    - X-Test-User-ID: UUID of the user to authenticate as
+    - X-Test-Org-ID: UUID of the organization to scope to
+
+    If headers are not provided, uses default test user.
+    """
 
     async def dispatch(
         self,
         request: Request,
         call_next: Any,  # noqa: ANN401
     ) -> Response:
-        """Inject test user and tenant context into request state."""
-        test_user = CurrentUser(
-            id=uuid4(),
-            email="testuser@example.com",
-            organization_id=UUID("00000000-0000-0000-0000-000000000000"),
-        )
+        """Inject test user and tenant context into request state.
+
+        Checks for X-Test-User-ID and X-Test-Org-ID headers to allow tests to
+        specify which user is making the request. If headers are provided, uses
+        those values. Otherwise uses default test user.
+        """
+        # Try to get user and org from headers (for role-based testing)
+        user_id_header = request.headers.get("X-Test-User-ID")
+        org_id_header = request.headers.get("X-Test-Org-ID")
+
+        if user_id_header and org_id_header:
+            # Test-specified user
+            test_user = CurrentUser(
+                id=UUID(user_id_header),
+                email="test@example.com",
+                organization_id=UUID(org_id_header),
+            )
+        else:
+            # Default fallback test user
+            test_user = CurrentUser(
+                id=UUID("00000000-0000-0000-0000-000000000001"),
+                email="testuser@example.com",
+                organization_id=UUID("00000000-0000-0000-0000-000000000000"),
+            )
+
         request.state.user = test_user
 
         # Also set tenant context for endpoints that require TenantDep

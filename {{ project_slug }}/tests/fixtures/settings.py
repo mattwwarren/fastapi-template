@@ -18,8 +18,8 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import pytest
-from fastapi_template_test.core.config import Settings
-from fastapi_template_test.core.storage import StorageProvider
+from {{ project_slug }}.core.config import Settings
+from {{ project_slug }}.core.storage import StorageProvider
 from pydantic import ValidationError
 
 

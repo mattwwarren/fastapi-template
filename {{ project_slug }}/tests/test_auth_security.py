@@ -20,16 +20,16 @@ from httpx import ASGITransport, AsyncClient, Request, RequestError, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from fastapi_template_test.core.auth import (
+from {{ project_slug }}.core.auth import (
     AuthMiddleware,
     AuthProviderType,
     TokenValidationError,
     _extract_bearer_token,
     _extract_user_from_claims,
 )
-from fastapi_template_test.db.session import get_session
-from fastapi_template_test.main import app
-from fastapi_template_test.models.organization import Organization
+from {{ project_slug }}.db.session import get_session
+from {{ project_slug }}.main import app
+from {{ project_slug }}.models.organization import Organization
 
 # Test constants
 VALID_USER_ID = str(uuid4())
@@ -94,7 +94,7 @@ async def auth_client(
 
     # Enable auth globally for these tests
     # Use patch to override settings.auth_provider_type
-    with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+    with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
         mock_settings.auth_provider_type = AuthProviderType.ORY
         mock_settings.auth_provider_url = "https://test-auth.example.com"
         mock_settings.jwt_public_key = None
@@ -147,7 +147,7 @@ class TestJWTValidation:
         expired_token = jwt.encode(expired_claims, TEST_SECRET, algorithm="HS256")
 
         # Mock settings with public key
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.AUTH0
             mock_settings.jwt_public_key = TEST_SECRET
             mock_settings.jwt_algorithm = "HS256"
@@ -182,7 +182,7 @@ class TestJWTValidation:
         }
         token_no_sub = jwt.encode(missing_sub_claims, TEST_SECRET, algorithm="HS256")
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.AUTH0
             mock_settings.jwt_public_key = TEST_SECRET
             mock_settings.jwt_algorithm = "HS256"
@@ -204,7 +204,7 @@ class TestJWTValidation:
         }
         token_no_email = jwt.encode(missing_email_claims, TEST_SECRET, algorithm="HS256")
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.AUTH0
             mock_settings.jwt_public_key = TEST_SECRET
             mock_settings.jwt_algorithm = "HS256"
@@ -249,7 +249,7 @@ class TestJWTValidation:
             wrong_algo_claims, TEST_SECRET, algorithm=WRONG_ALGORITHM
         )
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.AUTH0
             mock_settings.jwt_public_key = TEST_SECRET
             mock_settings.jwt_algorithm = "HS256"  # Expect HS256
@@ -287,13 +287,13 @@ class TestOryProvider:
                 json=ory_introspection_response,
             )
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.ORY
             mock_settings.auth_provider_url = "https://test-ory.example.com"
             mock_settings.auth_provider_issuer = "https://test-ory.example.com/"
             mock_settings.jwt_public_key = None  # Remote validation only
 
-            with patch("fastapi_template_test.core.auth.http_client") as mock_http_client:
+            with patch("{{ project_slug }}.core.auth.http_client") as mock_http_client:
                 mock_client = AsyncMock()
                 mock_response = MagicMock()
                 mock_response.status_code = SUCCESSFUL_HTTP_STATUS
@@ -318,12 +318,12 @@ class TestOryProvider:
         """Verify Ory introspection endpoint failure returns 401."""
         test_token = "ory_test_token"
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.ORY
             mock_settings.auth_provider_url = "https://test-ory.example.com"
             mock_settings.jwt_public_key = None
 
-            with patch("fastapi_template_test.core.auth.http_client") as mock_http_client:
+            with patch("{{ project_slug }}.core.auth.http_client") as mock_http_client:
                 mock_client = AsyncMock()
                 mock_response = MagicMock()
                 mock_response.status_code = 500  # Ory server error
@@ -346,12 +346,12 @@ class TestOryProvider:
             "active": False,  # Token not active
         }
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.ORY
             mock_settings.auth_provider_url = "https://test-ory.example.com"
             mock_settings.jwt_public_key = None
 
-            with patch("fastapi_template_test.core.auth.http_client") as mock_http_client:
+            with patch("{{ project_slug }}.core.auth.http_client") as mock_http_client:
                 mock_client = AsyncMock()
                 mock_response = MagicMock()
                 mock_response.status_code = SUCCESSFUL_HTTP_STATUS
@@ -372,12 +372,12 @@ class TestOryProvider:
         """Verify Ory network timeout returns 401."""
         test_token = "ory_timeout_token"
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.ORY
             mock_settings.auth_provider_url = "https://test-ory.example.com"
             mock_settings.jwt_public_key = None
 
-            with patch("fastapi_template_test.core.auth.http_client") as mock_http_client:
+            with patch("{{ project_slug }}.core.auth.http_client") as mock_http_client:
                 mock_client = AsyncMock()
                 mock_client.post = AsyncMock(
                     side_effect=RequestError("Connection timeout")
@@ -406,13 +406,13 @@ class TestAuth0Provider:
             "email_verified": True,
         }
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.AUTH0
             mock_settings.auth_provider_url = "https://test.auth0.com"
             mock_settings.auth_provider_issuer = "https://test.auth0.com/"
             mock_settings.jwt_public_key = None
 
-            with patch("fastapi_template_test.core.auth.http_client") as mock_http_client:
+            with patch("{{ project_slug }}.core.auth.http_client") as mock_http_client:
                 mock_client = AsyncMock()
                 mock_response = MagicMock()
                 mock_response.status_code = SUCCESSFUL_HTTP_STATUS
@@ -436,12 +436,12 @@ class TestAuth0Provider:
         """Verify Auth0 JWKS endpoint unavailable returns 401."""
         test_token = "auth0_test_token"
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.AUTH0
             mock_settings.auth_provider_url = "https://test.auth0.com"
             mock_settings.jwt_public_key = None
 
-            with patch("fastapi_template_test.core.auth.http_client") as mock_http_client:
+            with patch("{{ project_slug }}.core.auth.http_client") as mock_http_client:
                 mock_client = AsyncMock()
                 mock_response = MagicMock()
                 mock_response.status_code = 503  # Service unavailable
@@ -472,7 +472,7 @@ class TestAuth0Provider:
             wrong_audience_claims, TEST_SECRET, algorithm="HS256"
         )
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.AUTH0
             mock_settings.jwt_public_key = TEST_SECRET
             mock_settings.jwt_algorithm = "HS256"
@@ -501,7 +501,7 @@ class TestAuth0Provider:
             wrong_issuer_claims, TEST_SECRET, algorithm="HS256"
         )
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.AUTH0
             mock_settings.jwt_public_key = TEST_SECRET
             mock_settings.jwt_algorithm = "HS256"
@@ -530,14 +530,14 @@ class TestKeycloakProvider:
             "realm_access": {"roles": ["user"]},
         }
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.KEYCLOAK
             mock_settings.auth_provider_url = (
                 "https://keycloak.example.com/realms/test-realm"
             )
             mock_settings.jwt_public_key = None
 
-            with patch("fastapi_template_test.core.auth.http_client") as mock_http_client:
+            with patch("{{ project_slug }}.core.auth.http_client") as mock_http_client:
                 mock_client = AsyncMock()
                 mock_response = MagicMock()
                 mock_response.status_code = SUCCESSFUL_HTTP_STATUS
@@ -560,12 +560,12 @@ class TestKeycloakProvider:
         realm_name = "custom-realm"
         expected_url = f"https://keycloak.example.com/realms/{realm_name}"
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.KEYCLOAK
             mock_settings.auth_provider_url = expected_url
             mock_settings.jwt_public_key = None
 
-            with patch("fastapi_template_test.core.auth.http_client") as mock_http_client:
+            with patch("{{ project_slug }}.core.auth.http_client") as mock_http_client:
                 mock_client = AsyncMock()
                 mock_response = MagicMock()
                 mock_response.status_code = SUCCESSFUL_HTTP_STATUS
@@ -598,14 +598,14 @@ class TestKeycloakProvider:
             "exp": FUTURE_TOKEN_CLAIM_EXP + 86400 * 30,  # 30 days from now
         }
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.KEYCLOAK
             mock_settings.auth_provider_url = (
                 "https://keycloak.example.com/realms/test-realm"
             )
             mock_settings.jwt_public_key = None
 
-            with patch("fastapi_template_test.core.auth.http_client") as mock_http_client:
+            with patch("{{ project_slug }}.core.auth.http_client") as mock_http_client:
                 mock_client = AsyncMock()
                 mock_response = MagicMock()
                 mock_response.status_code = SUCCESSFUL_HTTP_STATUS
@@ -640,7 +640,7 @@ class TestCognitoProvider:
         }
         cognito_token = jwt.encode(cognito_claims, TEST_SECRET, algorithm="HS256")
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.COGNITO
             mock_settings.auth_provider_url = (
                 "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXXX"
@@ -672,7 +672,7 @@ class TestCognitoProvider:
         }
         cognito_token = jwt.encode(cognito_claims, TEST_SECRET, algorithm="HS256")
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.COGNITO
             mock_settings.auth_provider_url = correct_issuer
             mock_settings.jwt_public_key = TEST_SECRET
@@ -712,7 +712,7 @@ class TestCognitoProvider:
         }
         access_token = jwt.encode(access_token_claims, TEST_SECRET, algorithm="HS256")
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.COGNITO
             mock_settings.jwt_public_key = TEST_SECRET
             mock_settings.jwt_algorithm = "HS256"
@@ -800,7 +800,7 @@ class TestAuthBypass:
             path_traversal_claims, TEST_SECRET, algorithm="HS256"
         )
 
-        with patch("fastapi_template_test.core.auth.settings") as mock_settings:
+        with patch("{{ project_slug }}.core.auth.settings") as mock_settings:
             mock_settings.auth_provider_type = AuthProviderType.AUTH0
             mock_settings.jwt_public_key = TEST_SECRET
             mock_settings.jwt_algorithm = "HS256"

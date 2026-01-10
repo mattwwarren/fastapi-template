@@ -292,10 +292,150 @@ async def delete_document(
 
 ### What You Still Need to Implement
 
-1. **Role-based access control** - Who can create/update/delete within an org
-2. **Resource ownership** - Fine-grained permissions (user owns specific documents)
-3. **Admin bypass** - Global admin endpoints that transcend tenant boundaries
-4. **Audit logging** - Track who accessed what (use activity_logging module)
+1. **Resource ownership** - Fine-grained permissions (user owns specific documents)
+2. **Admin bypass** - Global admin endpoints that transcend tenant boundaries
+3. **Audit logging** - Track who accessed what (use activity_logging module)
+
+## Role-Based Access Control (RBAC)
+
+In addition to tenant isolation, this template implements role-based permissions within organizations.
+
+### Three-Tier Role Model
+
+The template provides three hierarchical roles:
+
+| Role | Permissions | Use Case |
+|------|-------------|----------|
+| **OWNER** | Full control: delete org, change roles, manage members/settings | Organization creator, primary stakeholder |
+| **ADMIN** | Manage members and update settings (cannot delete org or change roles) | Team leads, department managers |
+| **MEMBER** | Use organization resources (read-only on org settings) | Regular users, contributors |
+
+**Role Hierarchy:** OWNER > ADMIN > MEMBER
+
+An OWNER can perform all ADMIN operations, and an ADMIN can perform all MEMBER operations.
+
+### Implementation
+
+#### 1. MembershipRole Enum
+
+```python
+from {{ project_slug }}.models.membership import MembershipRole
+
+class MembershipRole(str, enum.Enum):
+    OWNER = "owner"
+    ADMIN = "admin"
+    MEMBER = "member"
+```
+
+#### 2. Membership Model
+
+Each membership now includes a `role` field:
+
+```python
+class Membership(TimestampedTable, MembershipBase, table=True):
+    user_id: UUID
+    organization_id: UUID
+    role: MembershipRole = Field(default=MembershipRole.MEMBER)
+```
+
+**Default behavior:** New members default to MEMBER role. First member of an organization should be assigned OWNER.
+
+#### 3. Permission Dependencies
+
+```python
+from {{ project_slug }}.core.permissions import RequireAdmin, RequireOwner
+
+# Require ADMIN role (or higher)
+@router.patch("/organizations/{organization_id}")
+async def update_org(
+    organization_id: UUID,
+    payload: OrganizationUpdate,
+    session: SessionDep,
+    role_check: RequireAdmin,  # Enforces ADMIN or OWNER
+) -> OrganizationRead:
+    ...
+
+# Require OWNER role
+@router.delete("/organizations/{organization_id}")
+async def delete_org(
+    organization_id: UUID,
+    session: SessionDep,
+    role_check: RequireOwner,  # Enforces OWNER only
+) -> None:
+    ...
+```
+
+### Protected Operations
+
+#### Organization Management
+
+| Endpoint | Required Role | Description |
+|----------|---------------|-------------|
+| `DELETE /organizations/{id}` | OWNER | Delete organization and all data |
+| `PATCH /organizations/{id}` | ADMIN | Update organization settings |
+| `GET /organizations/{id}` | MEMBER | View organization details |
+
+#### Membership Management
+
+| Endpoint | Required Role | Description |
+|----------|---------------|-------------|
+| `POST /memberships` | ADMIN | Add new members |
+| `DELETE /memberships/{id}` | ADMIN | Remove members |
+| `PATCH /memberships/{id}` | OWNER | Change member roles |
+| `GET /memberships` | MEMBER | List organization members |
+
+### Role Change Rules
+
+1. **Only OWNER can change roles** - Prevents privilege escalation
+2. **Users cannot promote themselves** - Should be enforced at application level
+3. **Hierarchy enforced** - OWNER has all ADMIN permissions, ADMIN has all MEMBER permissions
+4. **First member is OWNER** - Migration automatically sets earliest member to OWNER
+
+### Role Transition Constraints
+
+**Self-Role Changes**: Users cannot change their own role, regardless of their current role. This prevents:
+- Accidental self-demotion
+- Privilege escalation attempts
+- Organizational deadlock (e.g., sole OWNER demoting themselves)
+
+**Last Owner Protection**: Currently not enforced at the application level. Organizations CAN have zero owners if:
+- The only owner changes another user's role to owner, then leaves
+- An admin is promoted to owner, then demotes the original owner
+
+**Future Enhancement**: Consider adding validation to prevent demoting the last owner of an organization. This would ensure every organization always has at least one owner for administrative purposes.
+
+### Usage Example
+
+```python
+from {{ project_slug }}.core.permissions import RequireAdmin, RequireOwner
+from {{ project_slug }}.core.tenants import TenantDep
+
+@router.post("/memberships")
+async def add_member(
+    payload: MembershipCreate,
+    session: SessionDep,
+    tenant: TenantDep,
+    role_check: RequireAdmin,  # User must be ADMIN or OWNER
+) -> MembershipRead:
+    # Tenant isolation ensures user is in this organization
+    # Role check ensures user has ADMIN+ permissions
+    membership = await create_membership(session, payload)
+    return MembershipRead.model_validate(membership)
+```
+
+### Security Guarantees
+
+**RBAC provides:**
+1. **Destructive operations require OWNER** - Prevents accidental data loss
+2. **Administrative actions require ADMIN** - Separates management from usage
+3. **Explicit permission checks** - No implicit permissions
+4. **Role hierarchy** - Higher roles inherit lower role permissions
+
+**What's NOT included (out of scope):**
+1. **Custom roles** - Only three fixed roles (OWNER, ADMIN, MEMBER)
+2. **Resource-level permissions** - Roles are organization-wide, not per-resource
+3. **Permission delegation** - Users cannot delegate their permissions
+4. **Time-limited roles** - Roles are permanent until changed by OWNER
 
 ## Testing Tenant Isolation
 

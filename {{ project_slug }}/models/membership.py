@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import enum
 from datetime import datetime
 from typing import ClassVar
 from uuid import UUID
@@ -11,6 +12,21 @@ from pydantic import ConfigDict
 from sqlmodel import Field, SQLModel
 
 from {{ project_slug }}.models.base import TimestampedTable
+
+
+class MembershipRole(str, enum.Enum):
+    """Role levels for organization members.
+
+    Roles enforce a hierarchy: OWNER > ADMIN > MEMBER
+
+    - OWNER: Full control including org deletion and role management
+    - ADMIN: Can manage members and update organization settings
+    - MEMBER: Can use organization resources
+    """
+
+    OWNER = "owner"
+    ADMIN = "admin"
+    MEMBER = "member"
 
 
 class MembershipBase(SQLModel):
@@ -27,6 +43,14 @@ class MembershipBase(SQLModel):
             sa.ForeignKey("organization.id", ondelete="CASCADE"),
             nullable=False,
         )
+    )
+    role: MembershipRole = Field(
+        default=MembershipRole.MEMBER,
+        sa_column=sa.Column(
+            sa.Enum(MembershipRole, name="membership_role", native_enum=False),
+            nullable=False,
+            server_default="member",
+        ),
     )
 
 
@@ -51,6 +75,12 @@ class MembershipCreate(MembershipBase):
     enforced by the database constraint 'uq_membership_user_org' in the Membership
     table definition.
     """
+
+
+class MembershipUpdate(SQLModel):
+    """Schema for updating membership (primarily role changes)."""
+
+    role: MembershipRole | None = None
 
 
 class MembershipRead(MembershipBase):

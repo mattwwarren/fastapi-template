@@ -42,7 +42,7 @@ class RequestSizeValidationMiddleware(BaseHTTPMiddleware):
 
     Examples:
         # In main.py
-        from fastapi_template_test.core.middleware import RequestSizeValidationMiddleware
+        from {{ project_slug }}.core.middleware import RequestSizeValidationMiddleware
         app.add_middleware(RequestSizeValidationMiddleware, max_size_bytes=100*1024*1024)
 
     Security Notes:
@@ -129,7 +129,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
     Examples:
         # In main.py
-        from fastapi_template_test.core.middleware import RequestLoggingMiddleware
+        from {{ project_slug }}.core.middleware import RequestLoggingMiddleware
         app.add_middleware(RequestLoggingMiddleware)
     """
 
