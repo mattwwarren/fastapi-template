@@ -30,7 +30,7 @@ class TestXSSUserFields:
     """XSS injection via user name/email fields."""
 
     @pytest.mark.asyncio
-    async def test_xss_script_tag_in_user_name(self, client: AsyncClient) -> None:
+    async def test_xss_script_tag_in_user_name(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
         """Verify script tags in user names are properly handled."""
         script_payload = "<script>alert('XSS')</script>"
         response = await client.post(
@@ -59,7 +59,7 @@ class TestXSSUserFields:
             )
 
     @pytest.mark.asyncio
-    async def test_xss_event_handler_in_user_name(self, client: AsyncClient) -> None:
+    async def test_xss_event_handler_in_user_name(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
         """Verify event handlers in user names are properly handled."""
         event_handler_payload = '<img src=x onerror="alert(1)">'
         response = await client.post(
@@ -83,7 +83,7 @@ class TestXSSUserFields:
             )
 
     @pytest.mark.asyncio
-    async def test_xss_html_entity_encoding(self, client: AsyncClient) -> None:
+    async def test_xss_html_entity_encoding(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
         """Verify HTML entity encoded XSS is properly handled."""
         entity_payload = "&#60;script&#62;alert('XSS')&#60;/script&#62;"
         response = await client.post(
@@ -107,7 +107,7 @@ class TestXSSUserFields:
             )
 
     @pytest.mark.asyncio
-    async def test_xss_iframe_injection(self, client: AsyncClient) -> None:
+    async def test_xss_iframe_injection(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
         """Verify iframe injection in user names is properly handled."""
         iframe_payload = "<iframe src='javascript:alert(1)'>"
         response = await client.post(
@@ -134,7 +134,7 @@ class TestXSSOrganizationFields:
     """XSS injection via organization name field."""
 
     @pytest.mark.asyncio
-    async def test_xss_script_in_org_name(self, client: AsyncClient) -> None:
+    async def test_xss_script_in_org_name(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
         """Verify script tags in organization names are properly handled."""
         for payload in XSS_PAYLOADS[:3]:  # Test subset for performance
             response = await client.post(
@@ -155,7 +155,7 @@ class TestXSSOrganizationFields:
                 )
 
     @pytest.mark.asyncio
-    async def test_xss_img_tag_in_org_name(self, client: AsyncClient) -> None:
+    async def test_xss_img_tag_in_org_name(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
         """Verify img tags with event handlers are properly handled."""
         img_payload = '<img src=x onerror="alert(1)">'
         response = await client.post(
@@ -175,7 +175,7 @@ class TestXSSOrganizationFields:
             )
 
     @pytest.mark.asyncio
-    async def test_xss_svg_script_in_org_name(self, client: AsyncClient) -> None:
+    async def test_xss_svg_script_in_org_name(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
         """Verify SVG with script payloads are properly handled."""
         svg_payload = '<svg onload="alert(1)">'
         response = await client.post(
@@ -201,7 +201,7 @@ class TestXSSDocumentFields:
     """XSS injection via document fields."""
 
     @pytest.mark.asyncio
-    async def test_xss_in_document_filename(self, client: AsyncClient) -> None:
+    async def test_xss_in_document_filename(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
         """Verify XSS payloads in document filenames are properly handled."""
         filename_payloads = [
             "<script>alert(1)</script>.pdf",
@@ -232,7 +232,7 @@ class TestXSSDocumentFields:
                 )
 
     @pytest.mark.asyncio
-    async def test_xss_in_document_content_type(self, client: AsyncClient) -> None:
+    async def test_xss_in_document_content_type(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
         """Verify XSS via content-type manipulation is prevented."""
         # Try to inject XSS into document metadata that might be reflected
         xss_content = '<script>alert("XSS in content")</script>'
@@ -262,7 +262,7 @@ class TestXSSAdvanced:
     """Advanced XSS attack vectors."""
 
     @pytest.mark.asyncio
-    async def test_xss_unicode_bypass_attempt(self, client: AsyncClient) -> None:
+    async def test_xss_unicode_bypass_attempt(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
         """Verify unicode-based XSS bypass attempts are prevented."""
         # Unicode variations of <script>
         unicode_payloads = [
@@ -292,7 +292,7 @@ class TestXSSAdvanced:
                 )
 
     @pytest.mark.asyncio
-    async def test_xss_double_encoding(self, client: AsyncClient) -> None:
+    async def test_xss_double_encoding(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
         """Verify double-encoded XSS is prevented."""
         # Double URL encoding: %253Cscript%253E = %3Cscript%3E = <script>
         double_encoded = "%253Cscript%253Ealert(1)%253C/script%253E"
@@ -318,7 +318,7 @@ class TestXSSAdvanced:
             )
 
     @pytest.mark.asyncio
-    async def test_xss_svg_onload_bypass(self, client: AsyncClient) -> None:
+    async def test_xss_svg_onload_bypass(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
         """Verify SVG onload event handler bypass is prevented."""
         svg_payloads = [
             '<svg onload="alert(1)">',

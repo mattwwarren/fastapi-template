@@ -13,7 +13,9 @@ class TestMembershipCRUD:
     """Test basic membership CRUD operations."""
 
     @pytest.mark.asyncio
-    async def test_create_membership_success(self, client: AsyncClient) -> None:
+    async def test_create_membership_success(
+        self, client: AsyncClient, default_auth_user_in_org: None
+    ) -> None:
         """Create a membership with valid user and organization."""
         # Create organization
         org_response = await client.post("/organizations", json={"name": "Acme"})
@@ -42,7 +44,9 @@ class TestMembershipCRUD:
         assert "updated_at" in membership
 
     @pytest.mark.asyncio
-    async def test_delete_membership(self, client: AsyncClient) -> None:
+    async def test_delete_membership(
+        self, client: AsyncClient, default_auth_user_in_org: None
+    ) -> None:
         """Delete a membership."""
         # Create organization and user
         org_response = await client.post("/organizations", json={"name": "Acme"})
@@ -76,7 +80,9 @@ class TestMembershipCRUD:
         assert org_get.json()["users"] == []
 
     @pytest.mark.asyncio
-    async def test_list_memberships(self, client: AsyncClient) -> None:
+    async def test_list_memberships(
+        self, client: AsyncClient, default_auth_user_in_org: None
+    ) -> None:
         """List all memberships with pagination."""
         # Create organization
         org_response = await client.post("/organizations", json={"name": "Acme"})
@@ -96,18 +102,27 @@ class TestMembershipCRUD:
             )
 
         # List memberships
+        # Note: Total will include the default fixture membership plus test memberships
         list_response = await client.get("/memberships")
         assert list_response.status_code == HTTPStatus.OK
         data = list_response.json()
-        assert data["total"] == EXPECTED_USER_COUNT
-        assert len(data["items"]) == EXPECTED_USER_COUNT
+        # Should see at least EXPECTED_USER_COUNT memberships (plus fixture membership)
+        assert data["total"] >= EXPECTED_USER_COUNT
+        assert len(data["items"]) >= EXPECTED_USER_COUNT
+
+        # Verify that test organization's memberships are in the response
+        org_membership_ids = {item["id"] for item in data["items"]
+                             if item["organization_id"] == organization_id}
+        assert len(org_membership_ids) == EXPECTED_USER_COUNT
 
 
 class TestMembershipConstraints:
     """Test membership database constraints."""
 
     @pytest.mark.asyncio
-    async def test_duplicate_membership_fails(self, client: AsyncClient) -> None:
+    async def test_duplicate_membership_fails(
+        self, client: AsyncClient, default_auth_user_in_org: None
+    ) -> None:
         """Creating duplicate membership (same user+org) should fail."""
         # Create organization and user
         org_response = await client.post("/organizations", json={"name": "Acme"})
@@ -139,7 +154,7 @@ class TestMembershipConstraints:
 
     @pytest.mark.asyncio
     async def test_create_membership_nonexistent_user(
-        self, client: AsyncClient
+        self, client: AsyncClient, default_auth_user_in_org: None
     ) -> None:
         """Creating membership with nonexistent user should fail."""
         # Create organization
@@ -158,7 +173,7 @@ class TestMembershipConstraints:
 
     @pytest.mark.asyncio
     async def test_create_membership_nonexistent_organization(
-        self, client: AsyncClient
+        self, client: AsyncClient, default_auth_user_in_org: None
     ) -> None:
         """Creating membership with nonexistent organization should fail."""
         # Create user
@@ -183,7 +198,9 @@ class TestMembershipCascadeDelete:
     """Test cascade delete behavior for memberships."""
 
     @pytest.mark.asyncio
-    async def test_cascade_delete_organization(self, client: AsyncClient) -> None:
+    async def test_cascade_delete_organization(
+        self, client: AsyncClient, default_auth_user_in_org: None
+    ) -> None:
         """Deleting organization should cascade delete memberships."""
         # Create organization and user
         org_response = await client.post("/organizations", json={"name": "Acme"})
@@ -208,14 +225,20 @@ class TestMembershipCascadeDelete:
         # Verify membership is cascade deleted
         list_response = await client.get("/memberships")
         assert list_response.status_code == HTTPStatus.OK
-        assert list_response.json()["items"] == []
+        # Check that the membership for the created org is deleted
+        # (but fixture membership in default org will still exist)
+        items = list_response.json()["items"]
+        org_items = [item for item in items if item["organization_id"] == organization_id]
+        assert org_items == []
 
         # Verify user still exists
         user_get = await client.get(f"/users/{user_id}")
         assert user_get.status_code == HTTPStatus.OK
 
     @pytest.mark.asyncio
-    async def test_cascade_delete_user(self, client: AsyncClient) -> None:
+    async def test_cascade_delete_user(
+        self, client: AsyncClient, default_auth_user_in_org: None
+    ) -> None:
         """Deleting user should cascade delete memberships."""
         # Create organization and user
         org_response = await client.post("/organizations", json={"name": "Acme"})
@@ -240,7 +263,11 @@ class TestMembershipCascadeDelete:
         # Verify membership is cascade deleted
         list_response = await client.get("/memberships")
         assert list_response.status_code == HTTPStatus.OK
-        assert list_response.json()["items"] == []
+        # Check that the membership for the created org/user is deleted
+        # (but fixture membership in default org will still exist)
+        items = list_response.json()["items"]
+        org_items = [item for item in items if item["organization_id"] == organization_id]
+        assert org_items == []
 
         # Verify organization still exists
         org_get = await client.get(f"/organizations/{organization_id}")
@@ -251,7 +278,9 @@ class TestMembershipErrorHandling:
     """Test membership error scenarios."""
 
     @pytest.mark.asyncio
-    async def test_delete_nonexistent_membership(self, client: AsyncClient) -> None:
+    async def test_delete_nonexistent_membership(
+        self, client: AsyncClient, default_auth_user_in_org: None
+    ) -> None:
         """Deleting nonexistent membership should return 404."""
         response = await client.delete(
             "/memberships/ffffffff-ffff-ffff-ffff-ffffffffffff"
@@ -259,7 +288,9 @@ class TestMembershipErrorHandling:
         assert response.status_code == HTTPStatus.NOT_FOUND
 
     @pytest.mark.asyncio
-    async def test_create_membership_invalid_uuid(self, client: AsyncClient) -> None:
+    async def test_create_membership_invalid_uuid(
+        self, client: AsyncClient, default_auth_user_in_org: None
+    ) -> None:
         """Creating membership with invalid UUIDs should fail."""
         # Create valid organization
         org_response = await client.post("/organizations", json={"name": "Acme"})

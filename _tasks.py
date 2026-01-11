@@ -5,7 +5,6 @@ This script runs automatically after copier generates a new project.
 It handles initial setup tasks that would otherwise be manual.
 """
 
-import os
 import shutil
 import subprocess
 import sys
@@ -34,6 +33,10 @@ def log_warning(message: str) -> None:
     print(f"⚠ {message}")
 
 
+ERROR_DOTENV_NOT_FOUND = "dotenv.example not found - this shouldn't happen"
+ERROR_COPY_DOTENV_FAILED = "Failed to copy dotenv.example to .env"
+
+
 def copy_env_file() -> None:
     """Copy dotenv.example to .env if .env doesn't exist."""
     log_step("Step 1/3: Environment Configuration")
@@ -42,7 +45,7 @@ def copy_env_file() -> None:
     env_file = Path(".env")
 
     if not env_example.exists():
-        log_error("dotenv.example not found - this shouldn't happen")
+        log_error(ERROR_DOTENV_NOT_FOUND)
         return
 
     if env_file.exists():
@@ -55,69 +58,60 @@ def copy_env_file() -> None:
         log_success("Created .env from dotenv.example")
         log_warning("IMPORTANT: Edit .env and set DATABASE_URL before running the app")
     except Exception as exc:
-        log_error(f"Failed to copy dotenv.example to .env: {exc}")
+        log_error(f"{ERROR_COPY_DOTENV_FAILED}: {exc}")
 
 
-def run_uv_sync() -> bool:
-    """Install dependencies using uv sync --dev.
-
-    Returns:
-        True if successful or uv not available, False on error
-    """
+def run_uv_sync() -> None:
+    """Install dependencies using uv sync --dev."""
     log_step("Step 2/3: Install Dependencies")
 
     # Check if uv is available
-    if not shutil.which("uv"):
+    uv_path = shutil.which("uv")
+    if not uv_path:
         log_warning("uv not found - skipping dependency installation")
         log_warning("Install uv: https://docs.astral.sh/uv/")
         log_warning("Then run: uv sync --dev")
-        return True
+        return
 
     try:
-        result = subprocess.run(
-            ["uv", "sync", "--dev"],
+        subprocess.run(  # noqa: S603 - uv_path from shutil.which(), trusted
+            [uv_path, "sync", "--dev"],
             check=True,
             capture_output=True,
             text=True,
         )
         log_success("Dependencies installed successfully")
-        return True
     except subprocess.CalledProcessError as exc:
         log_error(f"Failed to install dependencies: {exc}")
         if exc.stderr:
             print(exc.stderr, file=sys.stderr)
         log_warning("You can manually install later with: uv sync --dev")
-        return False
     except Exception as exc:
         log_error(f"Unexpected error during uv sync: {exc}")
-        return False
 
 
-def run_alembic_upgrade() -> bool:
-    """Run alembic upgrade head to create database schema.
-
-    Returns:
-        True if successful or alembic not available, False on error
-    """
+def run_alembic_upgrade() -> None:
+    """Run alembic upgrade head to create database schema."""
     log_step("Step 3/3: Database Migration")
 
     # Check if uv is available for running alembic
-    if not shutil.which("uv"):
+    uv_path = shutil.which("uv")
+    if not uv_path:
         log_warning("uv not found - skipping database migration")
         log_warning("After installing uv, run: uv run alembic upgrade head")
-        return True
+        return
 
     # Check if alembic is available
     try:
-        subprocess.run(
-            ["uv", "run", "alembic", "--version"],
+        subprocess.run(  # noqa: S603 - uv_path from shutil.which(), trusted
+            [uv_path, "run", "alembic", "--version"],
             check=True,
             capture_output=True,
         )
     except (subprocess.CalledProcessError, FileNotFoundError):
         log_warning("Alembic not yet installed - skipping database migration")
         log_warning("After uv sync completes, run: uv run alembic upgrade head")
-        return True
+        return
 
     # Check if DATABASE_URL is set (basic check)
     env_file = Path(".env")
@@ -126,17 +120,16 @@ def run_alembic_upgrade() -> bool:
         if "DATABASE_URL=postgresql" not in env_content:
             log_warning("DATABASE_URL not configured in .env")
             log_warning("Configure database connection, then run: uv run alembic upgrade head")
-            return True
+            return
 
     try:
-        result = subprocess.run(
-            ["uv", "run", "alembic", "upgrade", "head"],
+        subprocess.run(  # noqa: S603 - uv_path from shutil.which(), trusted
+            [uv_path, "run", "alembic", "upgrade", "head"],
             check=True,
             capture_output=True,
             text=True,
         )
         log_success("Database schema created successfully")
-        return True
     except subprocess.CalledProcessError as exc:
         # Database migration failure is common (DB not running, credentials wrong)
         # This is not critical - user can run it manually
@@ -145,11 +138,10 @@ def run_alembic_upgrade() -> bool:
         log_warning("  • DATABASE_URL in .env is incorrect")
         log_warning("  • Database doesn't exist yet")
         log_warning("")
+        log_warning(f"Error details: {exc}")
         log_warning("Fix the issue, then run: uv run alembic upgrade head")
-        return True  # Return True - this is expected, not a critical error
     except Exception as exc:
         log_error(f"Unexpected error during alembic upgrade: {exc}")
-        return True  # Return True - user can fix manually
 
 
 def main() -> int:

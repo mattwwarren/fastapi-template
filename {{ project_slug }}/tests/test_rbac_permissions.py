@@ -594,7 +594,7 @@ class TestDataMigrationRoleAssignment:
             email="testuser@example.com",
         )
         session.add(default_user)
-        await session.flush()
+        await session.flush()  # type: ignore[attr-defined]
 
         # Create organization (using default test user)
         org_response = await client.post(

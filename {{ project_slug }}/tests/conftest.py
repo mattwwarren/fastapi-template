@@ -5,8 +5,9 @@ import os
 import socket
 from collections.abc import AsyncGenerator, Generator
 from http import HTTPStatus
+from pathlib import Path
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import pytest
 from alembic import command
@@ -26,15 +27,17 @@ from sqlmodel import SQLModel
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-from {{ project_slug }}.core.auth import AuthMiddleware, CurrentUser
-from {{ project_slug }}.core.tenants import TenantContext
-from {{ project_slug }}.db import session as db_session
-from {{ project_slug }}.db.session import get_session
-from {{ project_slug }}.main import app
-from {{ project_slug }}.models.organization import Organization
+from test_api_service.core.auth import AuthMiddleware, CurrentUser
+from test_api_service.core.tenants import TenantContext
+from test_api_service.db import session as db_session
+from test_api_service.db.session import get_session
+from test_api_service.main import app
+from test_api_service.models.membership import Membership, MembershipRole
+from test_api_service.models.organization import Organization
+from test_api_service.models.user import User
 
 # Import settings fixtures for test isolation and pytest-xdist compatibility
-from {{ project_slug }}.tests.fixtures.settings import (  # noqa: F401
+from test_api_service.tests.fixtures.settings import (  # noqa: F401
     test_settings,
     test_settings_factory,
     test_settings_with_activity_logging_disabled,
@@ -86,7 +89,11 @@ def database_url(docker_ip: str, docker_services: object) -> str:
 
 @pytest.fixture(scope="session")
 def alembic_config(database_url: str) -> Config:
-    config = Config("alembic.ini")
+    # Find alembic.ini at project root (3 levels up from conftest.py)
+    project_root = Path(__file__).parent.parent.parent
+    alembic_ini_path = project_root / "alembic.ini"
+
+    config = Config(str(alembic_ini_path))
     config.set_main_option(
         "sqlalchemy.url",
         database_url.replace("postgresql+asyncpg", "postgresql+psycopg"),
@@ -256,16 +263,6 @@ async def client(
     # Need to rebuild the middleware stack
     app.middleware_stack = app.build_middleware_stack()
 
-    # Create test organization in database (needed for tests that reference this org_id)
-    test_org_id = UUID("00000000-0000-0000-0000-000000000000")
-    async with session_maker() as session:
-        # Check if organization already exists
-        result = await session.execute(select(Organization).where(Organization.id == test_org_id))
-        if not result.scalar_one_or_none():
-            # Create test organization with the same ID used in TestAuthMiddleware
-            test_org = Organization(id=test_org_id, name="Test Organization")
-            session.add(test_org)
-            await session.commit()
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -335,3 +332,53 @@ async def user_with_org(
 
     # Return user and org
     return test_user, test_organization
+
+
+@pytest.fixture
+async def default_auth_user_in_org(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """Ensure default test user and default org exist with OWNER membership.
+
+    This fixture creates the user/org/membership required for tests that rely on
+    the default auth middleware credentials to have RBAC permissions.
+
+    Used by tests that POST to endpoints protected by RequireAdmin, RequireOwner, etc.
+    """
+    test_org_id = UUID("00000000-0000-0000-0000-000000000000")
+    test_user_id = UUID("00000000-0000-0000-0000-000000000001")
+
+    async with session_maker() as session:
+        # Create test user if it doesn't exist
+        user_result = await session.execute(select(User).where(User.id == test_user_id))
+        if not user_result.scalar_one_or_none():
+            test_user = User(
+                id=test_user_id,
+                email="testuser@example.com",
+                name="Test User",
+            )
+            session.add(test_user)
+            await session.commit()
+
+        # Create test organization if it doesn't exist
+        org_result = await session.execute(select(Organization).where(Organization.id == test_org_id))
+        if not org_result.scalar_one_or_none():
+            test_org = Organization(id=test_org_id, name="Test Organization")
+            session.add(test_org)
+            await session.commit()
+
+        # Create default membership for test user with OWNER role
+        membership_result = await session.execute(
+            select(Membership).where(
+                Membership.user_id == test_user_id,
+                Membership.organization_id == test_org_id,
+            )
+        )
+        if not membership_result.scalar_one_or_none():
+            test_membership = Membership(
+                user_id=test_user_id,
+                organization_id=test_org_id,
+                role=MembershipRole.OWNER,
+            )
+            session.add(test_membership)
+            await session.commit()

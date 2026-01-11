@@ -144,9 +144,40 @@ ordering by `created_at`.
 Tests use `pytest-docker` to launch Postgres (`tests/docker-compose.yml`) and
 `pytest-alembic` to ensure schema drift is caught.
 
+### Running the Test Suite
+
+**Always run tests from the project root** (where `pyproject.toml` is located):
+
 ```bash
+# From project root - pytest-docker starts Postgres automatically
 uv run pytest
 ```
+
+**Run with coverage**:
+
+```bash
+uv run pytest --cov
+```
+
+**Run specific test file**:
+
+```bash
+uv run pytest {{ project_slug }}/tests/test_health.py
+```
+
+`pytest-docker` will automatically:
+- Start a Postgres container from `tests/docker-compose.yml`
+- Wait for it to be ready
+- Run migrations via Alembic
+- Clean up after tests finish
+
+### Troubleshooting Tests
+
+**"No 'script_location' key found in configuration"**
+→ You're running pytest from the wrong directory. Run from project root where `pyproject.toml` is located.
+
+**"Cannot connect to Docker daemon"**
+→ Docker is not running. Start Docker and try again. `pytest-docker` requires Docker to launch the database container.
 
 ## Code quality
 
