@@ -20,6 +20,39 @@ class Settings(BaseSettings):
     )
     sqlalchemy_echo: bool = Field(default=False, alias="SQLALCHEMY_ECHO")
     enable_metrics: bool = Field(default=True, alias="ENABLE_METRICS")
+
+    # Database pool configuration
+    db_pool_size: int = Field(
+        default=5,
+        ge=1,
+        le=100,
+        alias="DB_POOL_SIZE",
+        description="Maximum number of connections to maintain in the pool",
+    )
+    db_max_overflow: int = Field(
+        default=10,
+        ge=0,
+        le=100,
+        alias="DB_MAX_OVERFLOW",
+        description="Maximum number of connections to create beyond pool_size",
+    )
+    db_pool_timeout: int = Field(
+        default=30,
+        ge=1,
+        alias="DB_POOL_TIMEOUT",
+        description="Seconds to wait before giving up on getting a connection from pool",
+    )
+    db_pool_recycle: int = Field(
+        default=3600,
+        ge=-1,
+        alias="DB_POOL_RECYCLE",
+        description="Seconds after which to recycle connections (default: 1 hour, -1 to disable)",
+    )
+    db_pool_pre_ping: bool = Field(
+        default=True,
+        alias="DB_POOL_PRE_PING",
+        description="Test connections for liveness before using them",
+    )
     pagination_page_size: int = 50
     pagination_page_size_max: int = 200
     pagination_page_class: str | None = None
