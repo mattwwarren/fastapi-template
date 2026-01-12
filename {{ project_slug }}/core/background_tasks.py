@@ -47,13 +47,17 @@ async def send_welcome_email_task(user_id: UUID, email: str) -> None:
             extra={"user_id": str(user_id), "email": email},
         )
 
+        # TODO: IMPLEMENT - This is a placeholder showing error handling structure
+        # Replace with actual email service integration (SendGrid, SES, Mailgun, SMTP)
+        # See: docs/implementing_email_service.md for integration guide
+        #
         # Simulate email sending (replace with actual email service)
         # await email_service.send_template(
         #     to=email,
         #     template="welcome",
         #     context={"user_id": str(user_id)}
         # )
-        await asyncio.sleep(0.1)  # Placeholder for actual email sending
+        await asyncio.sleep(0.1)  # Placeholder - remove this line when implementing
 
         logger.info(
             "welcome_email_sent",
@@ -92,11 +96,15 @@ async def archive_old_activity_logs_task(org_id: UUID, days_older_than: int) -> 
             },
         )
 
+        # TODO: IMPLEMENT - This is a placeholder showing error handling structure
+        # Replace with actual log archival strategy (S3, cold storage table, or deletion)
+        # See: docs/implementing_log_archival.md for archival patterns and options
+        #
         # Simulate archival process (replace with actual implementation)
         # from datetime import datetime, timedelta
         # cutoff_date = datetime.utcnow() - timedelta(days=days_older_than)
         # await archive_service.archive_logs(org_id, cutoff_date)
-        await asyncio.sleep(0.1)  # Placeholder for actual archival
+        await asyncio.sleep(0.1)  # Placeholder - remove this line when implementing
 
         logger.info(
             "activity_logs_archived",
@@ -138,11 +146,15 @@ async def generate_activity_report_task(org_id: UUID, period: str) -> None:
             extra={"org_id": str(org_id), "period": period},
         )
 
+        # TODO: IMPLEMENT - This is a placeholder showing error handling structure
+        # Replace with actual report generation and delivery (PDF, CSV, or email)
+        # See: docs/implementing_reports.md for report generation patterns
+        #
         # Simulate report generation (replace with actual implementation)
         # report_data = await analytics_service.generate_report(org_id, period)
         # await report_storage.save(org_id, report_data)
         # await email_service.send_report(org_id, report_data)
-        await asyncio.sleep(0.1)  # Placeholder for actual report generation
+        await asyncio.sleep(0.1)  # Placeholder - remove this line when implementing
 
         logger.info(
             "activity_report_generated",

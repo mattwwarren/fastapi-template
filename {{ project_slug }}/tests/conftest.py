@@ -27,17 +27,17 @@ from sqlmodel import SQLModel
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-from test_api_service.core.auth import AuthMiddleware, CurrentUser
-from test_api_service.core.tenants import TenantContext
-from test_api_service.db import session as db_session
-from test_api_service.db.session import get_session
-from test_api_service.main import app
-from test_api_service.models.membership import Membership, MembershipRole
-from test_api_service.models.organization import Organization
-from test_api_service.models.user import User
+from {{ project_slug }}.core.auth import AuthMiddleware, CurrentUser
+from {{ project_slug }}.core.tenants import TenantContext
+from {{ project_slug }}.db import session as db_session
+from {{ project_slug }}.db.session import get_session
+from {{ project_slug }}.main import app
+from {{ project_slug }}.models.membership import Membership, MembershipRole
+from {{ project_slug }}.models.organization import Organization
+from {{ project_slug }}.models.user import User
 
 # Import settings fixtures for test isolation and pytest-xdist compatibility
-from test_api_service.tests.fixtures.settings import (  # noqa: F401
+from {{ project_slug }}.tests.fixtures.settings import (  # noqa: F401
     test_settings,
     test_settings_factory,
     test_settings_with_activity_logging_disabled,
@@ -334,7 +334,7 @@ async def user_with_org(
     return test_user, test_organization
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 async def default_auth_user_in_org(
     session_maker: async_sessionmaker[AsyncSession],
 ) -> None:
@@ -343,7 +343,7 @@ async def default_auth_user_in_org(
     This fixture creates the user/org/membership required for tests that rely on
     the default auth middleware credentials to have RBAC permissions.
 
-    Used by tests that POST to endpoints protected by RequireAdmin, RequireOwner, etc.
+    Runs automatically for all tests (autouse=True) so tests don't need to declare it.
     """
     test_org_id = UUID("00000000-0000-0000-0000-000000000000")
     test_user_id = UUID("00000000-0000-0000-0000-000000000001")

@@ -32,7 +32,7 @@ class TestSQLInjectionUsers:
     """SQL injection attempts via user endpoints."""
 
     @pytest.mark.asyncio
-    async def test_sql_injection_in_email_field(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_sql_injection_in_email_field(self, client: AsyncClient) -> None:
         """Verify SQL injection in email field fails safely."""
         for payload in SQL_INJECTION_PAYLOADS:
             response = await client.post(
@@ -50,7 +50,7 @@ class TestSQLInjectionUsers:
             )
 
     @pytest.mark.asyncio
-    async def test_sql_injection_in_name_field(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_sql_injection_in_name_field(self, client: AsyncClient) -> None:
         """Verify SQL injection in name field fails safely."""
         for i, payload in enumerate(SQL_INJECTION_PAYLOADS):
             response = await client.post(
@@ -74,7 +74,7 @@ class TestSQLInjectionUsers:
                 )
 
     @pytest.mark.asyncio
-    async def test_sql_injection_in_user_update(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_sql_injection_in_user_update(self, client: AsyncClient) -> None:
         """Verify SQL injection in user update fails safely."""
         # Create a user first
         create_response = await client.post(
@@ -104,7 +104,7 @@ class TestSQLInjectionUsers:
                 )
 
     @pytest.mark.asyncio
-    async def test_union_based_injection_attempt(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_union_based_injection_attempt(self, client: AsyncClient) -> None:
         """Verify UNION-based SQL injection is prevented."""
         union_payload = "1' UNION SELECT NULL--"
         response = await client.post(
@@ -129,7 +129,7 @@ class TestSQLInjectionUsers:
             )
 
     @pytest.mark.asyncio
-    async def test_comment_based_injection(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_comment_based_injection(self, client: AsyncClient) -> None:
         """Verify comment-based SQL injection is prevented."""
         comment_payloads = [
             "admin'--",
@@ -159,7 +159,7 @@ class TestSQLInjectionOrganizations:
     """SQL injection via organization endpoints."""
 
     @pytest.mark.asyncio
-    async def test_sql_injection_in_org_name(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_sql_injection_in_org_name(self, client: AsyncClient) -> None:
         """Verify SQL injection in organization name fails safely."""
         for payload in SQL_INJECTION_PAYLOADS:
             response = await client.post(
@@ -178,7 +178,7 @@ class TestSQLInjectionOrganizations:
                 )
 
     @pytest.mark.asyncio
-    async def test_sql_injection_in_org_update(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_sql_injection_in_org_update(self, client: AsyncClient) -> None:
         """Verify SQL injection in organization update fails safely."""
         # Create organization first
         create_response = await client.post(
@@ -205,7 +205,7 @@ class TestSQLInjectionOrganizations:
                 )
 
     @pytest.mark.asyncio
-    async def test_boolean_based_blind_injection(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_boolean_based_blind_injection(self, client: AsyncClient) -> None:
         """Verify boolean-based blind SQL injection is prevented."""
         boolean_payloads = [
             "' OR '1'='1",
@@ -235,7 +235,7 @@ class TestSQLInjectionDocuments:
     """SQL injection via document endpoints."""
 
     @pytest.mark.asyncio
-    async def test_sql_injection_in_document_title(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_sql_injection_in_document_title(self, client: AsyncClient) -> None:
         """Verify SQL injection in document title fails safely."""
         for payload in SQL_INJECTION_PAYLOADS[:5]:  # Test subset
             response = await client.post(
@@ -259,7 +259,7 @@ class TestSQLInjectionDocuments:
 
     @pytest.mark.asyncio
     async def test_sql_injection_in_document_content(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Verify SQL injection in document content fails safely."""
         for payload in SQL_INJECTION_PAYLOADS[:5]:  # Test subset
@@ -285,7 +285,7 @@ class TestSQLInjectionMemberships:
     """SQL injection via membership queries."""
 
     @pytest.mark.asyncio
-    async def test_sql_injection_in_membership_ids(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_sql_injection_in_membership_ids(self, client: AsyncClient) -> None:
         """Verify SQL injection via invalid UUIDs fails safely."""
         # Try to create membership with SQL injection in UUID fields
         for payload in SQL_INJECTION_PAYLOADS[:3]:  # Test subset
@@ -304,7 +304,7 @@ class TestSQLInjectionAdvanced:
     """Advanced SQL injection techniques."""
 
     @pytest.mark.asyncio
-    async def test_time_based_blind_injection(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_time_based_blind_injection(self, client: AsyncClient) -> None:
         """Verify time-based blind SQL injection fails."""
         time_payload = "'; WAITFOR DELAY '00:00:05'--"
         response = await client.post(
@@ -326,7 +326,7 @@ class TestSQLInjectionAdvanced:
             )
 
     @pytest.mark.asyncio
-    async def test_union_based_injection(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_union_based_injection(self, client: AsyncClient) -> None:
         """Verify UNION-based SQL injection fails."""
         union_payload = "1' UNION SELECT NULL--"
         response = await client.post(
@@ -351,7 +351,7 @@ class TestSQLInjectionAdvanced:
 
     @pytest.mark.asyncio
     async def test_error_based_injection_no_info_leak(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Verify error messages don't expose database structure."""
         # Try various malformed inputs that might trigger DB errors
@@ -384,7 +384,7 @@ class TestSQLInjectionAdvanced:
                     assert keyword not in str(error_detail).upper()
 
     @pytest.mark.asyncio
-    async def test_second_order_injection(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_second_order_injection(self, client: AsyncClient) -> None:
         """Verify second-order SQL injection fails."""
         # First, create a user with a payload-like name
         payload = "'; DROP TABLE users; --"

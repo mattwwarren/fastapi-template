@@ -647,6 +647,52 @@ CORS_ORIGINS=["https://your-frontend.com"]
 
 ---
 
+## Placeholder Features
+
+### Background Tasks Requiring Implementation
+
+This template includes background task **scaffolding** that must be implemented before production use.
+
+| Feature | Status | Implementation Guide |
+|---------|--------|---------------------|
+| Email Service | ⚠️ **Placeholder** | [implementing_email_service.md](docs/implementing_email_service.md) |
+| Log Archival | ⚠️ **Placeholder** | [implementing_log_archival.md](docs/implementing_log_archival.md) |
+| Report Generation | ⚠️ **Placeholder** | [implementing_reports.md](docs/implementing_reports.md) |
+
+### What "Placeholder" Means
+
+**Current Behavior**:
+- Functions log success messages (e.g., "welcome_email_sent")
+- No actual operations performed (only `await asyncio.sleep(0.1)`)
+- Users created/reports requested but nothing delivered
+
+**Action Required**:
+- Implement actual service integrations before production deployment
+- OR remove placeholder functions if not needed for your use case
+
+### HTTP Client Reference Examples
+
+The file `{{ project_slug }}/core/http_client.py` contains commented examples (lines 61-253):
+- `verify_token_with_auth_service` - Auth service integration pattern
+- `send_notification` - Notification service pattern
+- `report_activity` - Analytics service pattern
+- Circuit breaker and retry patterns
+
+**These are NOT active code**. Uncomment and adapt when needed.
+
+See [service_integration_patterns.md](docs/service_integration_patterns.md) for integration guide.
+
+### Verification Before Deployment
+
+```bash
+# Check for unimplemented placeholders
+grep -n "asyncio.sleep(0.1)" {{ project_slug }}/core/background_tasks.py
+
+# If this returns results, implement or remove those functions
+```
+
+---
+
 ## Next Steps
 
 See [QUICKSTART.md](QUICKSTART.md) for post-generation setup.

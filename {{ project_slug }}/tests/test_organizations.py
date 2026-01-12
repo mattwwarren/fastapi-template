@@ -18,7 +18,7 @@ class TestOrganizationCRUD:
     """Test basic organization CRUD operations."""
 
     @pytest.mark.asyncio
-    async def test_create_organization_success(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_create_organization_success(self, client: AsyncClient) -> None:
         """Create an organization with valid data."""
         response = await client.post(
             "/organizations",
@@ -50,7 +50,7 @@ class TestOrganizationCRUD:
         assert org["name"] == "Tech Startup"
 
     @pytest.mark.asyncio
-    async def test_update_organization(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_update_organization(self, client: AsyncClient) -> None:
         """Update organization fields."""
         # Create organization
         create_response = await client.post(
@@ -69,7 +69,7 @@ class TestOrganizationCRUD:
         assert updated_org["name"] == "Updated Org"
 
     @pytest.mark.asyncio
-    async def test_delete_organization(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_delete_organization(self, client: AsyncClient) -> None:
         """Delete an organization."""
         # Create organization
         create_response = await client.post(
@@ -87,7 +87,7 @@ class TestOrganizationCRUD:
         assert get_response.status_code == HTTPStatus.NOT_FOUND
 
     @pytest.mark.asyncio
-    async def test_list_organizations(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_list_organizations(self, client: AsyncClient) -> None:
         """List organizations with pagination."""
         # Create multiple organizations
         for i in range(NUM_TEST_ORGS):
@@ -150,7 +150,7 @@ class TestOrganizationValidation:
         )
 
     @pytest.mark.asyncio
-    async def test_update_organization_empty_name(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_update_organization_empty_name(self, client: AsyncClient) -> None:
         """Updating organization to empty name should fail if validated."""
         # Create organization
         create_response = await client.post(
@@ -175,7 +175,7 @@ class TestOrganizationUserRelationship:
     """Test organization-user relationship expansion."""
 
     @pytest.mark.asyncio
-    async def test_organization_shows_users(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_organization_shows_users(self, client: AsyncClient) -> None:
         """Organization should show users after membership is created."""
         # Create user
         user_response = await client.post(
@@ -226,7 +226,7 @@ class TestOrganizationUserRelationship:
 
     @pytest.mark.asyncio
     async def test_organization_shows_multiple_users(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Organization should show all member users."""
         # Create organization
@@ -269,7 +269,7 @@ class TestOrganizationUserRelationship:
 
     @pytest.mark.asyncio
     async def test_delete_organization_cascades_memberships(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Deleting organization should cascade delete memberships."""
         # Create user
@@ -319,7 +319,7 @@ class TestOrganizationErrorHandling:
         assert response.status_code == HTTPStatus.NOT_FOUND
 
     @pytest.mark.asyncio
-    async def test_update_nonexistent_organization(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_update_nonexistent_organization(self, client: AsyncClient) -> None:
         """Updating nonexistent organization should return 404."""
         response = await client.patch(
             f"/organizations/{NONEXISTENT_UUID}",
@@ -328,7 +328,7 @@ class TestOrganizationErrorHandling:
         assert response.status_code == HTTPStatus.NOT_FOUND
 
     @pytest.mark.asyncio
-    async def test_delete_nonexistent_organization(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_delete_nonexistent_organization(self, client: AsyncClient) -> None:
         """Deleting nonexistent organization should return 404."""
         response = await client.delete(f"/organizations/{NONEXISTENT_UUID}")
         assert response.status_code == HTTPStatus.NOT_FOUND

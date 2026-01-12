@@ -14,7 +14,7 @@ class TestMembershipCRUD:
 
     @pytest.mark.asyncio
     async def test_create_membership_success(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Create a membership with valid user and organization."""
         # Create organization
@@ -45,7 +45,7 @@ class TestMembershipCRUD:
 
     @pytest.mark.asyncio
     async def test_delete_membership(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Delete a membership."""
         # Create organization and user
@@ -81,7 +81,7 @@ class TestMembershipCRUD:
 
     @pytest.mark.asyncio
     async def test_list_memberships(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """List all memberships with pagination."""
         # Create organization
@@ -121,7 +121,7 @@ class TestMembershipConstraints:
 
     @pytest.mark.asyncio
     async def test_duplicate_membership_fails(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Creating duplicate membership (same user+org) should fail."""
         # Create organization and user
@@ -154,7 +154,7 @@ class TestMembershipConstraints:
 
     @pytest.mark.asyncio
     async def test_create_membership_nonexistent_user(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Creating membership with nonexistent user should fail."""
         # Create organization
@@ -173,7 +173,7 @@ class TestMembershipConstraints:
 
     @pytest.mark.asyncio
     async def test_create_membership_nonexistent_organization(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Creating membership with nonexistent organization should fail."""
         # Create user
@@ -199,7 +199,7 @@ class TestMembershipCascadeDelete:
 
     @pytest.mark.asyncio
     async def test_cascade_delete_organization(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Deleting organization should cascade delete memberships."""
         # Create organization and user
@@ -237,7 +237,7 @@ class TestMembershipCascadeDelete:
 
     @pytest.mark.asyncio
     async def test_cascade_delete_user(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Deleting user should cascade delete memberships."""
         # Create organization and user
@@ -279,7 +279,7 @@ class TestMembershipErrorHandling:
 
     @pytest.mark.asyncio
     async def test_delete_nonexistent_membership(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Deleting nonexistent membership should return 404."""
         response = await client.delete(
@@ -289,7 +289,7 @@ class TestMembershipErrorHandling:
 
     @pytest.mark.asyncio
     async def test_create_membership_invalid_uuid(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Creating membership with invalid UUIDs should fail."""
         # Create valid organization

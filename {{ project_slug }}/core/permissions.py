@@ -44,13 +44,7 @@ Usage:
         ...
 """
 
-__all__ = [
-    "require_role",
-    "RequireOwner",
-    "RequireAdmin",
-    "RequireMember",
-]
-
+# ruff: noqa: E402 - Imports after long docstring with usage examples
 import logging
 from typing import Annotated
 from uuid import UUID
@@ -62,6 +56,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from {{ project_slug }}.core.tenants import TenantContext
 from {{ project_slug }}.db.session import SessionDep
 from {{ project_slug }}.models.membership import Membership, MembershipRole
+
+__all__ = [
+    "RequireAdmin",
+    "RequireMember",
+    "RequireOwner",
+    "require_role",
+]
 
 LOGGER = logging.getLogger(__name__)
 

@@ -17,7 +17,7 @@ class TestUserCRUD:
     """Test basic user CRUD operations."""
 
     @pytest.mark.asyncio
-    async def test_create_user_success(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_create_user_success(self, client: AsyncClient) -> None:
         """Create a user with valid data."""
         response = await client.post(
             "/users",
@@ -36,7 +36,7 @@ class TestUserCRUD:
         assert "updated_at" in user
 
     @pytest.mark.asyncio
-    async def test_create_user_with_duplicate_email(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_create_user_with_duplicate_email(self, client: AsyncClient) -> None:
         """Creating user with duplicate email should fail gracefully."""
         payload = {
             "name": "Jane Doe",
@@ -52,7 +52,7 @@ class TestUserCRUD:
         assert response2.status_code in (HTTPStatus.BAD_REQUEST, HTTPStatus.CONFLICT)
 
     @pytest.mark.asyncio
-    async def test_read_user(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_read_user(self, client: AsyncClient) -> None:
         """Get a single user by ID."""
         # Create user
         create_response = await client.post(
@@ -73,7 +73,7 @@ class TestUserCRUD:
         assert user["email"] == "john@example.com"
 
     @pytest.mark.asyncio
-    async def test_update_user(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_update_user(self, client: AsyncClient) -> None:
         """Update user fields."""
         # Create user
         create_response = await client.post(
@@ -96,7 +96,7 @@ class TestUserCRUD:
         assert updated_user["email"] == "original@example.com"
 
     @pytest.mark.asyncio
-    async def test_delete_user(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_delete_user(self, client: AsyncClient) -> None:
         """Delete a user."""
         # Create user
         create_response = await client.post(
@@ -117,7 +117,7 @@ class TestUserCRUD:
         assert get_response.status_code == HTTPStatus.NOT_FOUND
 
     @pytest.mark.asyncio
-    async def test_list_users(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_list_users(self, client: AsyncClient) -> None:
         """List users with pagination."""
         # Create multiple users
         for i in range(NUM_TEST_USERS):
@@ -210,7 +210,7 @@ class TestUserValidation:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
     @pytest.mark.asyncio
-    async def test_update_user_invalid_email(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_update_user_invalid_email(self, client: AsyncClient) -> None:
         """Updating user with invalid email should fail."""
         # Create user
         create_response = await client.post(
@@ -234,7 +234,7 @@ class TestUserOrganizationRelationship:
     """Test user-organization relationship expansion."""
 
     @pytest.mark.asyncio
-    async def test_user_shows_organizations(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_user_shows_organizations(self, client: AsyncClient) -> None:
         """User should show organizations after membership is created."""
         # Create user
         user_response = await client.post(
@@ -287,7 +287,7 @@ class TestUserOrganizationRelationship:
         assert user["organizations"] == []
 
     @pytest.mark.asyncio
-    async def test_delete_user_cascades_memberships(self, client: AsyncClient, default_auth_user_in_org: None) -> None:
+    async def test_delete_user_cascades_memberships(self, client: AsyncClient) -> None:
         """Deleting a user should cascade delete their memberships."""
         # Create user
         user_response = await client.post(

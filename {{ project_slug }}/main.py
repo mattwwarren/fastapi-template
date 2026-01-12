@@ -27,6 +27,7 @@ import logging
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi_pagination import add_pagination
 from pydantic import ValidationError
@@ -63,8 +64,6 @@ if settings.enable_metrics:
 # Configuration in .env:
 #   CORS_ALLOWED_ORIGINS={{ cors_origins }}
 #
-from fastapi.middleware.cors import CORSMiddleware
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_allowed_origins,  # {{ cors_origins.split(',') }}

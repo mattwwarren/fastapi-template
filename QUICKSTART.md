@@ -354,6 +354,49 @@ If you encounter issues:
 
 ---
 
+## Background Tasks: Implementation Required ⚠️
+
+This template includes **placeholder background tasks** that require implementation before production use.
+
+### Placeholder Functions
+
+The following background tasks are **stubs** and do not perform actual operations:
+
+1. **Email Service** (`{{ project_slug }}/core/background_tasks.py:send_welcome_email_task`)
+   - **Current**: Logs "welcome_email_sent" but doesn't send emails
+   - **Action Required**: Implement email integration
+   - **Guide**: [docs/implementing_email_service.md](docs/implementing_email_service.md)
+
+2. **Log Archival** (`{{ project_slug }}/core/background_tasks.py:archive_old_activity_logs_task`)
+   - **Current**: Logs "activity_logs_archived" but doesn't archive anything
+   - **Action Required**: Implement archival strategy
+   - **Guide**: [docs/implementing_log_archival.md](docs/implementing_log_archival.md)
+
+3. **Report Generation** (`{{ project_slug }}/core/background_tasks.py:generate_activity_report_task`)
+   - **Current**: Logs "activity_report_generated" but doesn't generate reports
+   - **Action Required**: Implement report generation and delivery
+   - **Guide**: [docs/implementing_reports.md](docs/implementing_reports.md)
+
+### HTTP Client Examples
+
+The file `{{ project_slug }}/core/http_client.py` contains **commented example patterns** (lines 61-253):
+- These are reference implementations, not production code
+- Uncomment and adapt when integrating with external services
+- See [docs/service_integration_patterns.md](docs/service_integration_patterns.md) for integration guides
+
+### Before Production Deployment
+
+**Verify all placeholder implementations are replaced or removed:**
+
+```bash
+# Search for placeholder markers
+grep -r "asyncio.sleep(0.1)" {{ project_slug }}/
+
+# If this returns results, you have unimplemented features
+```
+
+---
+
 ## What's Next?
 
 Your FastAPI application is ready. Start building! 🚀

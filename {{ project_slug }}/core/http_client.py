@@ -1,5 +1,11 @@
 """HTTP client for cross-service communication.
 
+NOTE: Example service integration functions (lines 61-253) are commented out.
+These are REFERENCE IMPLEMENTATIONS showing patterns - uncomment and adapt
+when integrating with external services.
+
+See docs/service_integration_patterns.md for detailed integration guides.
+
 Usage:
     from {{ project_slug }}.core.http_client import http_client
 

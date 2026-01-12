@@ -6,7 +6,7 @@ from io import BytesIO
 import pytest
 from httpx import AsyncClient
 
-from test_api_service.core.config import settings
+from {{ project_slug }}.core.config import settings
 
 # Test file sizes
 TEST_BINARY_FILE_SIZE = 256  # bytes - size of test binary data (0-255)
@@ -18,7 +18,7 @@ class TestDocumentUpload:
 
     @pytest.mark.asyncio
     async def test_upload_document_success(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Upload a valid document."""
         file_content = b"Hello, World! This is a test document."
@@ -36,7 +36,7 @@ class TestDocumentUpload:
 
     @pytest.mark.asyncio
     async def test_upload_document_with_binary_data(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Upload a binary file (e.g., image)."""
         # Create fake binary image data
@@ -61,7 +61,7 @@ class TestDocumentUpload:
 
     @pytest.mark.asyncio
     async def test_upload_document_no_content_type(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Uploading document without explicit content type defaults to inferred type."""
         file_content = b"Test content"
@@ -86,7 +86,7 @@ class TestDocumentUpload:
 
     @pytest.mark.asyncio
     async def test_upload_empty_document(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Uploading empty document should succeed (0 bytes is valid)."""
         file_content = b""
@@ -105,7 +105,7 @@ class TestDocumentDownload:
 
     @pytest.mark.asyncio
     async def test_download_document(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Download a previously uploaded document."""
         # Upload document
@@ -125,7 +125,7 @@ class TestDocumentDownload:
 
     @pytest.mark.asyncio
     async def test_download_binary_document(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Download a binary document and verify content."""
         # Upload binary document
@@ -150,7 +150,7 @@ class TestDocumentDownload:
 
     @pytest.mark.asyncio
     async def test_download_streaming_response(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Verify document is returned as streaming response."""
         # Upload larger document to test streaming
@@ -170,7 +170,7 @@ class TestDocumentValidation:
 
     @pytest.mark.asyncio
     async def test_filename_validation(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Test various filename patterns."""
         valid_filenames = [
@@ -192,7 +192,7 @@ class TestDocumentValidation:
 
     @pytest.mark.asyncio
     async def test_content_type_preservation(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Verify content type is preserved through upload/download."""
         content_types = [
@@ -222,7 +222,7 @@ class TestDocumentValidation:
 
     @pytest.mark.asyncio
     async def test_file_size_tracking(
-        self, client: AsyncClient, default_auth_user_in_org: None
+        self, client: AsyncClient
     ) -> None:
         """Verify file size is accurately tracked."""
         test_sizes = [0, 100, 1024, 10000]
