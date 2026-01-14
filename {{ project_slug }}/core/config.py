@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from {{ project_slug }}.core.storage import StorageProvider
@@ -174,6 +174,43 @@ class Settings(BaseSettings):
         alias="STORAGE_GCS_PROJECT_ID",
         description="Google Cloud project ID",
     )
+
+    @field_validator("jwt_algorithm")
+    @classmethod
+    def validate_jwt_algorithm(cls, value: str) -> str:
+        """Validate JWT algorithm is secure.
+
+        Only allows asymmetric algorithms (RSA, ECDSA, RSA-PSS) which require
+        public/private key pairs. Symmetric algorithms like HS256 are prohibited
+        because they require sharing secret keys between services.
+
+        Args:
+            value: JWT algorithm name (e.g., "RS256")
+
+        Returns:
+            Validated algorithm name
+
+        Raises:
+            ValueError: If algorithm is not in allowed list
+        """
+        allowed_algorithms = [
+            "RS256",
+            "RS384",
+            "RS512",  # RSA with SHA
+            "ES256",
+            "ES384",
+            "ES512",  # ECDSA
+            "PS256",
+            "PS384",
+            "PS512",  # RSA-PSS
+        ]
+        if value not in allowed_algorithms:
+            error_msg = (
+                f"JWT algorithm '{value}' not allowed. "
+                f"Must be one of: {', '.join(allowed_algorithms)}"
+            )
+            raise ValueError(error_msg)
+        return value
 
     @property
     def cors_allowed_origins(self) -> list[str]:

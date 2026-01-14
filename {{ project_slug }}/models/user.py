@@ -70,5 +70,30 @@ class UserRead(UserBase):
 
 
 class UserUpdate(SQLModel):
-    email: str | None = None
+    email: EmailStr | None = None
     name: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str | None, info: ValidationInfo) -> str | None:  # noqa: ARG003
+        """Validate user name field.
+
+        Args:
+            value: The name value to validate
+            info: Pydantic validation context
+
+        Returns:
+            The validated and trimmed name, or None if not provided
+
+        Raises:
+            ValueError: If name is empty/whitespace or exceeds max length
+        """
+        if value is not None:
+            value = value.strip()
+            if not value:
+                msg = "Name cannot be empty or whitespace"
+                raise ValueError(msg)
+            if len(value) > MAX_NAME_LENGTH:
+                msg = f"Name must be {MAX_NAME_LENGTH} characters or less"
+                raise ValueError(msg)
+        return value

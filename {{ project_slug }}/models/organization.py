@@ -68,3 +68,28 @@ class OrganizationRead(OrganizationBase):
 
 class OrganizationUpdate(SQLModel):
     name: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str | None, info: ValidationInfo) -> str | None:  # noqa: ARG003
+        """Validate organization name field.
+
+        Args:
+            value: The name value to validate
+            info: Pydantic validation context
+
+        Returns:
+            The validated and trimmed name, or None if not provided
+
+        Raises:
+            ValueError: If name is empty/whitespace or exceeds max length
+        """
+        if value is not None:
+            value = value.strip()
+            if not value:
+                msg = "Organization name cannot be empty or whitespace"
+                raise ValueError(msg)
+            if len(value) > MAX_ORG_NAME_LENGTH:
+                msg = f"Organization name must be {MAX_ORG_NAME_LENGTH} characters or less"
+                raise ValueError(msg)
+        return value

@@ -74,6 +74,10 @@ async def _get_user_role(
 ) -> MembershipRole | None:
     """Get user's role in the specified organization.
 
+    DEPRECATED: This function is kept for backwards compatibility but should not be used.
+    Use tenant.role from TenantContext instead, which is cached from the tenant validation
+    query to avoid redundant database queries.
+
     Args:
         session: Database session
         user_id: UUID of user to check
@@ -150,14 +154,20 @@ def require_role(required_role: MembershipRole) -> object:
     ) -> None:
         """Check if user has required role in organization.
 
+        Optimization: Uses the cached role from TenantContext instead of querying
+        the database again. The role was already fetched during tenant validation.
+
         Args:
             request: FastAPI Request (contains tenant context)
-            session: Database session
+            session: Database session (unused, kept for backwards compatibility)
 
         Raises:
             HTTPException: 403 if insufficient role
             HTTPException: 401 if tenant context missing
         """
+        # session parameter kept for backwards compatibility but not used
+        _ = session
+
         # Get tenant context from request state (set by TenantIsolationMiddleware)
         tenant: TenantContext | None = getattr(request.state, "tenant", None)
         if not tenant:
@@ -170,28 +180,8 @@ def require_role(required_role: MembershipRole) -> object:
                 detail="Internal server error",
             )
 
-        # Get user's role in organization
-        user_role = await _get_user_role(
-            session,
-            tenant.user_id,
-            tenant.organization_id,
-        )
-
-        if not user_role:
-            # User is not a member (should have been caught by tenant isolation)
-            LOGGER.warning(
-                "Permission denied: user not member of organization",
-                extra={
-                    "user_id": str(tenant.user_id),
-                    "organization_id": str(tenant.organization_id),
-                    "endpoint": request.url.path,
-                    "method": request.method,
-                },
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions",
-            )
+        # Use cached role from tenant context (fetched during tenant validation)
+        user_role = tenant.role
 
         # Check role hierarchy
         if not _role_hierarchy_check(user_role, required_role):

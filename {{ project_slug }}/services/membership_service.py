@@ -44,7 +44,7 @@ async def create_membership(
     """
     membership = Membership(**payload.model_dump())
     session.add(membership)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush(){% raw %}  # type: ignore[attr-defined]{% endraw %}
     await session.refresh(membership)
 
     # Record metrics after successful creation
@@ -69,7 +69,7 @@ async def update_membership(
     for field, value in updates.items():
         setattr(membership, field, value)
     session.add(membership)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush(){% raw %}  # type: ignore[attr-defined]{% endraw %}
     await session.refresh(membership)
     return membership
 
@@ -90,7 +90,7 @@ async def delete_membership(session: AsyncSession, membership: Membership) -> in
     result = await session.execute(
         delete(Membership).where(col(Membership.id) == membership.id)
     )
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush(){% raw %}  # type: ignore[attr-defined]{% endraw %}
 
     # Only decrement gauge if we actually deleted a row
     if result.rowcount and result.rowcount > 0:

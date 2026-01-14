@@ -143,7 +143,7 @@ async def create_organization(
 
     organization = Organization(**payload.model_dump())
     session.add(organization)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush(){% raw %}  # type: ignore[attr-defined]{% endraw %}
     await session.refresh(organization)
 
     # Increment counter after successful creation
@@ -175,7 +175,7 @@ async def update_organization(
     for field, value in updates.items():
         setattr(organization, field, value)
     session.add(organization)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush(){% raw %}  # type: ignore[attr-defined]{% endraw %}
     await session.refresh(organization)
     return organization
 
@@ -206,7 +206,7 @@ async def delete_organization(
     membership_count = len(list(membership_count_result.scalars().all()))
 
     await session.delete(organization)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush(){% raw %}  # type: ignore[attr-defined]{% endraw %}
 
     # Decrement gauge by the number of memberships that were deleted
     if membership_count > 0:
