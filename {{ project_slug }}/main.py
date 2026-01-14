@@ -1,15 +1,19 @@
-"""FastAPI application entrypoint and wiring.
+"""FastAPI application entrypoint and middleware configuration.
 
-Middleware Order Matters
-------------------------
-Middleware is executed in the order it's added (top to bottom for requests,
-bottom to top for responses). The current recommended order is:
+Middleware Execution Order
+--------------------------
+FastAPI middleware executes in REVERSE order of addition:
+- Last added middleware = FIRST to process requests
+- First added middleware = LAST to process requests
 
-1. CORS - Must be first to handle preflight OPTIONS requests
-2. Rate Limiting - Reject early before auth checks
-3. Structured Logging - Initialize request context (request_id) early
-4. Authentication - Validate JWT and set user context
-5. Tenant Isolation - Extract tenant context from authenticated user
+Current middleware stack (request flow):
+1. SlowAPIMiddleware (rate limiting) - added last, executes first
+2. LoggingMiddleware - added second-to-last
+3. TenantIsolationMiddleware - added third
+4. AuthMiddleware - added fourth
+5. CORSMiddleware - added first, executes last before endpoint
+
+Response flow is the reverse (CORS first, SlowAPI last).
 
 Performance Implications
 ------------------------
@@ -31,6 +35,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi_pagination import add_pagination
 from pydantic import ValidationError
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 from sqlalchemy import text
 
 from {{ project_slug }}.api.routes import router as api_router
@@ -62,39 +70,41 @@ if settings.enable_metrics:
 # Never use allow_origins=["*"] in production (security risk).
 #
 # Configuration in .env:
-#   CORS_ALLOWED_ORIGINS={{ cors_origins }}
+#   CORS_ALLOWED_ORIGINS=http://localhost:3000
 #
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_allowed_origins,  # {{ cors_origins.split(',') }}
+    allow_origins=settings.cors_allowed_origins,  # ['http://localhost:3000']
     allow_credentials=True,  # Allow cookies/auth headers
-    allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, DELETE, etc.)
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],  # Explicit list
+    allow_headers=["Authorization", "Content-Type"],  # Explicit list
 )
 
-# Rate Limiting Middleware (Optional)
-# Uncomment to enable request rate limiting per IP address.
+# Rate Limiting Middleware
+# Protects against brute force attacks and DoS by limiting requests per IP.
+# Default limits: 100 requests/minute, 2000 requests/hour
+#
 # Requires: pip install slowapi
 #
 # Configuration in .env:
-#   RATE_LIMIT_ENABLED=true
-#   RATE_LIMIT_PER_MINUTE=100
+#   RATE_LIMIT_ENABLED=true (default)
+#   RATE_LIMIT_PER_MINUTE=100 (default)
+#   RATE_LIMIT_PER_HOUR=2000 (default)
 #
-# from slowapi import Limiter, _rate_limit_exceeded_handler
-# from slowapi.errors import RateLimitExceeded
-# from slowapi.util import get_remote_address
-#
-# limiter = Limiter(key_func=get_remote_address)
-# app.state.limiter = limiter
-# app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-#
-# # Then in your endpoints:
-# # @app.get("/users")
-# # @limiter.limit("100/minute")
-# # async def list_users(request: Request):
-# #     ...
+# Per-endpoint limits can override defaults:
+#   @router.get("/sensitive-endpoint")
+#   @limiter.limit("10/minute")
+#   async def sensitive_operation(request: Request):
+#       ...
 #
 # Documentation: https://slowapi.readthedocs.io/
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["100/minute", "2000/hour"],
+)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+app.add_middleware(SlowAPIMiddleware)
 
 # Structured Logging Middleware
 # Automatically adds request_id, user_id, org_id to all logs
@@ -115,22 +125,6 @@ app.add_middleware(
 #
 app.add_middleware(LoggingMiddleware)
 
-{% if auth_enabled -%}
-# Authentication Middleware
-# JWT authentication for all endpoints (public endpoints excluded automatically)
-# Public endpoints: /health, /ping, /docs, /openapi.json, /metrics
-#
-# Configuration in .env:
-#   AUTH_PROVIDER_TYPE={{ auth_provider }}
-#   AUTH_PROVIDER_URL=https://your-auth-provider.com
-#   AUTH_PROVIDER_ISSUER=https://your-auth-provider.com/
-#   JWT_ALGORITHM=RS256
-#   JWT_PUBLIC_KEY=<your-public-key-pem>
-#
-from {{ project_slug }}.core.auth import AuthMiddleware
-
-app.add_middleware(AuthMiddleware)
-{% else -%}
 # Authentication Middleware (DISABLED)
 # To enable authentication:
 #   1. Regenerate project with copier and set auth_enabled=true
@@ -145,35 +139,6 @@ app.add_middleware(AuthMiddleware)
 #   AUTH_PROVIDER_ISSUER=https://your-auth-provider.com/
 #   JWT_ALGORITHM=RS256
 #   JWT_PUBLIC_KEY=<your-public-key-pem>
-{% endif -%}
-
-{% if multi_tenant and auth_enabled -%}
-# Tenant Isolation Middleware
-# Enforces tenant isolation for all endpoints
-# CRITICAL: Requires AuthMiddleware (must be added AFTER authentication)
-#
-# This middleware:
-# 1. Extracts organization_id from JWT claims, path params, or query params
-# 2. Validates user has membership in the organization
-# 3. Returns 403 if user doesn't belong to organization
-# 4. Stores tenant context in request.state for endpoint use
-#
-# Configuration in .env:
-#   ENFORCE_TENANT_ISOLATION=true  # Enable tenant isolation (default: true)
-#
-# Usage in endpoints:
-#   from {{ project_slug }}.core.tenants import TenantDep
-#
-#   @router.get("/documents")
-#   async def list_documents(tenant: TenantDep) -> list[DocumentRead]:
-#       # tenant.organization_id guaranteed to be valid
-#       # User verified as member of organization
-#       ...
-#
-from {{ project_slug }}.core.tenants import TenantIsolationMiddleware
-
-app.add_middleware(TenantIsolationMiddleware)
-{% elif multi_tenant and not auth_enabled -%}
 # Tenant Isolation Middleware (DISABLED - Authentication Required)
 # Multi-tenant isolation requires authentication to be enabled first.
 # To enable:
@@ -182,15 +147,6 @@ app.add_middleware(TenantIsolationMiddleware)
 #
 # from {{ project_slug }}.core.tenants import TenantIsolationMiddleware
 # app.add_middleware(TenantIsolationMiddleware)
-{% else -%}
-# Tenant Isolation Middleware (DISABLED - Single Tenant Mode)
-# To enable multi-tenant isolation:
-#   1. Regenerate project with copier and set multi_tenant=true and auth_enabled=true
-#   2. Or manually enable AuthMiddleware above, then uncomment:
-#
-# from {{ project_slug }}.core.tenants import TenantIsolationMiddleware
-# app.add_middleware(TenantIsolationMiddleware)
-{% endif -%}
 
 # Global Exception Handlers
 # These provide consistent error responses across the entire API
@@ -319,6 +275,10 @@ async def startup_event() -> None:
     try:
         async with engine.begin() as connection:
             await connection.execute(text("SELECT 1"))
+
+        # Sanitize URL before logging (remove credentials)
+        safe_url = str(settings.database_url).split("@")[-1]
+        logger.info(f"Database connection successful: {safe_url}")
     except Exception as exc:
         # Store error message in variable (EM101)
         db_url = settings.database_url

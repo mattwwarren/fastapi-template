@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
@@ -44,7 +44,7 @@ async def create_membership(
     """
     membership = Membership(**payload.model_dump())
     session.add(membership)
-    await session.commit()
+    await session.flush()  # type: ignore[attr-defined]
     await session.refresh(membership)
 
     # Record metrics after successful creation
@@ -69,23 +69,31 @@ async def update_membership(
     for field, value in updates.items():
         setattr(membership, field, value)
     session.add(membership)
-    await session.commit()
+    await session.flush()  # type: ignore[attr-defined]
     await session.refresh(membership)
     return membership
 
 
-async def delete_membership(session: AsyncSession, membership: Membership) -> None:
+async def delete_membership(session: AsyncSession, membership: Membership) -> int:
     """Delete a membership.
 
     Decrements active_memberships_gauge after successful deletion.
+
+    Returns the number of rows deleted (0 if already deleted by concurrent request, 1 if deleted).
 
     Security Note:
         Caller MUST verify user has permission to delete this membership.
         Typically this means:
         - User has ADMIN or OWNER role in the organization
     """
-    await session.delete(membership)
-    await session.commit()
+    # Use explicit DELETE statement to get rowcount for race condition handling
+    result = await session.execute(
+        delete(Membership).where(col(Membership.id) == membership.id)
+    )
+    await session.flush()  # type: ignore[attr-defined]
 
-    # Decrement gauge after successful deletion
-    active_memberships_gauge.labels(environment=settings.environment).dec()
+    # Only decrement gauge if we actually deleted a row
+    if result.rowcount and result.rowcount > 0:
+        active_memberships_gauge.labels(environment=settings.environment).dec()
+
+    return result.rowcount or 0

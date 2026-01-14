@@ -62,7 +62,7 @@ from starlette.responses import JSONResponse, Response
 from {{ project_slug }}.core.auth import CurrentUser
 from {{ project_slug }}.core.config import settings
 from {{ project_slug }}.db.session import async_session_maker
-from {{ project_slug }}.models.membership import Membership
+from {{ project_slug }}.models.membership import Membership, MembershipRole
 
 LOGGER = logging.getLogger(__name__)
 
@@ -92,10 +92,12 @@ class TenantContext(BaseModel):
     Attributes:
         organization_id: UUID of the current tenant/organization
         user_id: UUID of the authenticated user making the request
+        role: User's role in the organization (cached from validation query)
     """
 
     organization_id: UUID = Field(..., description="Current tenant/organization identifier")
     user_id: UUID = Field(..., description="Authenticated user making the request")
+    role: MembershipRole = Field(..., description="User's role in the organization")
 
     @property
     def is_isolated(self) -> bool:
@@ -107,12 +109,20 @@ class TenantContext(BaseModel):
         return bool(self.organization_id and self.user_id)
 
 
-async def _validate_user_org_access(session: AsyncSession, user_id: UUID, organization_id: UUID) -> bool:
-    """Validate that user has access to the specified organization.
+async def _validate_user_org_access(
+    session: AsyncSession,
+    user_id: UUID,
+    organization_id: UUID,
+) -> tuple[bool, MembershipRole | None]:
+    """Validate that user has access to the specified organization and return their role.
 
     This is a critical security check that prevents users from accessing
     organizations they don't belong to. Called by TenantIsolationMiddleware
     before granting tenant context.
+
+    Optimization: This function performs a single database query to both validate
+    membership AND retrieve the user's role, eliminating the need for a separate
+    role query later in the RBAC layer.
 
     Args:
         session: Database session for membership query
@@ -120,17 +130,22 @@ async def _validate_user_org_access(session: AsyncSession, user_id: UUID, organi
         organization_id: UUID of organization to check access for
 
     Returns:
-        True if user is a member of the organization, False otherwise
+        Tuple of (has_access, role):
+        - has_access: True if user is a member, False otherwise
+        - role: User's MembershipRole if member, None otherwise
 
     Security Note:
         This function MUST be called before setting tenant context.
         Failure to validate membership allows cross-tenant access.
     """
     result = await session.execute(
-        select(Membership).where(Membership.user_id == user_id).where(Membership.organization_id == organization_id)
+        select(Membership.role).where(
+            Membership.user_id == user_id,
+            Membership.organization_id == organization_id,
+        )
     )
-    membership = result.scalar_one_or_none()
-    return membership is not None
+    role = result.scalar_one_or_none()
+    return (role is not None, role)
 
 
 def _extract_org_id_from_jwt(current_user: object) -> UUID | None:
@@ -253,15 +268,15 @@ async def _validate_tenant_context(
             content={"detail": no_org_msg},
         )
 
-    # Validate user has access to this organization
+    # Validate user has access to this organization and get their role
     # Reuse provided session if available, otherwise create temporary one
     if session is not None:
         # Session provided - use it directly without creating new connection
-        has_access = await _validate_user_org_access(session, current_user.id, organization_id)
+        has_access, user_role = await _validate_user_org_access(session, current_user.id, organization_id)
     else:
         # No session provided - create temporary one for validation
         async with async_session_maker() as temp_session:
-            has_access = await _validate_user_org_access(temp_session, current_user.id, organization_id)
+            has_access, user_role = await _validate_user_org_access(temp_session, current_user.id, organization_id)
 
     if not has_access:
         access_denied_msg = "User does not have access to this organization"
@@ -275,9 +290,15 @@ async def _validate_tenant_context(
             content={"detail": access_denied_msg},
         )
 
+    # user_role is guaranteed to be non-None here because has_access is True
+    if user_role is None:
+        error_msg = "Role must be present when has_access is True"
+        raise RuntimeError(error_msg)
+
     tenant_context = TenantContext(
         organization_id=organization_id,
         user_id=current_user.id,
+        role=user_role,
     )
     LOGGER.debug(
         "Tenant isolation validated",

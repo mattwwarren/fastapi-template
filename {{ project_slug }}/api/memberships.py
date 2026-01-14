@@ -56,6 +56,7 @@ async def create_membership_endpoint(
         )
     try:
         membership = await create_membership(session, payload)
+        await session.commit()
     except IntegrityError as e:
         if "uq_membership_user_org" in str(e):
             raise HTTPException(
@@ -105,6 +106,7 @@ async def update_membership_endpoint(
         )
 
     updated = await update_membership(session, membership, payload)
+    await session.commit()
     return MembershipRead.model_validate(updated)
 
 
@@ -127,4 +129,12 @@ async def delete_membership_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Membership not found",
         )
-    await delete_membership(session, membership)
+    rows_deleted = await delete_membership(session, membership)
+    await session.commit()
+
+    # Handle race condition: if another request deleted the membership first
+    if rows_deleted == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Membership not found",
+        )

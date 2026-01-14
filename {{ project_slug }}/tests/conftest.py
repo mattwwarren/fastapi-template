@@ -211,6 +211,8 @@ class TestAuthMiddleware(BaseHTTPMiddleware):
         Checks for X-Test-User-ID and X-Test-Org-ID headers to allow tests to
         specify which user is making the request. If headers are provided, uses
         those values. Otherwise uses default test user.
+
+        Uses hardcoded OWNER role for simplicity in tests.
         """
         # Try to get user and org from headers (for role-based testing)
         user_id_header = request.headers.get("X-Test-User-ID")
@@ -233,19 +235,28 @@ class TestAuthMiddleware(BaseHTTPMiddleware):
 
         request.state.user = test_user
 
-        # Also set tenant context for endpoints that require TenantDep
+        # Set tenant context with hardcoded OWNER role for test fixtures
         request.state.tenant = TenantContext(
             organization_id=test_user.organization_id,  # type: ignore[arg-type]
             user_id=test_user.id,
+            role=MembershipRole.OWNER,
         )
 
         return await call_next(request)
 
 
 @pytest.fixture
-async def client(
+async def client_bypass_auth(
     session_maker: async_sessionmaker[AsyncSession],
 ) -> AsyncGenerator[AsyncClient]:
+    """Test client that bypasses AuthMiddleware and injects test user directly.
+
+    WARNING: This fixture is for migration purposes only. Use `authenticated_client`
+    for new tests to ensure auth middleware is properly tested.
+
+    This client removes AuthMiddleware and replaces it with TestAuthMiddleware that
+    directly injects user/tenant into request state without JWT validation.
+    """
     async def get_session_override() -> AsyncGenerator[AsyncSession]:
         async with session_maker() as session:
             yield session
@@ -272,6 +283,47 @@ async def client(
 
 
 @pytest.fixture
+async def authenticated_client(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> AsyncGenerator[AsyncClient]:
+    """Test client that keeps AuthMiddleware and requires valid JWT tokens.
+
+    Use this fixture for tests that need to verify auth behavior. Set Authorization
+    header with a valid JWT token.
+
+    Example:
+        async def test_protected_endpoint(authenticated_client):
+            response = await authenticated_client.get(
+                "/protected",
+                headers={"Authorization": f"Bearer {valid_token}"}
+            )
+            assert response.status_code == 200
+    """
+    async def get_session_override() -> AsyncGenerator[AsyncSession]:
+        async with session_maker() as session:
+            yield session
+
+    # Override session dependency
+    app.dependency_overrides[get_session] = get_session_override
+
+    # Reset middleware stack to allow modifications
+    app.middleware_stack = None
+
+    # Keep AuthMiddleware but rebuild stack to apply overrides
+    app.middleware_stack = app.build_middleware_stack()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+
+    app.dependency_overrides.clear()
+
+
+# Alias for backward compatibility - will be removed in future
+client = client_bypass_auth
+
+
+@pytest.fixture
 async def test_user(client: AsyncClient) -> dict[str, Any]:
     """Create a test user and return user data."""
     response = await client.post(
@@ -287,7 +339,11 @@ async def test_user(client: AsyncClient) -> dict[str, Any]:
 
 @pytest.fixture
 async def test_organization(client: AsyncClient) -> dict[str, Any]:
-    """Create a test organization and return organization data."""
+    """Create a test organization and return organization data.
+
+    Note: Uses client_bypass_auth which bypasses AuthMiddleware,
+    so no membership creation is needed for the default test user.
+    """
     response = await client.post(
         "/organizations",
         json={"name": "Test Organization"},
@@ -337,6 +393,7 @@ async def user_with_org(
 @pytest.fixture(autouse=True)
 async def default_auth_user_in_org(
     session_maker: async_sessionmaker[AsyncSession],
+    reset_db: None,  # noqa: ARG001 - Ensure DB is reset before creating default user/org
 ) -> None:
     """Ensure default test user and default org exist with OWNER membership.
 

@@ -54,6 +54,24 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 # Dependency to get storage service (allows for testing/mocking)
 StorageServiceDep = Annotated[StorageService, Depends(get_storage_service)]
 
+# MIME type validation constants
+ALLOWED_MIME_TYPES = {
+    "application/pdf",
+    "application/json",
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "text/plain",
+    "application/zip",
+}
+
+DANGEROUS_MIME_TYPES = {
+    "text/html",
+    "image/svg+xml",
+    "application/javascript",
+    "text/javascript",
+}
+
 
 def iter_file_chunks(data: bytes, chunk_size: int = 8192) -> Iterator[bytes]:
     """Yield chunks of binary data for streaming.
@@ -107,12 +125,19 @@ async def upload_document(
             detail=missing_filename_msg,
         )
 
-    if not file.content_type:
-        missing_content_type_msg = "File must have a content type"
+    # Validate MIME type for security
+    content_type = file.content_type or "application/octet-stream"
+
+    if content_type in DANGEROUS_MIME_TYPES:
+        dangerous_type_msg = f"File type '{content_type}' not allowed for security reasons"
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=missing_content_type_msg,
+            detail=dangerous_type_msg,
         )
+
+    if content_type not in ALLOWED_MIME_TYPES:
+        # Force to octet-stream for unknown types
+        content_type = "application/octet-stream"
 
     # Read with size limit (+1 to detect oversized files)
     file_data = await file.read(settings.max_file_size_bytes + 1)
@@ -132,7 +157,7 @@ async def upload_document(
     # Create document record first to get UUID
     document = Document(
         filename=file.filename,
-        content_type=file.content_type,
+        content_type=content_type,  # Use sanitized content_type
         file_size=file_size,
         storage_path="",  # Will be updated after upload
         storage_url="",  # Will be updated after upload
@@ -152,7 +177,7 @@ async def upload_document(
         storage_url = await storage_service.upload(
             document_id=document.id,
             file_data=file_data,
-            content_type=file.content_type,
+            content_type=content_type,  # Use sanitized content_type
             organization_id=tenant.organization_id,
         )
         document.storage_path = storage_url  # For local, path == url

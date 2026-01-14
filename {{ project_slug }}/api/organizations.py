@@ -10,6 +10,7 @@ from sqlalchemy import select
 from {{ project_slug }}.core.activity_logging import ActivityAction, log_activity_decorator
 from {{ project_slug }}.core.pagination import ParamsDep
 from {{ project_slug }}.core.permissions import RequireAdmin, RequireOwner
+from {{ project_slug }}.core.tenants import TenantDep
 from {{ project_slug }}.db.session import SessionDep
 from {{ project_slug }}.models.organization import (
     Organization,
@@ -37,6 +38,7 @@ async def create_org(
     session: SessionDep,
 ) -> OrganizationRead:
     organization = await create_organization(session, payload)
+    await session.commit()
     response = OrganizationRead.model_validate(organization)
     response.users = []
     return response
@@ -69,8 +71,9 @@ async def list_orgs(
 async def get_org(
     organization_id: UUID,
     session: SessionDep,
+    tenant: TenantDep,
 ) -> OrganizationRead:
-    organization = await get_organization(session, organization_id)
+    organization = await get_organization(session, organization_id, user_id=tenant.user_id)
     if not organization:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -88,19 +91,21 @@ async def update_org(
     organization_id: UUID,
     payload: OrganizationUpdate,
     session: SessionDep,
+    tenant: TenantDep,
     role_check: RequireAdmin,  # noqa: ARG001
 ) -> OrganizationRead:
     """Update organization settings.
 
     Requires ADMIN role or higher (OWNER).
     """
-    organization = await get_organization(session, organization_id)
+    organization = await get_organization(session, organization_id, user_id=tenant.user_id)
     if not organization:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organization not found",
         )
     updated = await update_organization(session, organization, payload)
+    await session.commit()
     users = await list_users_for_organization(session, organization_id)
     response = OrganizationRead.model_validate(updated)
     response.users = [UserInfo.model_validate(user) for user in users]
@@ -114,6 +119,7 @@ async def update_org(
 async def delete_org(
     organization_id: UUID,
     session: SessionDep,
+    tenant: TenantDep,
     role_check: RequireOwner,  # noqa: ARG001
 ) -> None:
     """Delete organization and all associated data.
@@ -123,10 +129,11 @@ async def delete_org(
     - All documents and resources
     - Cannot be undone
     """
-    organization = await get_organization(session, organization_id)
+    organization = await get_organization(session, organization_id, user_id=tenant.user_id)
     if not organization:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organization not found",
         )
     await delete_organization(session, organization)
+    await session.commit()

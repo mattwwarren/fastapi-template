@@ -12,7 +12,10 @@ from sqlalchemy.exc import IntegrityError
 from {{ project_slug }}.core.activity_logging import ActivityAction, log_activity_decorator
 from {{ project_slug }}.core.background_tasks import send_welcome_email_task
 from {{ project_slug }}.core.pagination import ParamsDep
+from {{ project_slug }}.core.permissions import RequireAdmin, RequireMember
+from {{ project_slug }}.core.tenants import TenantDep
 from {{ project_slug }}.db.session import SessionDep
+from {{ project_slug }}.models.membership import Membership
 from {{ project_slug }}.models.shared import OrganizationInfo
 from {{ project_slug }}.models.user import User, UserCreate, UserRead, UserUpdate
 from {{ project_slug }}.services.user_service import (
@@ -32,6 +35,8 @@ router = APIRouter(prefix="/users", tags=["users"])
 async def create_user_endpoint(
     payload: UserCreate,
     session: SessionDep,
+    tenant: TenantDep,  # noqa: ARG001
+    role_check: RequireAdmin,  # noqa: ARG001
 ) -> UserRead:
     """Create a new user and send welcome email asynchronously.
 
@@ -44,8 +49,10 @@ async def create_user_endpoint(
     """
     try:
         user = await create_user(session, payload)
+        await session.commit()
     except IntegrityError as e:
-        if "app_user_email_key" in str(e) or "unique" in str(e).lower():
+        error_str = str(e).lower()
+        if "uq_app_user_email" in error_str or "app_user_email_key" in error_str or "unique" in error_str:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="User with this email already exists",
@@ -88,7 +95,22 @@ async def list_users_endpoint(
 async def get_user_endpoint(
     user_id: UUID,
     session: SessionDep,
+    tenant: TenantDep,
+    role_check: RequireMember,  # noqa: ARG001
 ) -> UserRead:
+    # Verify user belongs to tenant's organization
+    result = await session.execute(
+        select(Membership)
+        .where(Membership.user_id == user_id)
+        .where(Membership.organization_id == tenant.organization_id)
+    )
+    membership = result.scalar_one_or_none()
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
     user = await get_user(session, user_id)
     if not user:
         raise HTTPException(
@@ -109,7 +131,22 @@ async def update_user_endpoint(
     user_id: UUID,
     payload: UserUpdate,
     session: SessionDep,
+    tenant: TenantDep,
+    role_check: RequireAdmin,  # noqa: ARG001
 ) -> UserRead:
+    # Verify user belongs to tenant's organization
+    result = await session.execute(
+        select(Membership)
+        .where(Membership.user_id == user_id)
+        .where(Membership.organization_id == tenant.organization_id)
+    )
+    membership = result.scalar_one_or_none()
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
     user = await get_user(session, user_id)
     if not user:
         raise HTTPException(
@@ -132,7 +169,22 @@ async def update_user_endpoint(
 async def delete_user_endpoint(
     user_id: UUID,
     session: SessionDep,
+    tenant: TenantDep,
+    role_check: RequireAdmin,  # noqa: ARG001
 ) -> None:
+    # Verify user belongs to tenant's organization
+    result = await session.execute(
+        select(Membership)
+        .where(Membership.user_id == user_id)
+        .where(Membership.organization_id == tenant.organization_id)
+    )
+    membership = result.scalar_one_or_none()
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
     user = await get_user(session, user_id)
     if not user:
         raise HTTPException(
@@ -140,3 +192,4 @@ async def delete_user_endpoint(
             detail="User not found",
         )
     await delete_user(session, user)
+    await session.commit()
