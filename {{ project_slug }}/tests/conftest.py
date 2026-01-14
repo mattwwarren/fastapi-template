@@ -319,8 +319,40 @@ async def authenticated_client(
     app.dependency_overrides.clear()
 
 
-# Alias for backward compatibility - will be removed in future
-client = client_bypass_auth
+@pytest.fixture
+async def client(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> AsyncGenerator[AsyncClient, None]:
+    """HTTP client that bypasses authentication (alias for client_bypass_auth).
+
+    WARNING: This fixture is for migration purposes only. Use `authenticated_client`
+    for new tests to ensure auth middleware is properly tested.
+
+    This client removes AuthMiddleware and replaces it with TestAuthMiddleware that
+    directly injects user/tenant into request state without JWT validation.
+    """
+    async def get_session_override() -> AsyncGenerator[AsyncSession]:
+        async with session_maker() as session:
+            yield session
+
+    # Override session dependency
+    app.dependency_overrides[get_session] = get_session_override
+
+    # Reset middleware stack to allow modifications
+    app.middleware_stack = None
+
+    # Remove AuthMiddleware if present and add TestAuthMiddleware that injects test user
+    app.user_middleware = [m for m in app.user_middleware if m.cls != AuthMiddleware]
+    app.add_middleware(TestAuthMiddleware)
+
+    # Need to rebuild the middleware stack
+    app.middleware_stack = app.build_middleware_stack()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
