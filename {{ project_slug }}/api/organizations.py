@@ -12,6 +12,7 @@ from {{ project_slug }}.core.pagination import ParamsDep
 from {{ project_slug }}.core.permissions import RequireAdmin, RequireOwner
 from {{ project_slug }}.core.tenants import TenantDep
 from {{ project_slug }}.db.session import SessionDep
+from {{ project_slug }}.models.membership import Membership, MembershipRole
 from {{ project_slug }}.models.organization import (
     Organization,
     OrganizationCreate,
@@ -36,8 +37,18 @@ router = APIRouter(prefix="/organizations", tags=["organizations"])
 async def create_org(
     payload: OrganizationCreate,
     session: SessionDep,
+    tenant: TenantDep,
 ) -> OrganizationRead:
     organization = await create_organization(session, payload)
+
+    # Create OWNER membership for the creating user
+    membership = Membership(
+        user_id=tenant.user_id,
+        organization_id=organization.id,
+        role=MembershipRole.OWNER,
+    )
+    session.add(membership)
+
     await session.commit()
     response = OrganizationRead.model_validate(organization)
     response.users = []
