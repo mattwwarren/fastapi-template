@@ -458,12 +458,22 @@ _reverse_sync() {
 		return 1
 	fi
 
+	# Resolve any copier.yaml conflicts (expected due to _message containing paths)
+	if git status --porcelain | grep -q "^UU copier.yaml$"; then
+		_info "Resolving expected copier.yaml conflict..."
+		git checkout --ours copier.yaml
+		git add copier.yaml
+	fi
+
 	# Check for unexpected changes (roundtrip should be idempotent)
-	if ! git diff-index --quiet HEAD --; then
+	# Exclude copier.yaml as it may have path-related diffs
+	if git diff-index --quiet HEAD -- ':!copier.yaml'; then
+		: # No unexpected changes
+	else
 		_error "Roundtrip failed - template changes produced unexpected diffs"
 		echo ""
 		_warn "Unexpected changes after copier update:"
-		git diff --stat
+		git diff --stat -- ':!copier.yaml'
 		_info "Rolling back template changes..."
 		cd "$TEMPLATE_DIR"
 		git reset --hard HEAD
