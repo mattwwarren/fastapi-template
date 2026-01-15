@@ -229,7 +229,7 @@ _sync() {
 
 	# Run copier update
 	_info "Running copier update..."
-	if copier update --trust; then
+	if copier update --trust --defaults; then
 		_success "Test instance synced successfully"
 		_info "Next steps:"
 		echo "  - Verify changes: $0 verify"
@@ -449,7 +449,7 @@ _reverse_sync() {
 
 	# Run copier update
 	_info "Updating test instance from modified template..."
-	if ! copier update --trust 2>&1 | grep -v "^Copying" | grep -v "^Patching"; then
+	if ! copier update --trust --defaults 2>&1 | grep -v "^Copying" | grep -v "^Patching"; then
 		_error "Roundtrip failed - copier update encountered issues"
 		_info "Rolling back template changes..."
 		cd "$TEMPLATE_DIR"
