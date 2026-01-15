@@ -98,10 +98,12 @@ _generate() {
 	if ! copier copy \
 		"$TEMPLATE_DIR" \
 		"$TEST_INSTANCE_DIR" \
+		--vcs-ref HEAD \
 		--data "project_name=$PROJECT_NAME" \
 		--data "project_slug=$PROJECT_SLUG" \
 		--data "description=$DESCRIPTION" \
 		--data "port=$PORT" \
+		--defaults \
 		--trust; then
 		_error "Copier generation failed"
 		rm -rf "$TEST_INSTANCE_DIR"
@@ -249,8 +251,11 @@ _sync() {
 
 _map_instance_path_to_template() {
 	local instance_path="$1"
-	# Replace project slug with Jinja2 variable
-	echo "$instance_path" | sed "s|${PROJECT_SLUG}|{{ project_slug }}|g"
+	# Replace project slug with Jinja2 variable - only when it's a path component
+	# This prevents transforming content like "fastapi_template_test connection" in comments
+	echo "$instance_path" | sed "s|^${PROJECT_SLUG}/|{{ project_slug }}/|" \
+	                      | sed "s|/${PROJECT_SLUG}/|/{{ project_slug }}/|g" \
+	                      | sed "s|/${PROJECT_SLUG}$|/{{ project_slug }}|"
 }
 
 _reverse_sync() {
@@ -269,14 +274,24 @@ _reverse_sync() {
 
 	cd "$TEMPLATE_DIR"
 
-	# Check template is clean
+	# Check template is clean - warn but allow proceed
 	if ! git diff-index --quiet HEAD --; then
-		_error "Template has uncommitted changes"
-		_info "Either commit them or stash: git stash"
-		return 1
+		_warn "Template has uncommitted changes"
+		if ! _ask_confirmation "Proceed anyway? (reverse-sync changes will be separate from existing changes)"; then
+			_error "Reverse-sync cancelled"
+			return 1
+		fi
 	fi
 
 	cd "$TEST_INSTANCE_DIR"
+
+	# Check test instance has git initialized
+	if [[ ! -d ".git" ]]; then
+		_error "Test instance is not a git repository"
+		_info "This might indicate the instance wasn't generated with ./manage-test-instance.sh"
+		_info "Please regenerate: ./manage-test-instance.sh generate"
+		return 1
+	fi
 
 	# Get the base commit - find the commit that generated this instance
 	# This is usually the first commit or a commit message containing "generation"
