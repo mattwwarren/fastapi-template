@@ -188,7 +188,6 @@ _verify() {
 	_info "Running pytest..."
 	if ! uv run pytest; then
 		_error "Pytest failed"
-		_warn "Note: Ensure Docker is running for database tests"
 		failed=1
 	else
 		_success "Pytest passed (100%)"
@@ -514,7 +513,6 @@ _reverse_sync() {
 	_info "▶ Running pytest..."
 	if ! uv run pytest >/dev/null 2>&1; then
 		_error "Pytest failed"
-		_warn "Note: Ensure Docker is running for database tests"
 		checks_failed=1
 	else
 		_success "Tests: 100% passing"
