@@ -1,0 +1,166 @@
+# publish-template.yml - Publish templatized version to copier branch
+#
+# This workflow converts the runnable fastapi_template project into a
+# Copier template and pushes it to the "copier" branch.
+#
+# Users can then create new projects with:
+#   copier copy gh:mattwwarren/fastapi-template --vcs-ref copier
+#
+# Triggers:
+# - On release publish (automatically when you create a GitHub release)
+# - Manual dispatch (for testing or ad-hoc updates)
+
+name: Publish Copier Template
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      force_publish:
+        description: 'Force publish even if no changes detected'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  publish-template:
+    name: Templatize and Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for branch operations
+
+      - name: Set up Git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run templatize script
+        run: |
+          chmod +x ./scripts/templatize.sh
+          ./scripts/templatize.sh .templatized
+
+      - name: Verify templatization output
+        run: |
+          echo "=== Verifying templatization output ==="
+
+          # Check that package directory was renamed
+          if [[ ! -d ".templatized/{{ project_slug }}" ]]; then
+            echo "ERROR: {{ project_slug }} directory not found"
+            exit 1
+          fi
+
+          # Check that copier.yaml exists
+          if [[ ! -f ".templatized/copier.yaml" ]]; then
+            echo "ERROR: copier.yaml not found"
+            exit 1
+          fi
+
+          # Check for Jinja2 syntax in key files
+          if ! grep -q "{{ project_slug }}" ".templatized/pyproject.toml"; then
+            echo "ERROR: pyproject.toml missing template variables"
+            exit 1
+          fi
+
+          echo "Templatization verification passed"
+          echo ""
+          echo "Files in output directory:"
+          ls -la .templatized/
+
+      - name: Prepare copier branch content
+        run: |
+          # Create a temporary directory for the copier branch content
+          mkdir -p /tmp/copier-content
+
+          # Copy templatized content
+          cp -r .templatized/* /tmp/copier-content/
+
+          # Add a README for the copier branch
+          cat > /tmp/copier-content/README.md << 'EOF'
+          # FastAPI Template (Copier Branch)
+
+          This branch contains the Copier template version of fastapi-template.
+
+          ## Usage
+
+          Create a new project from this template:
+
+          ```bash
+          copier copy gh:mattwwarren/fastapi-template --vcs-ref copier my-new-project
+          ```
+
+          Or with specific options:
+
+          ```bash
+          copier copy gh:mattwwarren/fastapi-template --vcs-ref copier my-new-project \
+            --data project_name="My API Service" \
+            --data auth_enabled=true \
+            --data auth_provider=ory
+          ```
+
+          ## Template Variables
+
+          See `copier.yaml` for all available configuration options.
+
+          ## Source
+
+          This branch is auto-generated from the main branch.
+          Do not edit this branch directly - make changes in main and they will be
+          published here automatically on release.
+
+          See the [main branch](https://github.com/mattwwarren/fastapi-template) for
+          development instructions and contribution guidelines.
+          EOF
+
+      - name: Push to copier branch
+        run: |
+          # Check if copier branch exists
+          if git ls-remote --heads origin copier | grep -q copier; then
+            echo "copier branch exists, will force-push update"
+          else
+            echo "copier branch does not exist, will create it"
+          fi
+
+          # Create orphan branch with templatized content
+          cd /tmp/copier-content
+
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          git commit -m "Update Copier template from release ${{ github.ref_name }}
+
+          Auto-generated from main branch by publish-template workflow.
+          Source commit: ${{ github.sha }}"
+
+          # Force push to copier branch
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git push --force origin HEAD:copier
+
+          echo ""
+          echo "=== Successfully published to copier branch ==="
+          echo ""
+          echo "Users can now create projects with:"
+          echo "  copier copy gh:${{ github.repository }} --vcs-ref copier <project-name>"
+
+      - name: Summary
+        run: |
+          echo "## Copier Template Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The template has been published to the \`copier\` branch." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Usage" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "copier copy gh:${{ github.repository }} --vcs-ref copier my-project" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Source commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY

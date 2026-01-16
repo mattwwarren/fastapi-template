@@ -30,3 +30,6 @@ uploads/
 
 # Sphinx documentation build
 docs/_build/
+
+# Templatization output
+.templatized/
