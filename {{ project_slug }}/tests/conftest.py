@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+import filelock
 import psycopg
 import pytest
 from alembic import command
@@ -22,6 +23,7 @@ from alembic.config import Config
 from fastapi import Request
 from httpx import ASGITransport, AsyncClient
 from psycopg import sql
+from pytest_docker.plugin import DockerComposeExecutor, Services
 from sqlalchemy import bindparam, create_engine, select, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.ext.asyncio import (
@@ -58,6 +60,118 @@ POSTGRES_PORT = 5432
 SOCKET_TIMEOUT_SECONDS = 1
 DOCKER_TIMEOUT_SECONDS = 30.0
 DOCKER_PAUSE_SECONDS = 0.5
+
+
+# =============================================================================
+# pytest-xdist Docker Coordination
+# =============================================================================
+
+
+@pytest.fixture(scope="session")
+def docker_compose_project_name(tmp_path_factory: pytest.TempPathFactory) -> str:
+    """Generate a consistent Docker project name shared across all xdist workers.
+
+    By default, pytest-docker uses os.getpid() for the project name, which causes
+    each xdist worker to create its own Docker network. This exhausts Docker's
+    default address pool (~16 networks) when running with many parallel workers.
+
+    This fixture uses FileLock to coordinate: the first worker generates a project
+    name and saves it to a shared file; subsequent workers read from that file.
+
+    Args:
+        tmp_path_factory: pytest temp path factory for cross-worker coordination
+
+    Returns:
+        A consistent project name like "pytest_abc123" shared across all workers
+    """
+    # Get root tmp dir shared across workers
+    root_tmp = tmp_path_factory.getbasetemp().parent
+    lock_file = root_tmp / "docker_project.lock"
+    name_file = root_tmp / "docker_project_name.txt"
+
+    with filelock.FileLock(lock_file):
+        if name_file.exists():
+            # Another worker already generated the name - read it
+            return name_file.read_text().strip()
+        # First worker - generate a unique project name based on the shared tmp dir
+        # Use the tmp dir basename which is consistent across workers (pytest-XXX)
+        project_name = f"pytest_{root_tmp.name}"
+        name_file.write_text(project_name)
+        return project_name
+
+
+@pytest.fixture(scope="session")
+def docker_services(  # noqa: PLR0913 - pytest fixture params can't be restructured
+    docker_compose_command: str,
+    docker_compose_file: str,
+    docker_compose_project_name: str,
+    docker_setup: str,
+    docker_cleanup: str,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Generator[Services]:
+    """Start Docker Compose services with xdist-safe coordination.
+
+    This fixture overrides pytest-docker's docker_services to add FileLock
+    coordination. Only the first worker starts Docker Compose; other workers
+    wait for the startup file marker and then connect to the existing container.
+
+    Uses reference counting to track active workers - the last worker to finish
+    performs the cleanup.
+
+    Args:
+        docker_compose_command: Docker compose command (e.g., "docker compose")
+        docker_compose_file: Path to docker-compose.yml
+        docker_compose_project_name: Shared project name across workers
+        docker_setup: Docker setup command (e.g., "up --build --wait")
+        docker_cleanup: Docker cleanup command (e.g., "down -v")
+        tmp_path_factory: pytest temp path factory for cross-worker coordination
+
+    Yields:
+        Services object from pytest-docker for port lookups
+    """
+    docker_compose = DockerComposeExecutor(
+        docker_compose_command, docker_compose_file, docker_compose_project_name
+    )
+
+    # Get root tmp dir shared across workers
+    root_tmp = tmp_path_factory.getbasetemp().parent
+    lock_file = root_tmp / "docker_startup.lock"
+    ready_file = root_tmp / "docker_ready.txt"
+    refcount_file = root_tmp / "docker_refcount.txt"
+
+    # Startup: increment refcount and start Docker if first worker
+    with filelock.FileLock(lock_file):
+        # Increment reference count
+        count = int(refcount_file.read_text()) if refcount_file.exists() else 0
+        count += 1
+        refcount_file.write_text(str(count))
+
+        if not ready_file.exists():
+            # First worker - start Docker
+            if docker_setup:
+                setup_commands = [docker_setup] if isinstance(docker_setup, str) else docker_setup
+                for command in setup_commands:
+                    docker_compose.execute(command)
+            ready_file.write_text("ready")
+
+    # All workers can now use the services
+    yield Services(docker_compose)
+
+    # Teardown: decrement refcount and cleanup if last worker
+    with filelock.FileLock(lock_file):
+        count = int(refcount_file.read_text()) if refcount_file.exists() else 1
+        count -= 1
+        refcount_file.write_text(str(count))
+
+        if count == 0:
+            # Last worker - clean up Docker
+            if docker_cleanup:
+                cleanup_commands = [docker_cleanup] if isinstance(docker_cleanup, str) else docker_cleanup
+                for command in cleanup_commands:
+                    docker_compose.execute(command)
+            # Clean up marker files for next test run
+            ready_file.unlink(missing_ok=True)
+            refcount_file.unlink(missing_ok=True)
 
 
 # =============================================================================
@@ -129,8 +243,12 @@ def database_url(
     docker_ip: str,
     docker_services: object,
     worker_id: str,
+    tmp_path_factory: pytest.TempPathFactory,
 ) -> Generator[str]:
-    """Get database URL from docker container with per-worker isolation.
+    """Get database URL with per-worker isolation and shared Docker container.
+
+    Uses FileLock to ensure only one worker starts Docker Compose.
+    All workers share the same Postgres container but get separate databases.
 
     For pytest-xdist compatibility, creates a separate database for each worker:
     - master (no xdist): app_test
@@ -147,24 +265,37 @@ def database_url(
         docker_ip: Docker host IP from docker_services
         docker_services: pytest-docker services fixture
         worker_id: pytest-xdist worker ID ("master" when not using xdist)
+        tmp_path_factory: pytest temp path factory for cross-worker coordination
 
     Yields:
         Database URL for test Postgres instance
     """
-    port = docker_services.port_for("postgres", POSTGRES_PORT)  # type: ignore[attr-defined]
+    # Get root tmp dir shared across workers for coordination files
+    root_tmp = tmp_path_factory.getbasetemp().parent
+    lock_file = root_tmp / "postgres.lock"
+    port_file = root_tmp / "postgres_port.txt"
 
-    def is_responsive() -> bool:
-        try:
-            socket.create_connection((docker_ip, port), timeout=SOCKET_TIMEOUT_SECONDS).close()
-        except OSError:
-            return False
-        return True
+    with filelock.FileLock(lock_file):
+        if port_file.exists():
+            # Another worker already started Docker - read the port
+            port = int(port_file.read_text())
+        else:
+            # First worker - start Docker and save port
+            port = docker_services.port_for("postgres", POSTGRES_PORT)  # type: ignore[attr-defined]
 
-    docker_services.wait_until_responsive(  # type: ignore[attr-defined]
-        timeout=DOCKER_TIMEOUT_SECONDS,
-        pause=DOCKER_PAUSE_SECONDS,
-        check=is_responsive,
-    )
+            def is_responsive() -> bool:
+                try:
+                    socket.create_connection((docker_ip, port), timeout=SOCKET_TIMEOUT_SECONDS).close()
+                except OSError:
+                    return False
+                return True
+
+            docker_services.wait_until_responsive(  # type: ignore[attr-defined]
+                timeout=DOCKER_TIMEOUT_SECONDS,
+                pause=DOCKER_PAUSE_SECONDS,
+                check=is_responsive,
+            )
+            port_file.write_text(str(port))
 
     # Get worker-specific database name
     db_name = get_worker_database_name(worker_id)
