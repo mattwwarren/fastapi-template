@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Annotated, Any
 from uuid import UUID
@@ -55,6 +56,13 @@ AUTHORIZATION_HEADER = "Authorization"
 BEARER_PREFIX = "Bearer "
 TOKEN_EXPIRY_LEEWAY_SECONDS = 10
 SUCCESSFUL_HTTP_STATUS = 200
+JWKS_CACHE_TTL_SECONDS = 3600  # 1 hour cache for JWKS
+
+# JWKS cache for providers that use JSON Web Key Sets (Cognito, Auth0, etc.)
+# This avoids fetching JWKS on every request, significantly improving performance.
+_jwks_cache: dict[str, Any] | None = None
+_jwks_cache_url: str | None = None
+_jwks_cache_expires: datetime | None = None
 
 
 class AuthProviderType(StrEnum):
@@ -171,6 +179,85 @@ async def _verify_token_local(token: str) -> dict[str, Any] | None:
     context.update({"validation_method": "local", "subject": decoded.get("sub")})
     LOGGER.info("token_validated", extra=context)
     return decoded
+
+
+async def get_jwks_cached(jwks_url: str) -> dict[str, Any]:
+    """Fetch JWKS (JSON Web Key Set) with caching.
+
+    Caches JWKS for 1 hour to avoid fetching on every request. This significantly
+    improves performance for providers that use JWKS (Cognito, Auth0, etc.).
+
+    Cache is invalidated if:
+    - TTL expires (1 hour)
+    - URL changes (different provider configured)
+
+    Args:
+        jwks_url: URL to fetch JWKS from (e.g., https://cognito-idp.../jwks.json)
+
+    Returns:
+        JWKS as a dictionary containing 'keys' array
+
+    Raises:
+        httpx.RequestError: If JWKS fetch fails
+        httpx.HTTPStatusError: If JWKS endpoint returns non-200 status
+
+    Example:
+        jwks_url = f"{settings.auth_provider_url}/.well-known/jwks.json"
+        jwks = await get_jwks_cached(jwks_url)
+        # Use jwks['keys'] to find matching key for JWT 'kid' header
+    """
+    global _jwks_cache, _jwks_cache_url, _jwks_cache_expires  # noqa: PLW0603
+
+    now = datetime.now(UTC)
+
+    # Return cached JWKS if valid
+    if (
+        _jwks_cache is not None
+        and _jwks_cache_url == jwks_url
+        and _jwks_cache_expires is not None
+        and now < _jwks_cache_expires
+    ):
+        context = get_logging_context()
+        LOGGER.debug("jwks_cache_hit", extra={**context, "jwks_url": jwks_url})
+        return _jwks_cache
+
+    # Fetch fresh JWKS
+    context = get_logging_context()
+    LOGGER.info("jwks_cache_miss", extra={**context, "jwks_url": jwks_url})
+
+    async with http_client(timeout=10.0) as client:
+        response = await client.get(jwks_url)
+        response.raise_for_status()
+        jwks = response.json()
+
+    # Update cache
+    _jwks_cache = jwks
+    _jwks_cache_url = jwks_url
+    _jwks_cache_expires = now + timedelta(seconds=JWKS_CACHE_TTL_SECONDS)
+
+    context = get_logging_context()
+    LOGGER.info(
+        "jwks_cached",
+        extra={
+            **context,
+            "jwks_url": jwks_url,
+            "key_count": len(jwks.get("keys", [])),
+            "expires_at": _jwks_cache_expires.isoformat(),
+        },
+    )
+
+    return jwks
+
+
+def clear_jwks_cache() -> None:
+    """Clear the JWKS cache.
+
+    Useful for testing or when you need to force a refresh.
+    """
+    global _jwks_cache, _jwks_cache_url, _jwks_cache_expires  # noqa: PLW0603
+    _jwks_cache = None
+    _jwks_cache_url = None
+    _jwks_cache_expires = None
 
 
 async def _verify_token_remote_ory(token: str) -> dict[str, Any] | None:
@@ -370,10 +457,10 @@ async def _verify_token_remote_keycloak(token: str) -> dict[str, Any] | None:
 
 
 async def _verify_token_remote_cognito(token: str) -> dict[str, Any] | None:
-    """Verify token by calling AWS Cognito.
+    """Verify token using AWS Cognito JWKS.
 
     AWS Cognito uses JWT validation with JWKS (JSON Web Key Set).
-    This is a simplified example - production should fetch and cache JWKS.
+    This implementation fetches and caches JWKS for production use.
 
     Args:
         token: JWT token string
@@ -385,14 +472,103 @@ async def _verify_token_remote_cognito(token: str) -> dict[str, Any] | None:
         AUTH_PROVIDER_TYPE=cognito
         AUTH_PROVIDER_URL=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXXX
         AUTH_PROVIDER_ISSUER=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXXX
-        JWT_PUBLIC_KEY=<fetch from JWKS endpoint>
+        # JWT_PUBLIC_KEY not needed - keys fetched from JWKS endpoint
 
-    Note: For production Cognito integration, consider using python-jose
-    with JWKS caching: https://docs.aws.amazon.com/cognito/latest/developerguide/
+    JWKS endpoint pattern:
+        {AUTH_PROVIDER_URL}/.well-known/jwks.json
     """
-    # Cognito typically uses local JWT validation with JWKS
-    # For this example, we fall back to local validation
-    return await _verify_token_local(token)
+    if not settings.auth_provider_url:
+        context = get_logging_context()
+        LOGGER.warning(
+            "auth_provider_url_not_configured",
+            extra={**context, "provider": "cognito"},
+        )
+        return None
+
+    # If JWT_PUBLIC_KEY is configured, use local validation (faster)
+    if settings.jwt_public_key:
+        return await _verify_token_local(token)
+
+    # Fetch JWKS for key lookup
+    jwks_url = f"{settings.auth_provider_url}/.well-known/jwks.json"
+
+    try:
+        jwks = await get_jwks_cached(jwks_url)
+    except httpx.RequestError:
+        context = get_logging_context()
+        LOGGER.error(
+            "cognito_jwks_fetch_failed",
+            extra={**context, "jwks_url": jwks_url},
+            exc_info=True,
+        )
+        return None
+    except httpx.HTTPStatusError as e:
+        context = get_logging_context()
+        LOGGER.error(
+            "cognito_jwks_status_error",
+            extra={**context, "jwks_url": jwks_url, "status_code": e.response.status_code},
+        )
+        return None
+
+    # Decode token header to get key ID (kid)
+    try:
+        unverified_header = jwt.get_unverified_header(token)
+        kid = unverified_header.get("kid")
+        if not kid:
+            context = get_logging_context()
+            LOGGER.warning("cognito_token_missing_kid", extra=context)
+            return None
+    except jwt.DecodeError:
+        context = get_logging_context()
+        LOGGER.warning("cognito_token_decode_error", extra=context)
+        return None
+
+    # Find matching key in JWKS
+    public_key = None
+    for key in jwks.get("keys", []):
+        if key.get("kid") == kid:
+            try:
+                public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
+                break
+            except (ValueError, KeyError):
+                context = get_logging_context()
+                LOGGER.warning(
+                    "cognito_jwk_parse_error",
+                    extra={**context, "kid": kid},
+                    exc_info=True,
+                )
+                continue
+
+    if not public_key:
+        context = get_logging_context()
+        LOGGER.warning(
+            "cognito_key_not_found",
+            extra={**context, "kid": kid, "available_kids": [k.get("kid") for k in jwks.get("keys", [])]},
+        )
+        return None
+
+    # Verify token with the public key
+    try:
+        decoded = jwt.decode(
+            token,
+            public_key,
+            algorithms=["RS256"],
+            issuer=settings.auth_provider_issuer,
+            leeway=TOKEN_EXPIRY_LEEWAY_SECONDS,
+        )
+    except jwt.ExpiredSignatureError:
+        context = get_logging_context()
+        LOGGER.info("cognito_token_expired", extra=context)
+        return None
+    except jwt.InvalidTokenError:
+        context = get_logging_context()
+        LOGGER.info("cognito_token_invalid", extra=context, exc_info=True)
+        return None
+
+    context = get_logging_context()
+    context.update({"validation_method": "cognito_jwks", "subject": decoded.get("sub")})
+    LOGGER.info("token_validated", extra=context)
+    return decoded
 
 
 async def verify_token(token: str) -> dict[str, Any] | None:

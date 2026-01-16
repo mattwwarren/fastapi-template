@@ -1,4 +1,9 @@
-"""Pytest fixtures for async API testing with Postgres + Alembic."""
+"""Pytest fixtures for async API testing with Postgres + Alembic.
+
+This module provides pytest-xdist compatible fixtures for parallel test execution.
+Each xdist worker gets its own database (app_test_gw0, app_test_gw1, etc.) to
+prevent data conflicts between parallel test runs.
+"""
 
 import asyncio
 import os
@@ -9,11 +14,13 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+import psycopg
 import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi import Request
 from httpx import ASGITransport, AsyncClient
+from psycopg import sql
 from sqlalchemy import bindparam, create_engine, select, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.ext.asyncio import (
@@ -30,7 +37,7 @@ from starlette.responses import Response
 from {{ project_slug }}.core.auth import AuthMiddleware, CurrentUser
 from {{ project_slug }}.core.tenants import TenantContext
 from {{ project_slug }}.db import session as db_session
-from {{ project_slug }}.db.session import get_session
+from {{ project_slug }}.db.session import create_session_maker, get_session
 from {{ project_slug }}.main import app
 from {{ project_slug }}.models.membership import Membership, MembershipRole
 from {{ project_slug }}.models.organization import Organization
@@ -52,9 +59,82 @@ DOCKER_TIMEOUT_SECONDS = 30.0
 DOCKER_PAUSE_SECONDS = 0.5
 
 
+# =============================================================================
+# pytest-xdist Database Isolation Helpers
+# =============================================================================
+
+
+def get_worker_database_name(worker_id: str) -> str:
+    """Return database name for xdist worker.
+
+    For pytest-xdist, each worker (gw0, gw1, etc.) gets its own database
+    to prevent data conflicts during parallel test execution.
+
+    Args:
+        worker_id: pytest-xdist worker ID ("master" when not using xdist)
+
+    Returns:
+        Database name: "app_test" for master, "app_test_gw0" etc. for workers
+    """
+    if worker_id == "master" or not worker_id:
+        return "app_test"
+    return f"app_test_{worker_id}"
+
+
+def create_database_if_not_exists(host: str, port: int, db_name: str) -> None:
+    """Create database using sync psycopg connection to postgres database.
+
+    Handles race conditions where multiple workers may try to create the
+    same database simultaneously by catching DuplicateDatabase errors.
+
+    Args:
+        host: PostgreSQL host
+        port: PostgreSQL port
+        db_name: Name of database to create
+    """
+    conn_str = f"host={host} port={port} user=app password=app dbname=postgres"
+    with psycopg.connect(conn_str, autocommit=True) as conn:
+        try:
+            conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name)))
+        except psycopg.errors.DuplicateDatabase:
+            pass  # Another worker created it first - this is fine
+
+
+def drop_database_if_exists(host: str, port: int, db_name: str) -> None:
+    """Drop database at session end for cleanup.
+
+    Terminates any active connections to the database before dropping.
+
+    Args:
+        host: PostgreSQL host
+        port: PostgreSQL port
+        db_name: Name of database to drop
+    """
+    conn_str = f"host={host} port={port} user=app password=app dbname=postgres"
+    with psycopg.connect(conn_str, autocommit=True) as conn:
+        # Terminate active connections to the database
+        conn.execute(
+            sql.SQL(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %s"
+            ),
+            (db_name,),
+        )
+        conn.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name)))
+
+
 @pytest.fixture(scope="session")
-def database_url(docker_ip: str, docker_services: object) -> str:
-    """Get database URL from docker container without mutating global settings.
+def database_url(
+    docker_ip: str,
+    docker_services: object,
+    worker_id: str,
+) -> Generator[str, None, None]:
+    """Get database URL from docker container with per-worker isolation.
+
+    For pytest-xdist compatibility, creates a separate database for each worker:
+    - master (no xdist): app_test
+    - gw0: app_test_gw0
+    - gw1: app_test_gw1
+    - etc.
 
     Sets DATABASE_URL environment variable for Alembic migrations (which run in
     subprocess), but does NOT mutate the global settings singleton to preserve
@@ -64,8 +144,9 @@ def database_url(docker_ip: str, docker_services: object) -> str:
     Args:
         docker_ip: Docker host IP from docker_services
         docker_services: pytest-docker services fixture
+        worker_id: pytest-xdist worker ID ("master" when not using xdist)
 
-    Returns:
+    Yields:
         Database URL for test Postgres instance
     """
     port = docker_services.port_for("postgres", POSTGRES_PORT)  # type: ignore[attr-defined]
@@ -82,9 +163,22 @@ def database_url(docker_ip: str, docker_services: object) -> str:
         pause=DOCKER_PAUSE_SECONDS,
         check=is_responsive,
     )
-    url = f"postgresql+asyncpg://app:app@{docker_ip}:{port}/app_test"
+
+    # Get worker-specific database name
+    db_name = get_worker_database_name(worker_id)
+
+    # Create the database if it doesn't exist
+    create_database_if_not_exists(docker_ip, port, db_name)
+
+    # Build URL with worker-specific database
+    url = f"postgresql+asyncpg://app:app@{docker_ip}:{port}/{db_name}"
     os.environ["DATABASE_URL"] = url
-    return url
+
+    yield url
+
+    # Cleanup: drop worker database (skip for master to allow debugging)
+    if worker_id != "master":
+        drop_database_if_exists(docker_ip, port, db_name)
 
 
 @pytest.fixture(scope="session")
@@ -154,21 +248,38 @@ async def engine(
     database_url: str,
     alembic_config: Config,
     alembic_engine: Engine,
-) -> AsyncGenerator[AsyncEngine]:
+) -> AsyncGenerator[AsyncEngine, None]:
+    """Create async database engine for test session.
+
+    This fixture is pytest-xdist compatible: it does NOT mutate the global
+    db_session.engine or db_session.async_session_maker. Instead, tests
+    use the fixtures directly and client fixtures inject them into app.state.
+
+    Args:
+        database_url: Worker-specific database URL from database_url fixture
+        alembic_config: Alembic configuration
+        alembic_engine: Sync engine for running migrations
+
+    Yields:
+        AsyncEngine for this test worker's database
+    """
+    # Run migrations on the worker's database
     await asyncio.to_thread(run_migrations, alembic_config, alembic_engine)
-    old_engine = db_session.engine
-    engine = create_async_engine(database_url, poolclass=NullPool)
-    if old_engine is not engine:
-        await old_engine.dispose()
-    db_session.engine = engine
-    db_session.async_session_maker = async_sessionmaker(
-        bind=engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-    )
-    yield engine
-    await truncate_tables(engine, alembic_config, alembic_engine)
-    await engine.dispose()
+
+    # Create async engine for this worker (NullPool avoids connection leaks)
+    test_engine = create_async_engine(database_url, poolclass=NullPool)
+
+    # Update global session maker to use test engine for backward compatibility
+    # with code that accesses db_session.async_session_maker directly
+    # (e.g., activity_logging.py, tenants.py)
+    db_session.engine = test_engine
+    db_session.async_session_maker = create_session_maker(test_engine)
+
+    yield test_engine
+
+    # Cleanup
+    await truncate_tables(test_engine, alembic_config, alembic_engine)
+    await test_engine.dispose()
 
 
 @pytest.fixture
@@ -236,7 +347,7 @@ class TestAuthMiddleware(BaseHTTPMiddleware):
         request.state.user = test_user
 
         # Look up the user's actual role from the database for proper RBAC testing
-        async with db_session.async_session_maker() as session:
+        async with request.app.state.async_session_maker() as session:
             result = await session.execute(
                 select(Membership.role)
                 .where(Membership.user_id == test_user.id)
@@ -260,8 +371,9 @@ class TestAuthMiddleware(BaseHTTPMiddleware):
 
 @pytest.fixture
 async def client_bypass_auth(
+    engine: AsyncEngine,
     session_maker: async_sessionmaker[AsyncSession],
-) -> AsyncGenerator[AsyncClient]:
+) -> AsyncGenerator[AsyncClient, None]:
     """Test client that bypasses AuthMiddleware and injects test user directly.
 
     WARNING: This fixture is for migration purposes only. Use `authenticated_client`
@@ -270,9 +382,13 @@ async def client_bypass_auth(
     This client removes AuthMiddleware and replaces it with TestAuthMiddleware that
     directly injects user/tenant into request state without JWT validation.
     """
-    async def get_session_override() -> AsyncGenerator[AsyncSession]:
+    async def get_session_override() -> AsyncGenerator[AsyncSession, None]:
         async with session_maker() as session:
             yield session
+
+    # Set app.state for pytest-xdist compatibility (lifespan pattern)
+    app.state.engine = engine
+    app.state.async_session_maker = session_maker
 
     # Override session dependency
     app.dependency_overrides[get_session] = get_session_override
@@ -287,7 +403,6 @@ async def client_bypass_auth(
     # Need to rebuild the middleware stack
     app.middleware_stack = app.build_middleware_stack()
 
-
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
@@ -297,8 +412,9 @@ async def client_bypass_auth(
 
 @pytest.fixture
 async def authenticated_client(
+    engine: AsyncEngine,
     session_maker: async_sessionmaker[AsyncSession],
-) -> AsyncGenerator[AsyncClient]:
+) -> AsyncGenerator[AsyncClient, None]:
     """Test client that keeps AuthMiddleware and requires valid JWT tokens.
 
     Use this fixture for tests that need to verify auth behavior. Set Authorization
@@ -312,9 +428,13 @@ async def authenticated_client(
             )
             assert response.status_code == 200
     """
-    async def get_session_override() -> AsyncGenerator[AsyncSession]:
+    async def get_session_override() -> AsyncGenerator[AsyncSession, None]:
         async with session_maker() as session:
             yield session
+
+    # Set app.state for pytest-xdist compatibility (lifespan pattern)
+    app.state.engine = engine
+    app.state.async_session_maker = session_maker
 
     # Override session dependency
     app.dependency_overrides[get_session] = get_session_override
@@ -334,6 +454,7 @@ async def authenticated_client(
 
 @pytest.fixture
 async def client(
+    engine: AsyncEngine,
     session_maker: async_sessionmaker[AsyncSession],
 ) -> AsyncGenerator[AsyncClient, None]:
     """HTTP client that bypasses authentication (alias for client_bypass_auth).
@@ -344,9 +465,13 @@ async def client(
     This client removes AuthMiddleware and replaces it with TestAuthMiddleware that
     directly injects user/tenant into request state without JWT validation.
     """
-    async def get_session_override() -> AsyncGenerator[AsyncSession]:
+    async def get_session_override() -> AsyncGenerator[AsyncSession, None]:
         async with session_maker() as session:
             yield session
+
+    # Set app.state for pytest-xdist compatibility (lifespan pattern)
+    app.state.engine = engine
+    app.state.async_session_maker = session_maker
 
     # Override session dependency
     app.dependency_overrides[get_session] = get_session_override

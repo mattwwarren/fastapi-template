@@ -6,6 +6,7 @@ _exclude:
   - "scripts/manage-test-instance.sh"
   - ".git"
   - ".git/**"
+  - "REMEDIATION-STATUS.md"
 
 project_name:
   type: str

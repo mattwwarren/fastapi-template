@@ -9,6 +9,11 @@ This module contains concrete implementations of the StorageService interface:
 Each implementation handles provider-specific authentication, error handling,
 and URL generation patterns.
 
+Retry Behavior:
+    Cloud storage operations use tenacity for automatic retry on transient failures.
+    Default configuration: 3 attempts with exponential backoff (1s, 2s, 4s).
+    Retried errors: Network timeouts, rate limiting (429/503), connection resets.
+
 Setup Instructions:
     Local (no setup required):
         STORAGE_PROVIDER=local
@@ -39,12 +44,47 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ParamSpec, TypeVar
 from uuid import UUID
 
+from tenacity import (
+    RetryCallState,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
+
+from {{ project_slug }}.core.logging import get_logging_context
 from {{ project_slug }}.core.storage import StorageError
+
+LOGGER = logging.getLogger(__name__)
+
+# Type variables for generic decorator
+P = ParamSpec("P")
+T = TypeVar("T")
+
+# Retry configuration for cloud storage operations
+STORAGE_RETRY_MAX_ATTEMPTS = 3
+STORAGE_RETRY_WAIT_MULTIPLIER = 1
+STORAGE_RETRY_MIN_WAIT = 1
+STORAGE_RETRY_MAX_WAIT = 10
+
+
+def _log_storage_retry(retry_state: RetryCallState) -> None:
+    """Log storage retry attempts with context."""
+    context = get_logging_context()
+    exception = retry_state.outcome.exception() if retry_state.outcome else None
+    context.update({
+        "attempt": retry_state.attempt_number,
+        "exception_type": type(exception).__name__ if exception else "unknown",
+        "exception_message": str(exception) if exception else "",
+    })
+    LOGGER.warning("storage_operation_retry", extra=context)
 
 # Optional cloud provider imports - separated by TYPE_CHECKING for proper mypy support
 if TYPE_CHECKING:
@@ -92,6 +132,132 @@ else:
         from google.cloud.exceptions import NotFound
     except ImportError:
         pass
+
+
+def _is_transient_storage_error(exc: BaseException) -> bool:
+    """Check if an exception is a transient storage error that should be retried.
+
+    Transient errors include:
+    - Network timeouts and connection resets
+    - Rate limiting (HTTP 429, 503)
+    - Temporary service unavailability
+
+    Args:
+        exc: The exception to check
+
+    Returns:
+        True if the error is transient and should be retried
+    """
+    # General network errors (applies to all providers)
+    transient_error_strings = [
+        "timeout",
+        "connection reset",
+        "connection refused",
+        "temporary failure",
+        "service unavailable",
+        "too many requests",
+    ]
+    error_str = str(exc).lower()
+    if any(msg in error_str for msg in transient_error_strings):
+        return True
+
+    # Azure-specific transient errors
+    if "ServiceUnavailable" in str(type(exc).__name__):
+        return True
+
+    # Botocore/S3-specific transient errors
+    if ClientError is not None and isinstance(exc, ClientError):
+        error_code = exc.response.get("Error", {}).get("Code", "")
+        transient_codes = ["Throttling", "ServiceUnavailable", "SlowDown", "RequestTimeout"]
+        if error_code in transient_codes:
+            return True
+
+    return False
+
+
+def create_storage_retry(
+    *,
+    max_attempts: int = STORAGE_RETRY_MAX_ATTEMPTS,
+    min_wait: int = STORAGE_RETRY_MIN_WAIT,
+    max_wait: int = STORAGE_RETRY_MAX_WAIT,
+) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    """Create a retry decorator for storage operations.
+
+    Factory function to create customized retry decorators. Use this when you need
+    different retry behavior for specific operations.
+
+    Args:
+        max_attempts: Maximum number of retry attempts (default: 3)
+        min_wait: Minimum wait time in seconds (default: 1)
+        max_wait: Maximum wait time in seconds (default: 10)
+
+    Returns:
+        Configured retry decorator
+
+    Example:
+        # More aggressive retry for critical uploads
+        aggressive_retry = create_storage_retry(max_attempts=5, max_wait=30)
+
+        @aggressive_retry
+        async def critical_upload(...) -> str:
+            ...
+    """
+    return retry(
+        retry=retry_if_exception_type(Exception),
+        stop=stop_after_attempt(max_attempts),
+        wait=wait_exponential(
+            multiplier=STORAGE_RETRY_WAIT_MULTIPLIER,
+            min=min_wait,
+            max=max_wait,
+        ),
+        before_sleep=_log_storage_retry,
+        reraise=True,
+    )
+
+
+# Default storage retry decorator
+storage_retry: Callable[[Callable[P, T]], Callable[P, T]] = create_storage_retry()
+"""Decorator for retrying storage operations on transient failures.
+
+Retries operations that fail due to:
+- Network timeouts and connection issues
+- Rate limiting (HTTP 429/503)
+- Temporary service unavailability
+
+Uses exponential backoff: 1s, 2s, 4s... up to max 10s between retries.
+Maximum 3 attempts before failing.
+
+Usage:
+    To add retry to a storage service method, apply this decorator:
+
+    class MyStorageService:
+        @storage_retry
+        async def upload(self, doc_id: UUID, data: bytes, ...) -> str:
+            # Your upload implementation
+            ...
+
+Note:
+    The built-in storage services (Azure, S3, GCS) already handle errors
+    and wrap them in StorageError. If you want retry behavior, you have
+    two options:
+
+    1. Wrap calls at the application layer:
+       @storage_retry
+       async def upload_with_retry(storage: StorageService, ...) -> str:
+           return await storage.upload(...)
+
+    2. Create a subclass with retry enabled:
+       class RetryingS3StorageService(S3StorageService):
+           @storage_retry
+           async def upload(self, ...) -> str:
+               return await super().upload(...)
+
+Does NOT retry on (by design - these are permanent failures):
+- Authentication errors (401/403)
+- Not found errors (404)
+- Permanent client errors (400)
+- Storage quota exceeded
+"""
 
 
 class LocalStorageService:

@@ -28,6 +28,8 @@ Uncomment sections as needed for your deployment.
 """
 
 import logging
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -46,11 +48,72 @@ from {{ project_slug }}.core.config import settings
 from {{ project_slug }}.core.logging import LoggingMiddleware
 from {{ project_slug }}.core.metrics import metrics_app
 from {{ project_slug }}.core.pagination import configure_pagination
-from {{ project_slug }}.db.session import engine
+from {{ project_slug }}.db.session import create_db_engine, create_session_maker
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title=settings.app_name)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Application lifespan - initialize and cleanup resources.
+
+    Replaces deprecated @app.on_event("startup") and @app.on_event("shutdown").
+    Initializes database engine and session maker, validates connectivity,
+    and ensures proper cleanup on shutdown.
+
+    This pattern is pytest-xdist compatible because each test worker can
+    inject its own engine/session_maker into app.state via fixtures,
+    rather than relying on module-level globals.
+
+    Yields:
+        None after startup completes, resumes for shutdown on context exit.
+    """
+    # Startup: Validate configuration first (fail fast on misconfiguration)
+    try:
+        config_warnings = settings.validate()
+        for warning in config_warnings:
+            logger.warning("Configuration warning: %s", warning)
+    except ValueError as e:
+        logger.error("Configuration validation failed: %s", e)
+        raise
+
+    # Startup: Initialize database engine and session maker
+    app.state.engine = create_db_engine(
+        settings.database_url,
+        echo=settings.sqlalchemy_echo,
+        pool_size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+        pool_timeout=settings.db_pool_timeout,
+        pool_recycle=settings.db_pool_recycle,
+        pool_pre_ping=settings.db_pool_pre_ping,
+    )
+    app.state.async_session_maker = create_session_maker(app.state.engine)
+
+    # Validate database connectivity (fail fast)
+    try:
+        async with app.state.engine.begin() as connection:
+            await connection.execute(text("SELECT 1"))
+
+        # Sanitize URL before logging (remove credentials)
+        safe_url = str(settings.database_url).split("@")[-1]
+        logger.info("Database connection successful: %s", safe_url)
+    except Exception as exc:
+        db_url = settings.database_url
+        error_msg = (
+            f"Failed to connect to database on startup: {exc}. "
+            f"Check DATABASE_URL={db_url}"
+        )
+        raise RuntimeError(error_msg) from exc
+
+    yield
+
+    # Shutdown: Clean up resources
+    logger.info("Shutting down: draining database connection pool")
+    await app.state.engine.dispose()
+    logger.info("Shutdown complete: all database connections closed")
+
+
+app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.include_router(api_router)
 configure_pagination()
 add_pagination(app)
@@ -265,63 +328,3 @@ async def generic_exception_handler(
     )
 
 
-@app.on_event("startup")
-async def startup_event() -> None:
-    """Validate database connectivity on startup.
-
-    Fails fast if database is unreachable, rather than waiting for first request
-    to fail. This ensures the service doesn't start in a degraded state.
-    """
-    try:
-        async with engine.begin() as connection:
-            await connection.execute(text("SELECT 1"))
-
-        # Sanitize URL before logging (remove credentials)
-        safe_url = str(settings.database_url).split("@")[-1]
-        logger.info(f"Database connection successful: {safe_url}")
-    except Exception as exc:
-        # Store error message in variable (EM101)
-        db_url = settings.database_url
-        error_msg = (
-            f"Failed to connect to database on startup: {exc}. "
-            f"Check DATABASE_URL={db_url}"
-        )
-        raise RuntimeError(error_msg) from exc
-
-
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    """Clean up resources on graceful shutdown.
-
-    Graceful Shutdown Flow
-    ----------------------
-    1. Container receives SIGTERM from orchestrator (Kubernetes, Docker)
-    2. FastAPI triggers shutdown event handlers
-    3. Connection pool is drained (waits for active queries to complete)
-    4. All pending database transactions are committed or rolled back
-    5. Process exits cleanly
-
-    Why This Matters
-    -----------------
-    - Prevents connection leaks when scaling down pods
-    - Ensures database doesn't accumulate idle connections
-    - Allows in-flight requests to complete before termination
-    - Critical for zero-downtime deployments in Kubernetes
-
-    Kubernetes Integration
-    ----------------------
-    Configure terminationGracePeriodSeconds in pod spec (default: 30s):
-    ```yaml
-    spec:
-      terminationGracePeriodSeconds: 30
-      containers:
-        - name: api
-          # Container has 30 seconds to shut down gracefully
-    ```
-
-    The engine.dispose() call will block until all connections are closed
-    or until the grace period expires, whichever comes first.
-    """
-    logger.info("Shutting down: draining database connection pool")
-    await engine.dispose()
-    logger.info("Shutdown complete: all database connections closed")

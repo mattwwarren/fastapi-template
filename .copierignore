@@ -1,6 +1,10 @@
 # Git
 .git/
 
+# Template development/tracking files (not part of generated project)
+# These are for template maintainers, not end users
+REMEDIATION-STATUS.md
+
 # Build artifacts
 docs/_build/
 __pycache__/

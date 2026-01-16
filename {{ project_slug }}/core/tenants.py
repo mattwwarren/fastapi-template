@@ -61,7 +61,6 @@ from starlette.responses import JSONResponse, Response
 
 from {{ project_slug }}.core.auth import CurrentUser
 from {{ project_slug }}.core.config import settings
-from {{ project_slug }}.db.session import async_session_maker
 from {{ project_slug }}.models.membership import Membership, MembershipRole
 
 LOGGER = logging.getLogger(__name__)
@@ -274,8 +273,8 @@ async def _validate_tenant_context(
         # Session provided - use it directly without creating new connection
         has_access, user_role = await _validate_user_org_access(session, current_user.id, organization_id)
     else:
-        # No session provided - create temporary one for validation
-        async with async_session_maker() as temp_session:
+        # No session provided - create temporary one for validation using app.state
+        async with request.app.state.async_session_maker() as temp_session:
             has_access, user_role = await _validate_user_org_access(temp_session, current_user.id, organization_id)
 
     if not has_access:
