@@ -1,5 +1,11 @@
 # Reverse Sync Quick Start Guide
 
+> **Deprecation Notice**: This workflow is **deprecated** with the runnable-first architecture.
+> Changes are now made directly to `fastapi_template/` - no reverse sync needed.
+> See [INSTANCES.md](INSTANCES.md) for the current deployment workflow.
+
+---
+
 ## The Problem You're Solving
 
 You fixed ruff/mypy errors in your test instance and don't want to lose those fixes when you delete the instance.

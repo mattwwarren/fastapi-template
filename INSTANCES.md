@@ -1,115 +1,188 @@
-# FastAPI Template Instances
+# FastAPI Template Deployment Guide
 
-Track all instances of the fastapi-template for coordinated updates, maintenance, and drift monitoring.
+Documentation for deploying projects from the fastapi-template using the runnable-first workflow.
 
-## Instance Registry
+## Overview: Runnable-First Template
 
-| Project | Location | Last Updated | Template Commit | Status | Notes |
-|---------|----------|--------------|-----------------|--------|-------|
-| test-instance | `$HOME/workspace/meta-work/fastapi-template-test-instance` | 2026-01-07 | HEAD | ✅ Up-to-date | Persistent test instance for template verification |
+This template uses a **runnable-first** architecture:
 
-## Adding New Instance
+- **Main branch** contains runnable Python code (`fastapi_template/`)
+- **`copier` branch** contains the Copier template (auto-generated on release)
+- Template variables (`{{ project_slug }}`) are generated at release time via GitHub Actions
 
-When you create a new project from this template:
+This approach provides several benefits:
+- Developers can work directly on main branch with full IDE support
+- No need to generate test instances during development
+- CI/CD runs against real Python code
+- Template generation is automated and consistent
 
-### 1. Generate from Template
+---
 
-```bash
-copier copy $HOME/workspace/meta-work/fastapi-template /path/to/new-project \
-  --data "project_name=My Project" \
-  --trust
-```
+## Deployment Workflow
 
-### 2. Initialize Git
+### For External Users (Recommended)
 
-```bash
-cd /path/to/new-project
-git init
-git add .
-git commit -m "Initial generation from fastapi-template"
-```
-
-### 3. Install Dependencies
+Generate a new project directly from the latest release:
 
 ```bash
+# Create a new service from the template
+copier copy gh:mattwwarren/fastapi-template --vcs-ref copier my-service
+
+# Answer the prompts for project configuration
+# Project name, auth settings, storage provider, etc.
+
+# Navigate to your new project
+cd my-service
+
+# Install dependencies
 uv sync
-```
 
-### 4. Run Initial Verification
-
-```bash
+# Run initial verification
 uv run ruff check .
 uv run mypy .
 uv run pytest
 ```
 
-### 5. Update This Registry
+**Note**: The `--vcs-ref copier` flag ensures you're using the templatized version, not the runnable main branch.
 
-Add entry to table above:
+### For Local Testing (Contributors)
 
-```markdown
-| my-project | /path/to/my-project | YYYY-MM-DD | <initial-commit> | ✅ Up-to-date | Initial generation |
-```
-
-### 6. Document Project
-
-Create `docs/SETUP.md` or similar:
-- What this project does
-- How to set up locally
-- How to run tests
-- Deployment instructions
-
-## Drift Checking
-
-Monitor which instances are behind the template:
-
-### Check Single Instance
+If you're contributing to the template and want to test generation locally:
 
 ```bash
-./scripts/check-instance-drift.sh /path/to/instance
+# Step 1: Generate the template from runnable code
+cd /path/to/fastapi-template
+./scripts/templatize.sh
+
+# Step 2: Generate a test project from the local template
+copier copy .templatized/ /path/to/test-project --trust
+
+# Step 3: Verify the generated project
+cd /path/to/test-project
+uv sync
+uv run ruff check .
+uv run mypy .
+uv run pytest
 ```
 
-**Output** (up-to-date):
+---
+
+## What Changed from Previous Workflow
+
+### Old Workflow (Deprecated)
+
+Previously, the template used a "template-first" approach:
+- Main branch contained Copier template with `{{ project_slug }}` variables
+- Development required creating test instances
+- The `manage-test-instance.sh` script managed instance lifecycle
+- Changes required template-instance sync workflows
+
+### New Workflow (Current)
+
+The runnable-first approach:
+- Main branch contains working Python code (`fastapi_template/`)
+- Template is auto-generated from code at release time
+- No test instances needed during development
+- GitHub Actions creates the `copier` branch automatically
+
+### Migration for Existing Workflows
+
+If you were using `manage-test-instance.sh` for development:
+
+| Old Command | New Approach |
+|-------------|--------------|
+| `/test-instance generate` | Not needed - work directly on main |
+| `/test-instance verify` | Run `uv run ruff check .`, `uv run mypy .`, `uv run pytest` directly |
+| `/test-instance sync` | Not needed - no instances to sync |
+| `reverse-sync` | Not needed - changes are made directly to code |
+
+---
+
+## For Contributors
+
+### Development Workflow
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/mattwwarren/fastapi-template.git
+   cd fastapi-template
+   ```
+
+2. **Work directly on main branch**
+   ```bash
+   # Make your changes to fastapi_template/
+   vim fastapi_template/services/user_service.py
+
+   # Run verification
+   uv run ruff check .
+   uv run mypy .
+   uv run pytest
+   ```
+
+3. **Use git worktrees for parallel development** (optional)
+   ```bash
+   # Create a worktree for a feature branch
+   git worktree add ../fastapi-template-feature feature-branch
+   cd ../fastapi-template-feature
+   ```
+
+4. **Test template generation** (before release)
+   ```bash
+   # Generate templatized version
+   ./scripts/templatize.sh
+
+   # Test generation
+   copier copy .templatized/ /tmp/test-project --trust
+   cd /tmp/test-project
+   uv run pytest
+   ```
+
+### Release Process
+
+When a release is created:
+
+1. GitHub Actions runs the templatization workflow
+2. The workflow generates `{{ project_slug }}` variables from `fastapi_template/`
+3. The templatized version is pushed to the `copier` branch
+4. External users can then generate from `--vcs-ref copier`
+
+### File Structure
+
 ```
-✅ Up-to-date
+fastapi-template/
+├── fastapi_template/         # Runnable Python package (main branch)
+│   ├── api/
+│   ├── models/
+│   ├── services/
+│   └── main.py
+├── tests/                    # Tests for the template
+├── scripts/
+│   ├── templatize.sh        # Generate template from runnable code
+│   └── ...
+├── copier.yaml              # Copier configuration
+├── _tasks.py                # Post-generation tasks
+└── .github/workflows/       # CI/CD including templatization
 ```
 
-**Output** (behind):
-```
-⚠️  Instance is 5 commits behind template
+---
 
-Recent template changes:
-abc123d Fix user email validation
-def456e Add international email support
-789abcd Security patch: input validation
+## Instance Management (For Generated Projects)
 
-To update: cd "/path/to/instance" && copier update --trust
-```
+Once you've generated a project, you can track and update it:
 
-### Check All Instances
+### Tracking Template Versions
+
+Generated projects contain a `.copier-answers.yml` file that tracks:
+- Source template location
+- Template version (commit hash)
+- Configuration choices made during generation
+
+### Updating a Generated Project
+
+To pull in template improvements:
 
 ```bash
-#!/usr/bin/env bash
-# check-all-drifts.sh
-
-INSTANCES=(
-  "/path/to/instance1"
-  "/path/to/instance2"
-)
-
-for instance in "${INSTANCES[@]}"; do
-  echo "=== $(basename $instance) ==="
-  ./scripts/check-instance-drift.sh "$instance"
-  echo ""
-done
-```
-
-## Updating Instances
-
-### Standard Update (Backward-Compatible Changes)
-
-```bash
-cd /path/to/instance
+cd /path/to/your-project
 
 # Check current status
 git status  # Should be clean
@@ -124,47 +197,64 @@ uv run pytest
 
 # Commit the update
 git commit -m "Merge template improvements"
-
-# Update registry
-# Edit INSTANCES.md with new commit hash and date
 ```
 
-### Breaking Change Update (Major Version)
+### Drift Checking
 
-For major template updates, follow the migration guide:
+Monitor if your project is behind the template:
 
 ```bash
-cd /path/to/instance
-
-# Read migration guide
-cat /path/to/template/docs/MIGRATION-v*.md
-
-# Manual refactoring or migration script
-# (varies by breaking change)
-
-# Update from template
-copier update --trust
-
-# Run full test suite
-uv run pytest
-uv run mypy .
-uv run ruff check .
-
-# Manual testing of critical features
-# (application-specific)
-
-# Commit
-git commit -m "Migrate to template v2.0.0"
-
-# Update registry
+# Check single project
+./scripts/check-instance-drift.sh /path/to/your-project
 ```
 
-## Handling Conflicts
+**Output** (up-to-date):
+```
+Up-to-date
+```
+
+**Output** (behind):
+```
+Instance is 5 commits behind template
+
+Recent template changes:
+abc123d Fix user email validation
+def456e Add international email support
+789abcd Security patch: input validation
+
+To update: cd "/path/to/your-project" && copier update --trust
+```
+
+---
+
+## Handling Updates and Conflicts
+
+### Standard Update (Backward-Compatible Changes)
+
+```bash
+cd /path/to/your-project
+
+# Check current status
+git status  # Should be clean
+
+# Pull template changes
+copier update --trust
+
+# Run verification
+uv run ruff check .
+uv run mypy .
+uv run pytest
+
+# Commit the update
+git commit -m "Merge template improvements"
+```
+
+### Conflict Resolution
 
 If `copier update` detects conflicts:
 
 ```bash
-cd /path/to/instance
+cd /path/to/your-project
 copier update --trust
 # Conflict detected!
 
@@ -187,85 +277,63 @@ uv run pytest
 
 **Tips**:
 - Template often has best practices - prefer template version
-- Document why instance customization is needed
-- Consider upstreaming customizations back to template
-- Contact template maintainers if conflicts are complex
+- Document why project customization is needed
+- Consider contributing customizations back to template
+
+---
 
 ## Update Schedule
 
-Recommended update cadence:
+Recommended update cadence for generated projects:
 
 | Update Type | Frequency | Urgency | Example |
 |-------------|-----------|---------|---------|
-| Security patches | Within 1 week | 🔴 Critical | Auth bypass, SQL injection |
-| Bug fixes | Within 2 weeks | 🟡 High | Validation bug, logic error |
-| Features | Within 1 month | 🟢 Medium | New utility, performance improvement |
-| Breaking changes | As needed | 🟠 High | Major dependency upgrade, API redesign |
+| Security patches | Within 1 week | Critical | Auth bypass, SQL injection |
+| Bug fixes | Within 2 weeks | High | Validation bug, logic error |
+| Features | Within 1 month | Medium | New utility, performance improvement |
+| Breaking changes | As needed | High | Major dependency upgrade, API redesign |
 
-## Monitoring Health
-
-### Automated Checks
-
-Add to CI/CD pipeline:
-
-```bash
-#!/bin/bash
-# Check if instance is up-to-date
-
-TEMPLATE_COMMIT=$(git -C /path/to/template rev-parse HEAD)
-INSTANCE_COMMIT=$(grep "_commit:" /path/to/instance/.copier-answers.yml | awk '{print $2}')
-
-if [[ "$TEMPLATE_COMMIT" != "$INSTANCE_COMMIT" ]]; then
-  echo "WARNING: Instance is behind template"
-  COMMITS_BEHIND=$(git -C /path/to/template rev-list --count "$INSTANCE_COMMIT".."$TEMPLATE_COMMIT")
-  echo "Commits behind: $COMMITS_BEHIND"
-  exit 1
-fi
-```
-
-### Manual Quarterly Review
-
-Once per quarter:
-1. Check all instances: `./check-all-drifts.sh`
-2. Plan updates for instances > 1 month behind
-3. Schedule coordinated updates for breaking changes
-4. Update this registry with latest status
-
-## Template Versions
-
-Track major template versions and instance compatibility:
-
-| Instance | v1.0 | v1.1 | v1.2 | v2.0 | Notes |
-|----------|------|------|------|------|-------|
-| test-instance | ✅ | ✅ | ✅ | ✅ | Always on HEAD |
-| my-project | ✅ | ✅ | ❌ | - | v1.2, planning v2.0 migration |
+---
 
 ## Contributing Back
 
-If you discover a bug or pattern in your instance that would help others:
+If you discover a bug or pattern in your project that would help others:
 
 1. **Verify it's general** - Not specific to your business domain
-2. **Extract to template** - Generalize and use Jinja2 if needed
-3. **Test in test-instance** - Verify with `verify` command
-4. **Submit to template** - Create PR or contact maintainers
-5. **Share learning** - Document the pattern
+2. **Create a PR against main branch** - Work directly on the runnable code
+3. **Test thoroughly** - Run full test suite
+4. **Document the change** - Update docs if needed
 
-Example: If you improve email validation, consider extracting it:
+Example: If you improve email validation:
 
-```bash
-# Your instance version
+```python
+# In your project: my_service/models/validators.py
 def validate_email(email: str) -> bool:
     """Handle international domains and plus-addressing."""
     # ... your implementation
 
-# Extract to template
-# {{ project_slug }}/models/validators.py
-# With Jinja2 customization if needed
+# Contribute to template: fastapi_template/models/validators.py
+# Same implementation, contributes to the runnable code
 ```
+
+---
 
 ## Resources
 
 - **Setup Guide**: See template [README.md](README.md)
-- **Sync Strategy**: See [docs/TEMPLATE-INSTANCE-SYNC.md](docs/TEMPLATE-INSTANCE-SYNC.md)
-- **Testing**: See [.claude/TEMPLATE-TESTING.md](.claude/TEMPLATE-TESTING.md)
-- **Workflow**: See [CLAUDE.md](CLAUDE.md) - Test Instance Workflow section
+- **Configuration**: See [CONFIGURATION-GUIDE.md](CONFIGURATION-GUIDE.md)
+- **Quick Start**: See [QUICKSTART.md](QUICKSTART.md)
+- **Python Patterns**: See [PYTHON-PATTERNS.md](PYTHON-PATTERNS.md)
+
+---
+
+## Deprecated: Test Instance Workflow
+
+The following commands from `manage-test-instance.sh` are **deprecated** and will be removed in a future release:
+
+- `generate` - No longer needed, work directly on main branch
+- `verify` - Run verification commands directly
+- `sync` - No instances to sync
+- `reverse-sync` - Not needed, make changes directly to code
+
+The script remains available for backwards compatibility but is not recommended for new development.

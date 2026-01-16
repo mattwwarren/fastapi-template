@@ -41,22 +41,26 @@ This template assumes:
 - **Container**: Docker, Kubernetes
 - **Cloud**: Generic cloud provider (Azure, AWS, GCP)
 
-## Project Structure Expected
+## Project Structure
 
 ```
-project/
-├── app/                    # Application code
-│   ├── api/               # API endpoints
-│   ├── models/            # Database models
-│   ├── services/          # Business logic
-│   └── main.py            # FastAPI app
-├── tests/                 # Test suite
-│   ├── unit/             # Unit tests
-│   ├── integration/      # Integration tests
-│   └── conftest.py       # Shared fixtures
-├── alembic/              # Database migrations
-├── pyproject.toml        # Python dependencies
-└── .claude/              # This directory
+fastapi-template/
+├── fastapi_template/        # Runnable Python package (main branch)
+│   ├── api/                # API endpoints
+│   ├── models/             # Database models
+│   ├── services/           # Business logic
+│   └── main.py             # FastAPI app
+├── tests/                   # Test suite
+│   ├── unit/               # Unit tests
+│   ├── integration/        # Integration tests
+│   └── conftest.py         # Shared fixtures
+├── scripts/
+│   ├── templatize.sh       # Generate template from runnable code
+│   └── ...
+├── copier.yaml              # Copier configuration
+├── _tasks.py                # Post-generation tasks
+├── pyproject.toml           # Python dependencies
+└── .claude/                 # Claude Code configuration
 ```
 
 ## How to Use
@@ -101,57 +105,51 @@ See [PYTHON-PATTERNS.md](../PYTHON-PATTERNS.md) for coding standards
 - Permissions: read, write, delete
 ```
 
-## Template Testing Protocol
+## Runnable-First Architecture
 
-**Critical prerequisite:** This is a Copier template, not runnable code. Before running any verification tools (ruff, mypy, pytest), you must generate a project from the template using Copier.
+This template uses a **runnable-first** architecture:
 
-### Generation Required Before Testing
+- **Main branch** contains runnable Python code (`fastapi_template/`)
+- **`copier` branch** contains the Copier template (auto-generated on release)
+- Template variables (`{{ project_slug }}`) are generated at release time via GitHub Actions
 
-Templates themselves cannot be linted or tested directly. You must instantiate them first:
+### Development Workflow
+
+Work directly on the main branch - no test instances needed:
 
 ```bash
-# Step 1: Generate project from template
-copier copy /path/to/fastapi-template /path/to/generated-project
+# Make changes to fastapi_template/
+vim fastapi_template/services/user_service.py
 
-# Step 2: Only THEN run verification
-cd /path/to/generated-project
-ruff check .
-mypy .
-pytest
+# Run verification directly
+uv run ruff check .
+uv run mypy .
+uv run pytest
+```
+
+### Testing Template Generation (Pre-Release)
+
+Before releasing, test that template generation works:
+
+```bash
+# Generate templatized version
+./scripts/templatize.sh
+
+# Test generation locally
+copier copy .templatized/ /tmp/test-project --trust
+cd /tmp/test-project
+uv run pytest
 ```
 
 ### Agent Guidance
 
 **When working on this template:**
 
-1. **Before modifying template files:** Generate a test instance
-2. **After making changes:** Regenerate to verify template renders correctly
-3. **Before running tools:** Always verify project was generated first
+1. Work directly on `fastapi_template/` code
+2. Run verification commands directly (`uv run ruff check .`, etc.)
+3. Before release, test template generation with `templatize.sh`
 
-**Agent prompts should include:**
-
-{% raw %}
-```
-This is a Copier template, not runnable code.
-
-Before running ruff/mypy/pytest:
-1. Run: copier copy <template> <output>
-2. cd into <output>
-3. Then run verification commands on the generated project
-
-Template itself may have {% jinja %} syntax that looks like code but isn't.
-Only lint/test the generated output, not the template source.
-```
-{% endraw %}
-
-### Why This Matters
-
-{% raw %}
-- Templates contain Jinja2 templating syntax `{% if %} {{ var }}`, not valid Python
-{% endraw %}
-- Verification tools will fail on template syntax
-- Generated projects are valid Python and can be linted/tested
-- Any changes to template files must work when instantiated
+This is runnable Python code, not a Copier template with Jinja2 syntax.
 
 ## Key Patterns Enforced
 
@@ -185,49 +183,21 @@ Only lint/test the generated output, not the template source.
 - Proper async context manager usage
 - Session lifecycle management
 
-## Test Instance Workflow
+## Test Instance Workflow (Deprecated)
 
-**Persistent test instance**: `$HOME/workspace/meta-work/fastapi-template-test-instance/`
+> **Note**: This workflow is **deprecated** with the runnable-first architecture.
+> Work directly on `fastapi_template/` instead. See "Runnable-First Architecture" above.
 
-### Quick Commands
+The old test instance workflow using `manage-test-instance.sh` is no longer needed:
 
-```bash
-# Via skill (recommended)
-/test-instance generate   # Create fresh instance
-/test-instance verify     # Check quality (ruff, mypy, pytest)
-/test-instance sync       # Update from template changes
+| Old Command | New Approach |
+|-------------|--------------|
+| `/test-instance generate` | Not needed - work directly on main |
+| `/test-instance verify` | Run `uv run ruff check .`, `uv run mypy .`, `uv run pytest` directly |
+| `/test-instance sync` | Not needed - no instances to sync |
+| `reverse-sync` | Not needed - changes are made directly to code |
 
-# Via script (direct)
-./scripts/manage-test-instance.sh generate
-./scripts/manage-test-instance.sh verify
-```
-
-### Workflow: Making Template Changes
-
-1. Modify template source files
-2. Run `/test-instance sync` to pull changes into test instance
-3. Run `/test-instance verify` to check generated code
-4. If passes: commit template changes
-5. If fails: fix template, repeat
-
-### Auto-Approved Commands
-
-Claude Code auto-runs these in test instance without approval:
-- `git status/diff/log/checkout` (read-only + branch switching)
-- `uv run ruff check`
-- `uv run mypy`
-- `uv run pytest`
-- `copier update`
-
-### Why Git in Test Instance?
-
-Copier's `update` mechanism uses git three-way merge to:
-- Track which template version generated the instance
-- Merge template changes with instance customizations
-- Detect conflicts and preserve both sets of changes
-- Enable true bidirectional learning between template and instances
-
-See `docs/TEMPLATE-INSTANCE-SYNC.md` for comprehensive sync strategy.
+See [INSTANCES.md](INSTANCES.md) for the current deployment workflow.
 
 ## Review Process
 

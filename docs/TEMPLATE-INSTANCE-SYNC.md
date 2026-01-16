@@ -1,5 +1,12 @@
 # Template-Instance Sync Strategy
 
+> **Deprecation Notice**: This document describes the old template-first workflow.
+> With the new **runnable-first architecture**, test instances are no longer needed during development.
+> See [INSTANCES.md](../INSTANCES.md) for the current deployment workflow.
+> This document is preserved for reference and for managing generated projects.
+
+---
+
 Comprehensive guide for bidirectional learning between the fastapi-template and its instances.
 
 ## Overview
