@@ -212,7 +212,7 @@ class TestAuthMiddleware(BaseHTTPMiddleware):
         specify which user is making the request. If headers are provided, uses
         those values. Otherwise uses default test user.
 
-        Uses hardcoded OWNER role for simplicity in tests.
+        Looks up the user's actual role from the database for proper RBAC testing.
         """
         # Try to get user and org from headers (for role-based testing)
         user_id_header = request.headers.get("X-Test-User-ID")
@@ -235,12 +235,25 @@ class TestAuthMiddleware(BaseHTTPMiddleware):
 
         request.state.user = test_user
 
-        # Set tenant context with hardcoded OWNER role for test fixtures
-        request.state.tenant = TenantContext(
-            organization_id=test_user.organization_id,  # type: ignore[arg-type]
-            user_id=test_user.id,
-            role=MembershipRole.OWNER,
-        )
+        # Look up the user's actual role from the database for proper RBAC testing
+        async with db_session.async_session_maker() as session:
+            result = await session.execute(
+                select(Membership.role)
+                .where(Membership.user_id == test_user.id)
+                .where(Membership.organization_id == test_user.organization_id)
+            )
+            user_role = result.scalar_one_or_none()
+
+            # Default to OWNER if no membership exists (for backwards compatibility with fixtures)
+            if user_role is None:
+                user_role = MembershipRole.OWNER
+
+            # Set tenant context with actual role from database
+            request.state.tenant = TenantContext(
+                organization_id=test_user.organization_id,  # type: ignore[arg-type]
+                user_id=test_user.id,
+                role=user_role,
+            )
 
         return await call_next(request)
 

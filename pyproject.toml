@@ -71,7 +71,8 @@ max-complexity = 10
 # where we intentionally create insecure test data (hardcoded passwords, etc.)
 # PT009 allows raw assert statements which are appropriate for pytest
 # RUF059 allows unpacked variables in fixtures even if not all are used in that test
-"{{ project_slug }}/tests/**" = ["S", "PT009", "RUF059"]
+# PLR2004 allows magic numbers in test assertions (expected counts, etc.)
+"{{ project_slug }}/tests/**" = ["S", "PT009", "RUF059", "PLR2004"]
 
 [tool.ruff.format]
 quote-style = "double"

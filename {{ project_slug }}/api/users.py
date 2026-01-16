@@ -15,7 +15,7 @@ from {{ project_slug }}.core.pagination import ParamsDep
 from {{ project_slug }}.core.permissions import RequireAdmin, RequireMember
 from {{ project_slug }}.core.tenants import TenantDep
 from {{ project_slug }}.db.session import SessionDep
-from {{ project_slug }}.models.membership import Membership
+from {{ project_slug }}.models.membership import Membership, MembershipRole
 from {{ project_slug }}.models.shared import OrganizationInfo
 from {{ project_slug }}.models.user import User, UserCreate, UserRead, UserUpdate
 from {{ project_slug }}.services.user_service import (
@@ -35,7 +35,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 async def create_user_endpoint(
     payload: UserCreate,
     session: SessionDep,
-    tenant: TenantDep,  # noqa: ARG001
+    tenant: TenantDep,
     role_check: RequireAdmin,  # noqa: ARG001
 ) -> UserRead:
     """Create a new user and send welcome email asynchronously.
@@ -46,9 +46,20 @@ async def create_user_endpoint(
 
     The API response is returned immediately without waiting for email delivery.
     Email failures are logged but do not affect user creation.
+
+    Note: Automatically adds user to the tenant's organization with MEMBER role.
     """
     try:
         user = await create_user(session, payload)
+
+        # Create MEMBER membership for the new user in tenant's organization
+        membership = Membership(
+            user_id=user.id,
+            organization_id=tenant.organization_id,
+            role=MembershipRole.MEMBER,
+        )
+        session.add(membership)
+
         await session.commit()
     except IntegrityError as e:
         error_str = str(e).lower()
@@ -65,8 +76,12 @@ async def create_user_endpoint(
     if user.id is not None:
         asyncio.create_task(send_welcome_email_task(user.id, user.email))  # noqa: RUF006
 
+    # Load organizations for the newly created user (includes tenant's org)
+    organizations = await list_organizations_for_user(session, user.id)
     response = UserRead.model_validate(user)
-    response.organizations = []
+    response.organizations = [
+        OrganizationInfo.model_validate(org) for org in organizations
+    ]
     return response
 
 
