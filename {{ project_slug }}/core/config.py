@@ -321,7 +321,7 @@ class Settings(BaseSettings):
         if self.sqlalchemy_echo:
             warnings.append("SQLALCHEMY_ECHO=true in production (verbose SQL logging)")
 
-    def validate(self) -> list[str]:
+    def validate_config(self) -> list[str]:
         """Validate configuration for production readiness.
 
         Checks all required settings are configured correctly based on
@@ -339,7 +339,7 @@ class Settings(BaseSettings):
 
         Example:
             # In main.py lifespan
-            warnings = settings.validate()
+            warnings = settings.validate_config()
             for warning in warnings:
                 logger.warning("config_warning", extra={"message": warning})
         """

@@ -50,8 +50,11 @@ async def create_org(
     session.add(membership)
 
     await session.commit()
+
+    # Return actual users (including the auto-created OWNER membership)
+    users = await list_users_for_organization(session, organization.id)
     response = OrganizationRead.model_validate(organization)
-    response.users = []
+    response.users = [UserInfo.model_validate(user) for user in users]
     return response
 
 

@@ -54,7 +54,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """Application lifespan - initialize and cleanup resources.
 
     Replaces deprecated @app.on_event("startup") and @app.on_event("shutdown").
@@ -70,7 +70,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     # Startup: Validate configuration first (fail fast on misconfiguration)
     try:
-        config_warnings = settings.validate()
+        config_warnings = settings.validate_config()
         for warning in config_warnings:
             logger.warning("Configuration warning: %s", warning)
     except ConfigurationError:

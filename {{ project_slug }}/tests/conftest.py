@@ -129,7 +129,7 @@ def database_url(
     docker_ip: str,
     docker_services: object,
     worker_id: str,
-) -> Generator[str, None, None]:
+) -> Generator[str]:
     """Get database URL from docker container with per-worker isolation.
 
     For pytest-xdist compatibility, creates a separate database for each worker:
@@ -250,7 +250,7 @@ async def engine(
     database_url: str,
     alembic_config: Config,
     alembic_engine: Engine,
-) -> AsyncGenerator[AsyncEngine, None]:
+) -> AsyncGenerator[AsyncEngine]:
     """Create async database engine for test session.
 
     This fixture is pytest-xdist compatible: it does NOT mutate the global
@@ -375,7 +375,7 @@ class TestAuthMiddleware(BaseHTTPMiddleware):
 async def client_bypass_auth(
     engine: AsyncEngine,
     session_maker: async_sessionmaker[AsyncSession],
-) -> AsyncGenerator[AsyncClient, None]:
+) -> AsyncGenerator[AsyncClient]:
     """Test client that bypasses AuthMiddleware and injects test user directly.
 
     WARNING: This fixture is for migration purposes only. Use `authenticated_client`
@@ -384,7 +384,7 @@ async def client_bypass_auth(
     This client removes AuthMiddleware and replaces it with TestAuthMiddleware that
     directly injects user/tenant into request state without JWT validation.
     """
-    async def get_session_override() -> AsyncGenerator[AsyncSession, None]:
+    async def get_session_override() -> AsyncGenerator[AsyncSession]:
         async with session_maker() as session:
             yield session
 
@@ -416,7 +416,7 @@ async def client_bypass_auth(
 async def authenticated_client(
     engine: AsyncEngine,
     session_maker: async_sessionmaker[AsyncSession],
-) -> AsyncGenerator[AsyncClient, None]:
+) -> AsyncGenerator[AsyncClient]:
     """Test client that keeps AuthMiddleware and requires valid JWT tokens.
 
     Use this fixture for tests that need to verify auth behavior. Set Authorization
@@ -430,7 +430,7 @@ async def authenticated_client(
             )
             assert response.status_code == 200
     """
-    async def get_session_override() -> AsyncGenerator[AsyncSession, None]:
+    async def get_session_override() -> AsyncGenerator[AsyncSession]:
         async with session_maker() as session:
             yield session
 
@@ -458,7 +458,7 @@ async def authenticated_client(
 async def client(
     engine: AsyncEngine,
     session_maker: async_sessionmaker[AsyncSession],
-) -> AsyncGenerator[AsyncClient, None]:
+) -> AsyncGenerator[AsyncClient]:
     """HTTP client that bypasses authentication (alias for client_bypass_auth).
 
     WARNING: This fixture is for migration purposes only. Use `authenticated_client`
@@ -467,7 +467,7 @@ async def client(
     This client removes AuthMiddleware and replaces it with TestAuthMiddleware that
     directly injects user/tenant into request state without JWT validation.
     """
-    async def get_session_override() -> AsyncGenerator[AsyncSession, None]:
+    async def get_session_override() -> AsyncGenerator[AsyncSession]:
         async with session_maker() as session:
             yield session
 
@@ -497,12 +497,16 @@ async def client(
 
 @pytest.fixture
 async def test_user(client: AsyncClient) -> dict[str, Any]:
-    """Create a test user and return user data."""
+    """Create a test user and return user data.
+
+    Note: Uses a unique email to avoid conflict with the default test user
+    created by default_auth_user_in_org fixture (testuser@example.com).
+    """
     response = await client.post(
         "/users",
         json={
             "name": "Test User",
-            "email": "testuser@example.com",
+            "email": "fixture-test-user@example.com",
         },
     )
     assert response.status_code == HTTPStatus.CREATED

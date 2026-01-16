@@ -128,7 +128,7 @@ engine = create_db_engine(
 async_session_maker: async_sessionmaker[AsyncSession] = create_session_maker(engine)
 
 
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_session() -> AsyncGenerator[AsyncSession]:
     """Create async database session for request scope.
 
     Session lifecycle:

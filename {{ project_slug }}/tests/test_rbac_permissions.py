@@ -11,7 +11,6 @@ organizations. These tests ensure:
 """
 
 from http import HTTPStatus
-from uuid import UUID
 
 import pytest
 from httpx import AsyncClient
@@ -576,50 +575,34 @@ class TestDataMigrationRoleAssignment:
     async def test_new_org_first_member_is_owner(
         self,
         client: AsyncClient,
-        session: AsyncSession,
     ) -> None:
         """First member added to new organization should get OWNER role.
 
-        Note: This tests the expected behavior after migration.
-        In practice, the migration sets the first member to OWNER,
-        and new memberships default to MEMBER unless explicitly set.
+        Note: The default_auth_user_in_org fixture already creates the default
+        test user with ID 00000000-0000-0000-0000-000000000001. This test uses
+        that existing user as the authenticated user.
+
+        POST /organizations auto-creates OWNER membership for the current user.
+        This test verifies that we can then add additional members as OWNER.
         """
-        # Get the default test user ID (from conftest TestAuthMiddleware)
+        # The default test user already exists from the fixture
         default_test_user_id = "00000000-0000-0000-0000-000000000001"
 
-        # Create the default test user in the database
-        default_user = User(
-            id=UUID(default_test_user_id),
-            name="Test User",
-            email="testuser@example.com",
-        )
-        session.add(default_user)
-        await session.flush()  # type: ignore[attr-defined]
-
-        # Create organization (using default test user)
+        # Create organization (auto-creates OWNER membership for default test user)
         org_response = await client.post(
             "/organizations",
             json={"name": "New Org"},
         )
         org_id = org_response.json()["id"]
 
-        # Add the default test user as owner to get permission to add other members
-        owner_membership = Membership(
-            user_id=UUID(default_test_user_id),
-            organization_id=UUID(org_id),
-            role=MembershipRole.OWNER,
-        )
-        session.add(owner_membership)
-        await session.commit()
-
-        # Create user (using default test user)
+        # Create a new user to add as first explicit member
         user_response = await client.post(
             "/users",
             json={"name": "First User", "email": "first@example.com"},
         )
         user_id = user_response.json()["id"]
 
-        # Add first member with default test user as the authenticated user (who now owns the org)
+        # Add first member with default test user as the authenticated user (who owns the org)
         membership_response = await client.post(
             "/memberships",
             json={

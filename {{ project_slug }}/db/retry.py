@@ -38,7 +38,6 @@ from typing import ParamSpec, TypeVar
 from sqlalchemy.exc import OperationalError
 from tenacity import (
     RetryCallState,
-    before_sleep_log,
     retry,
     retry_if_exception_type,
     stop_after_attempt,
@@ -66,13 +65,17 @@ def _log_retry_attempt(retry_state: RetryCallState) -> None:
     Args:
         retry_state: Tenacity retry state containing attempt info
     """
-    context = get_logging_context()
-    context.update({
+    base_context = get_logging_context()
+    wait_seconds = getattr(retry_state.next_action, "sleep", 0) if retry_state.next_action else 0
+    exception_type = type(retry_state.outcome.exception()).__name__ if retry_state.outcome else "unknown"
+
+    extra = {
+        **base_context,
         "attempt": retry_state.attempt_number,
-        "wait_seconds": getattr(retry_state.next_action, "sleep", 0) if retry_state.next_action else 0,
-        "exception_type": type(retry_state.outcome.exception()).__name__ if retry_state.outcome else "unknown",
-    })
-    LOGGER.warning("db_operation_retry", extra=context)
+        "wait_seconds": wait_seconds,
+        "exception_type": exception_type,
+    }
+    LOGGER.warning("db_operation_retry", extra=extra)
 
 
 def create_db_retry(

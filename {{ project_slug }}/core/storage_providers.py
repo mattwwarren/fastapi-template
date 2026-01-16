@@ -77,14 +77,16 @@ STORAGE_RETRY_MAX_WAIT = 10
 
 def _log_storage_retry(retry_state: RetryCallState) -> None:
     """Log storage retry attempts with context."""
-    context = get_logging_context()
+    base_context = get_logging_context()
     exception = retry_state.outcome.exception() if retry_state.outcome else None
-    context.update({
+
+    extra = {
+        **base_context,
         "attempt": retry_state.attempt_number,
         "exception_type": type(exception).__name__ if exception else "unknown",
         "exception_message": str(exception) if exception else "",
-    })
-    LOGGER.warning("storage_operation_retry", extra=context)
+    }
+    LOGGER.warning("storage_operation_retry", extra=extra)
 
 # Optional cloud provider imports - separated by TYPE_CHECKING for proper mypy support
 if TYPE_CHECKING:

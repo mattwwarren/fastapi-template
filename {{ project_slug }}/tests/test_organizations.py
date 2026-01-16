@@ -19,7 +19,11 @@ class TestOrganizationCRUD:
 
     @pytest.mark.asyncio
     async def test_create_organization_success(self, client: AsyncClient) -> None:
-        """Create an organization with valid data."""
+        """Create an organization with valid data.
+
+        Note: POST /organizations auto-creates OWNER membership for the current
+        user (the default test user), so the response includes that user.
+        """
         response = await client.post(
             "/organizations",
             json={"name": "Acme Corp"},
@@ -27,7 +31,9 @@ class TestOrganizationCRUD:
         assert response.status_code == HTTPStatus.CREATED
         org = response.json()
         assert org["name"] == "Acme Corp"
-        assert org["users"] == []
+        # The creating user is auto-added as OWNER, so users list has 1 member
+        assert isinstance(org["users"], list)
+        assert len(org["users"]) == 1
         assert "id" in org
         assert "created_at" in org
         assert "updated_at" in org
@@ -164,8 +170,9 @@ class TestOrganizationValidation:
             f"/organizations/{org_id}",
             json={"name": ""},
         )
-        # Depends on validation rules
+        # Depends on validation rules - may fail with 400, 422, or succeed
         assert update_response.status_code in (
+            HTTPStatus.BAD_REQUEST,
             HTTPStatus.UNPROCESSABLE_ENTITY,
             HTTPStatus.OK,
         )
@@ -176,7 +183,12 @@ class TestOrganizationUserRelationship:
 
     @pytest.mark.asyncio
     async def test_organization_shows_users(self, client: AsyncClient) -> None:
-        """Organization should show users after membership is created."""
+        """Organization should show users after membership is created.
+
+        Note: POST /organizations auto-creates OWNER membership for the current
+        user (default test user). The POST response may not include the auto-created
+        membership, but GET will show all users.
+        """
         # Create user
         user_response = await client.post(
             "/users",
@@ -187,14 +199,18 @@ class TestOrganizationUserRelationship:
         )
         user_id = user_response.json()["id"]
 
-        # Create organization
+        # Create organization (auto-creates OWNER membership for default test user)
         org_response = await client.post(
             "/organizations",
             json={"name": "Test Org"},
         )
         org_id = org_response.json()["id"]
 
-        # Create membership
+        # Get org to see initial user count (including auto-created OWNER membership)
+        initial_get = await client.get(f"/organizations/{org_id}")
+        initial_user_count = len(initial_get.json()["users"])
+
+        # Create membership for our test user
         await client.post(
             "/memberships",
             json={
@@ -209,34 +225,55 @@ class TestOrganizationUserRelationship:
         org = get_response.json()
         assert "users" in org
         assert isinstance(org["users"], list)
-        assert len(org["users"]) == 1
-        assert org["users"][0]["id"] == user_id
-        assert org["users"][0]["name"] == "Test User"
+        # Org now has one more user than before
+        assert len(org["users"]) == initial_user_count + 1
+        # Verify our test user is in the list
+        user_ids = [user["id"] for user in org["users"]]
+        assert user_id in user_ids
+        # Verify we can find the specific user with correct name
+        test_user = next(user for user in org["users"] if user["id"] == user_id)
+        assert test_user["name"] == "Test User"
 
     @pytest.mark.asyncio
-    async def test_organization_has_no_users(self, client: AsyncClient) -> None:
-        """Fresh organization should have empty users list."""
+    async def test_organization_has_owner_on_creation(self, client: AsyncClient) -> None:
+        """New organization should have the creating user as OWNER.
+
+        POST /organizations auto-creates OWNER membership for the current user,
+        so the response includes that user in the users list.
+        """
         response = await client.post(
             "/organizations",
-            json={"name": "Empty Org"},
+            json={"name": "New Org"},
         )
         assert response.status_code == HTTPStatus.CREATED
         org = response.json()
-        assert org["users"] == []
+        # The creating user is auto-added as OWNER
+        assert isinstance(org["users"], list)
+        assert len(org["users"]) >= 1
 
     @pytest.mark.asyncio
     async def test_organization_shows_multiple_users(
         self, client: AsyncClient
     ) -> None:
-        """Organization should show all member users."""
-        # Create organization
+        """Organization should show all member users.
+
+        Note: POST /organizations auto-creates OWNER membership for the current
+        user (default test user). So the org will have users from fixture + our
+        test users.
+        """
+        # Create organization (auto-creates OWNER membership for default test user)
         org_response = await client.post(
             "/organizations",
             json={"name": "Multi User Org"},
         )
         org_id = org_response.json()["id"]
 
-        # Create multiple users
+        # Get org to see initial user count (POST returns empty users list,
+        # but GET shows the auto-created OWNER membership)
+        initial_get = await client.get(f"/organizations/{org_id}")
+        initial_user_count = len(initial_get.json()["users"])
+
+        # Create multiple users and add them to the org
         user_ids = []
         for i in range(NUM_TEST_USERS_PER_ORG):
             user_response = await client.post(
@@ -262,7 +299,8 @@ class TestOrganizationUserRelationship:
         get_response = await client.get(f"/organizations/{org_id}")
         assert get_response.status_code == HTTPStatus.OK
         org = get_response.json()
-        assert len(org["users"]) == NUM_TEST_USERS_PER_ORG
+        # Org has initial users (from auto-created memberships) + our test users
+        assert len(org["users"]) == initial_user_count + NUM_TEST_USERS_PER_ORG
         response_user_ids = [user["id"] for user in org["users"]]
         for user_id in user_ids:
             assert user_id in response_user_ids

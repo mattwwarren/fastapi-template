@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from {{ project_slug }}.core.tenants import TenantContext, add_tenant_filter
 from {{ project_slug }}.models.document import Document
-from {{ project_slug }}.models.membership import Membership
+from {{ project_slug }}.models.membership import Membership, MembershipRole
 from {{ project_slug }}.models.organization import Organization
 from {{ project_slug }}.models.user import User
 
@@ -126,7 +126,7 @@ class TestTenantIsolationDocuments:
         # In real scenario, User A would have JWT with org_id=org_a.id
         # The endpoint would verify org_id from path matches org_id from JWT
         # Since we're testing at the service/query level:
-        tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id)
+        tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id, role=MembershipRole.MEMBER)
 
         # Query documents with tenant isolation filter
         stmt = select(Document).where(Document.id == doc_b.id)
@@ -172,7 +172,7 @@ class TestTenantIsolationDocuments:
         await session.commit()
 
         # User A queries documents with tenant isolation
-        tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id)
+        tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id, role=MembershipRole.MEMBER)
         stmt = select(Document)
         stmt = add_tenant_filter(stmt, tenant_context, Document.organization_id)  # type: ignore[arg-type]
         result = await session.execute(stmt)
@@ -197,16 +197,23 @@ class TestTenantIsolationUsers:
         """User A cannot see Organization B's users.
 
         Verify tenant filtering on user list queries.
+
+        Note: The default_auth_user_in_org fixture creates a default test user
+        and test org with membership. This test uses custom orgs and users
+        created directly in the DB (not via API), so they don't have auto-created
+        memberships.
         """
         org_a, user_a = org_a_with_user_a
         org_b, user_b = org_b_with_user_b
 
-        # Verify users exist in both orgs
+        # Verify users exist - there will be at least user_a, user_b, plus the default test user
         users_all = await session.execute(select(User))
-        assert len(users_all.scalars().all()) == len([org_a, org_b])
+        all_users = users_all.scalars().all()
+        # At minimum we have user_a and user_b; there may also be fixture users
+        assert len(all_users) >= 2
 
         # Query users for Org A only (with tenant isolation)
-        tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id)
+        tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id, role=MembershipRole.MEMBER)
 
         # User query with membership filter (simulating real endpoint)
         stmt = select(User).join(Membership).where(Membership.organization_id == tenant_context.organization_id)
@@ -214,6 +221,7 @@ class TestTenantIsolationUsers:
         users = result.scalars().all()
 
         # ASSERTION: Should only see User A (member of Org A)
+        # Note: Org A was created directly in DB, not via API, so no auto-created memberships
         assert len(users) == 1, f"Expected 1 user, got {len(users)}"
         assert users[0].id == user_a.id
 
@@ -304,7 +312,7 @@ class TestQueryFilterVerification:
         await session.commit()
 
         # Create tenant context
-        tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id)
+        tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id, role=MembershipRole.MEMBER)
 
         # Apply filter to query
         stmt = select(Document)
@@ -350,7 +358,7 @@ class TestQueryFilterVerification:
         await session.commit()
 
         # Query as User A
-        tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id)
+        tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id, role=MembershipRole.MEMBER)
         stmt = select(Document)
         stmt_filtered = add_tenant_filter(stmt, tenant_context, Document.organization_id)  # type: ignore[arg-type]
 

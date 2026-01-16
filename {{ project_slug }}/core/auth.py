@@ -35,11 +35,14 @@ import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 from uuid import UUID
 
 import httpx
 import jwt
+
+if TYPE_CHECKING:
+    from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from fastapi import Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -521,7 +524,7 @@ def _extract_token_kid(token: str) -> TokenHeaderResult:
         return TokenHeaderResult(success=False, error_type="decode_error")
 
 
-def _find_public_key_in_jwks(jwks: dict[str, Any], kid: str) -> object | None:
+def _find_public_key_in_jwks(jwks: dict[str, Any], kid: str) -> RSAPublicKey | None:
     """Find and parse public key from JWKS by key ID.
 
     Args:
@@ -530,13 +533,12 @@ def _find_public_key_in_jwks(jwks: dict[str, Any], kid: str) -> object | None:
 
     Returns:
         RSA public key object if found and parseable, None otherwise.
-        The key type is cryptography.hazmat.primitives.asymmetric.rsa.RSAPublicKey
-        but we use object to avoid cryptography import dependency.
     """
     for key in jwks.get("keys", []):
         if key.get("kid") == kid:
             try:
-                return jwt.algorithms.RSAAlgorithm.from_jwk(key)
+                # JWKS keys from auth providers are always public keys
+                return jwt.algorithms.RSAAlgorithm.from_jwk(key)  # type: ignore[return-value]
             except (ValueError, KeyError):
                 context = get_logging_context()
                 LOGGER.warning(
@@ -555,7 +557,7 @@ def _find_public_key_in_jwks(jwks: dict[str, Any], kid: str) -> object | None:
     return None
 
 
-def _decode_jwt_with_key(token: str, public_key: object) -> dict[str, Any] | None:
+def _decode_jwt_with_key(token: str, public_key: RSAPublicKey) -> dict[str, Any] | None:
     """Decode and verify JWT token with public key.
 
     Args:
