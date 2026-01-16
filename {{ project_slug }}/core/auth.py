@@ -521,7 +521,7 @@ def _extract_token_kid(token: str) -> TokenHeaderResult:
         return TokenHeaderResult(success=False, error_type="decode_error")
 
 
-def _find_public_key_in_jwks(jwks: dict[str, Any], kid: str) -> Any | None:
+def _find_public_key_in_jwks(jwks: dict[str, Any], kid: str) -> object | None:
     """Find and parse public key from JWKS by key ID.
 
     Args:
@@ -529,7 +529,9 @@ def _find_public_key_in_jwks(jwks: dict[str, Any], kid: str) -> Any | None:
         kid: Key ID to search for
 
     Returns:
-        Public key object if found and parseable, None otherwise
+        RSA public key object if found and parseable, None otherwise.
+        The key type is cryptography.hazmat.primitives.asymmetric.rsa.RSAPublicKey
+        but we use object to avoid cryptography import dependency.
     """
     for key in jwks.get("keys", []):
         if key.get("kid") == kid:
@@ -553,12 +555,12 @@ def _find_public_key_in_jwks(jwks: dict[str, Any], kid: str) -> Any | None:
     return None
 
 
-def _decode_jwt_with_key(token: str, public_key: Any) -> dict[str, Any] | None:
+def _decode_jwt_with_key(token: str, public_key: object) -> dict[str, Any] | None:
     """Decode and verify JWT token with public key.
 
     Args:
         token: JWT token string
-        public_key: RSA public key for verification
+        public_key: RSA public key for verification (from jwt.algorithms.RSAAlgorithm.from_jwk)
 
     Returns:
         Decoded claims if valid, None if invalid
@@ -571,10 +573,6 @@ def _decode_jwt_with_key(token: str, public_key: Any) -> dict[str, Any] | None:
             issuer=settings.auth_provider_issuer,
             leeway=TOKEN_EXPIRY_LEEWAY_SECONDS,
         )
-        context = get_logging_context()
-        context.update({"validation_method": "cognito_jwks", "subject": decoded.get("sub")})
-        LOGGER.info("token_validated", extra=context)
-        return decoded
     except jwt.ExpiredSignatureError:
         context = get_logging_context()
         LOGGER.info("cognito_token_expired", extra=context)
@@ -583,6 +581,11 @@ def _decode_jwt_with_key(token: str, public_key: Any) -> dict[str, Any] | None:
         context = get_logging_context()
         LOGGER.info("cognito_token_invalid", extra=context, exc_info=True)
         return None
+    else:
+        context = get_logging_context()
+        context.update({"validation_method": "cognito_jwks", "subject": decoded.get("sub")})
+        LOGGER.info("token_validated", extra=context)
+        return decoded
 
 
 async def _verify_token_remote_cognito(token: str) -> dict[str, Any] | None:

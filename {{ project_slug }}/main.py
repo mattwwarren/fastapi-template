@@ -73,8 +73,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         config_warnings = settings.validate()
         for warning in config_warnings:
             logger.warning("Configuration warning: %s", warning)
-    except ConfigurationError as e:
-        logger.exception("Configuration validation failed: %s", e)
+    except ConfigurationError:
+        logger.exception("Configuration validation failed")
         raise
 
     # Startup: Initialize database engine and session maker

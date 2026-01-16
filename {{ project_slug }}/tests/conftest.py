@@ -94,10 +94,12 @@ def create_database_if_not_exists(host: str, port: int, db_name: str) -> None:
         db_name: Name of database to create
     """
     conn_str = f"host={host} port={port} user=app password=app dbname=postgres"
-    with psycopg.connect(conn_str, autocommit=True) as conn:
-        # Another worker may have created it first - suppress that specific error
-        with contextlib.suppress(psycopg.errors.DuplicateDatabase):
-            conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name)))
+    # Another worker may have created it first - suppress that specific error
+    with (
+        psycopg.connect(conn_str, autocommit=True) as conn,
+        contextlib.suppress(psycopg.errors.DuplicateDatabase),
+    ):
+        conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name)))
 
 
 def drop_database_if_exists(host: str, port: int, db_name: str) -> None:
