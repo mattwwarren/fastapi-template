@@ -101,19 +101,115 @@ See [PYTHON-PATTERNS.md](../PYTHON-PATTERNS.md) for coding standards
 - Permissions: read, write, delete
 ```
 
+## Development Workflow
+
+### Runnable-First Architecture
+
+This template is designed to be **directly runnable** without Copier generation:
+
+```bash
+# Development happens directly on the template
+cd /path/to/fastapi-template
+uv sync
+uv run pytest          # Tests run immediately
+uv run ruff check .    # Linting works directly
+uv run mypy .          # Type checking works directly
+```
+
+**Key benefits:**
+- No Copier generation step for development iteration
+- Instant feedback loop: edit, test, repeat
+- Git worktrees enable parallel feature development
+- Template is always in a working state
+
+### Parallel Development with Git Worktrees
+
+Use git worktrees to develop multiple features simultaneously:
+
+```bash
+# Create worktrees for parallel feature development
+git worktree add ../fastapi-template-feature-auth feature/auth
+git worktree add ../fastapi-template-fix-pagination fix/pagination
+
+# Each worktree is immediately runnable
+cd ../fastapi-template-feature-auth
+uv sync && uv run pytest  # Works immediately!
+
+# Work on features in parallel (separate Claude Code sessions)
+# Terminal 1: cd ../fastapi-template-feature-auth
+# Terminal 2: cd ../fastapi-template-fix-pagination
+```
+
+**Worktree advantages:**
+- Multiple Claude Code sessions can work simultaneously
+- Each worktree has its own branch and working directory
+- No git conflicts between parallel development efforts
+- Clean merge back to main when features complete
+
+### Worktree Management Skills
+
+Use the built-in skills for worktree management:
+
+| Skill | Purpose |
+|-------|---------|
+| `/worktree-create` | Create worktree for parallel development |
+| `/worktree-list` | List worktrees for current repo |
+| `/worktree-status` | Check status of all worktrees |
+| `/worktree-remove` | Remove a worktree when done |
+
+**Example workflow:**
+```bash
+# Create feature worktree
+/worktree-create feature/new-endpoint
+
+# Check all active worktrees
+/worktree-status
+
+# When feature is complete and merged
+/worktree-remove feature/new-endpoint
+```
+
+### When to Use Copier
+
+**Use Copier for production instances only:**
+
+```bash
+# Creating a new production project from the template
+copier copy /path/to/fastapi-template /path/to/my-new-service
+
+# Updating an existing production instance with template changes
+cd /path/to/my-service
+copier update
+```
+
+**Do NOT use Copier for:**
+- Development iteration on the template itself
+- Running tests during template development
+- Quick prototyping of new features
+
 ## Template Testing Protocol
 
-**Critical prerequisite:** This is a Copier template, not runnable code. Before running any verification tools (ruff, mypy, pytest), you must generate a project from the template using Copier.
+**Updated approach:** This template is now directly runnable. Development and testing happen without Copier generation.
 
-### Generation Required Before Testing
+### Direct Development (Recommended)
 
-Templates themselves cannot be linted or tested directly. You must instantiate them first:
+```bash
+# Development happens directly on the template
+uv sync
+uv run pytest          # Run tests directly
+uv run ruff check .    # Lint directly
+uv run mypy .          # Type check directly
+```
+
+### Copier Generation (Production Instances Only)
+
+When creating production instances or testing Copier-specific features:
 
 ```bash
 # Step 1: Generate project from template
 copier copy /path/to/fastapi-template /path/to/generated-project
 
-# Step 2: Only THEN run verification
+# Step 2: Verify generated instance
 cd /path/to/generated-project
 ruff check .
 mypy .
@@ -124,34 +220,30 @@ pytest
 
 **When working on this template:**
 
-1. **Before modifying template files:** Generate a test instance
-2. **After making changes:** Regenerate to verify template renders correctly
-3. **Before running tools:** Always verify project was generated first
+1. **Default approach:** Work directly on the template, run tests directly
+2. **Use git worktrees:** For parallel feature development
+3. **Use Copier only:** When testing generation or creating production instances
 
-**Agent prompts should include:**
+**Agent prompts should note:**
 
-{% raw %}
 ```
-This is a Copier template, not runnable code.
+This template is directly runnable for development.
 
-Before running ruff/mypy/pytest:
-1. Run: copier copy <template> <output>
-2. cd into <output>
-3. Then run verification commands on the generated project
+For development iteration:
+- Run uv run pytest, ruff, mypy directly on the template
+- Use git worktrees for parallel feature work
 
-Template itself may have {% jinja %} syntax that looks like code but isn't.
-Only lint/test the generated output, not the template source.
+For production instance creation:
+- Use copier copy to generate new projects
+- Use copier update to sync existing instances
 ```
-{% endraw %}
 
-### Why This Matters
+### Why Runnable-First Works
 
-{% raw %}
-- Templates contain Jinja2 templating syntax `{% if %} {{ var }}`, not valid Python
-{% endraw %}
-- Verification tools will fail on template syntax
-- Generated projects are valid Python and can be linted/tested
-- Any changes to template files must work when instantiated
+- Template structure matches generated output structure
+- No Jinja2 templating in core Python files (only in config files if needed)
+- Development velocity: instant edit-test cycles
+- Parallel development: multiple features simultaneously via worktrees
 
 ## Key Patterns Enforced
 
