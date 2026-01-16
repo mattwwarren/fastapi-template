@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cluster_name="${CLUSTER_NAME:-{{ project_slug }}}"
+cluster_name="${CLUSTER_NAME:-fastapi_template}"
 
 if ! command -v k3d >/dev/null 2>&1; then
   echo "k3d is required but not installed." >&2

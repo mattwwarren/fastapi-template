@@ -8,7 +8,7 @@ import sys
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, PROJECT_ROOT)
 
-project = "{{ project_name }}"
+project = "FastAPI Template"
 author = "FastAPI Template Contributors"
 
 extensions = [

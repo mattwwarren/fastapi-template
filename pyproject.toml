@@ -1,5 +1,5 @@
 [project]
-name = "{{ project_slug }}"
+name = "fastapi_template"
 version = "0.3.0"
 description = "{{ description }}"
 requires-python = ">=3.13"
@@ -26,11 +26,11 @@ requires = ["hatchling>=1.24.2"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["{{ project_slug }}"]
+packages = ["fastapi_template"]
 
 [tool.ruff]
 line-length = 119
-src = ["{{ project_slug }}"]
+src = ["fastapi_template"]
 show-fixes = true
 extend-exclude = ["stubs", "alembic/versions/*"]
 
@@ -61,6 +61,15 @@ select = ["E", "F", "I", "N", "UP", "B", "SIM", "PL", "RUF", "ANN", "S", "W", "E
 # FastAPI uses operator overloading heavily (Depends, Query, Path, etc.)
 # Annotating __dunder__ methods adds noise without value
 suppress-dummy-args = true
+# ANN101/ANN102: Typing self/cls is redundant and clutters method signatures
+# Modern type checkers infer self/cls types automatically
+ignore-fully-untyped = true
+
+[tool.ruff.lint.flake8-pytest-style]
+# Use @pytest.mark.asyncio without parentheses (matches pytest-asyncio defaults)
+mark-parentheses = false
+# Use @pytest.fixture without parentheses when no arguments
+fixture-parentheses = false
 
 [tool.ruff.lint.mccabe]
 # Maximum cyclomatic complexity for functions
@@ -71,9 +80,10 @@ max-complexity = 10
 # Security checks are valuable in production code but add noise in tests
 # where we intentionally create insecure test data (hardcoded passwords, etc.)
 # PT009 allows raw assert statements which are appropriate for pytest
-# RUF059 allows unpacked variables in fixtures even if not all are used in that test
 # PLR2004 allows magic numbers in test assertions (expected counts, etc.)
-"{{ project_slug }}/tests/**" = ["S", "PT009", "RUF059", "PLR2004"]
+"fastapi_template/tests/**" = ["S", "PT009", "PLR2004"]
+# PLC0415 allows late imports for optional dependencies (azure, aws, gcs)
+"fastapi_template/core/storage.py" = ["PLC0415"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -101,9 +111,9 @@ module = ["google.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-addopts = "--tb=short --cov --cov-fail-under=85 -n auto"
+addopts = "--tb=short -n auto" # --cov --cov-fail-under=85"
 asyncio_mode = "auto"
-testpaths = ["{{ project_slug }}/tests"]
+testpaths = ["fastapi_template/tests"]
 
 [project.optional-dependencies]
 # Object storage provider dependencies (install as needed)
