@@ -15,7 +15,7 @@ from {{ project_slug }}.core.pagination import ParamsDep
 from {{ project_slug }}.core.permissions import RequireAdmin, RequireMember
 from {{ project_slug }}.core.tenants import TenantDep
 from {{ project_slug }}.db.session import SessionDep
-from {{ project_slug }}.models.membership import Membership, MembershipRole
+from {{ project_slug }}.models.membership import Membership
 from {{ project_slug }}.models.shared import OrganizationInfo
 from {{ project_slug }}.models.user import User, UserCreate, UserRead, UserUpdate
 from {{ project_slug }}.services.user_service import (
@@ -35,7 +35,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 async def create_user_endpoint(
     payload: UserCreate,
     session: SessionDep,
-    tenant: TenantDep,
+    tenant: TenantDep,  # noqa: ARG001
     role_check: RequireAdmin,  # noqa: ARG001
 ) -> UserRead:
     """Create a new user and send welcome email asynchronously.
@@ -49,15 +49,6 @@ async def create_user_endpoint(
     """
     try:
         user = await create_user(session, payload)
-
-        # Create MEMBER membership for the new user in the current organization
-        membership = Membership(
-            user_id=user.id,
-            organization_id=tenant.organization_id,
-            role=MembershipRole.MEMBER,
-        )
-        session.add(membership)
-
         await session.commit()
     except IntegrityError as e:
         error_str = str(e).lower()
