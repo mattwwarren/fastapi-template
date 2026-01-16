@@ -8,6 +8,25 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from {{ project_slug }}.core.storage import StorageProvider
 
 
+class ConfigurationError(ValueError):
+    """Raised when configuration validation fails.
+
+    Inherits from ValueError for semantic clarity - this represents
+    invalid configuration values. The exception message contains
+    details about which settings are missing or invalid.
+
+    This exception is raised during application startup if required
+    configuration is missing or invalid, allowing for fail-fast behavior.
+
+    Example:
+        try:
+            settings.validate()
+        except ConfigurationError as e:
+            logger.error("Configuration validation failed: %s", e)
+            raise SystemExit(1)
+    """
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
@@ -251,6 +270,57 @@ class Settings(BaseSettings):
         self._cors_allowed_origins_cache = parsed
         return parsed
 
+    def _validate_auth_config(self, errors: list[str], warnings: list[str]) -> None:
+        """Validate authentication configuration."""
+        if self.auth_provider_type == "none":
+            return
+
+        if not self.auth_provider_url:
+            errors.append(
+                f"AUTH_PROVIDER_URL required when AUTH_PROVIDER_TYPE={self.auth_provider_type}"
+            )
+        if not self.auth_provider_issuer:
+            errors.append(
+                f"AUTH_PROVIDER_ISSUER required when AUTH_PROVIDER_TYPE={self.auth_provider_type}"
+            )
+        # JWT_PUBLIC_KEY is recommended but not required (JWKS fallback exists)
+        if not self.jwt_public_key and self.auth_provider_type != "cognito":
+            warnings.append(
+                "JWT_PUBLIC_KEY not configured - will use remote validation "
+                "(slower, more network calls)"
+            )
+
+    def _validate_storage_config(self, errors: list[str]) -> None:
+        """Validate storage provider configuration."""
+        if self.storage_provider == StorageProvider.AZURE:
+            if not self.storage_azure_container:
+                errors.append("STORAGE_AZURE_CONTAINER required for Azure storage")
+            if not self.storage_azure_connection_string:
+                errors.append("STORAGE_AZURE_CONNECTION_STRING required for Azure storage")
+        elif self.storage_provider == StorageProvider.AWS_S3:
+            if not self.storage_aws_bucket:
+                errors.append("STORAGE_AWS_BUCKET required for S3 storage")
+            if not self.storage_aws_region:
+                errors.append("STORAGE_AWS_REGION required for S3 storage")
+        elif self.storage_provider == StorageProvider.GCS:
+            if not self.storage_gcs_bucket:
+                errors.append("STORAGE_GCS_BUCKET required for GCS storage")
+            if not self.storage_gcs_project_id:
+                errors.append("STORAGE_GCS_PROJECT_ID required for GCS storage")
+
+    def _validate_production_config(self, warnings: list[str]) -> None:
+        """Validate production environment configuration."""
+        if self.environment != "production":
+            return
+
+        cors_str = str(self.cors_allowed_origins)
+        if "*" in self.cors_allowed_origins or "http://localhost" in cors_str:
+            warnings.append(
+                "CORS_ALLOWED_ORIGINS contains localhost or wildcard in production"
+            )
+        if self.sqlalchemy_echo:
+            warnings.append("SQLALCHEMY_ECHO=true in production (verbose SQL logging)")
+
     def validate(self) -> list[str]:
         """Validate configuration for production readiness.
 
@@ -265,7 +335,7 @@ class Settings(BaseSettings):
             List of warning messages for non-critical issues
 
         Raises:
-            ValueError: If critical configuration is missing or invalid
+            ConfigurationError: If critical configuration is missing or invalid
 
         Example:
             # In main.py lifespan
@@ -280,57 +350,14 @@ class Settings(BaseSettings):
         if not self.database_url:
             errors.append("DATABASE_URL is required")
 
-        # Authentication configuration validation
-        if self.auth_provider_type != "none":
-            if not self.auth_provider_url:
-                errors.append(
-                    f"AUTH_PROVIDER_URL required when AUTH_PROVIDER_TYPE={self.auth_provider_type}"
-                )
-            if not self.auth_provider_issuer:
-                errors.append(
-                    f"AUTH_PROVIDER_ISSUER required when AUTH_PROVIDER_TYPE={self.auth_provider_type}"
-                )
-            # JWT_PUBLIC_KEY is recommended but not required (JWKS fallback exists)
-            if not self.jwt_public_key and self.auth_provider_type != "cognito":
-                warnings.append(
-                    "JWT_PUBLIC_KEY not configured - will use remote validation "
-                    "(slower, more network calls)"
-                )
+        self._validate_auth_config(errors, warnings)
+        self._validate_storage_config(errors)
+        self._validate_production_config(warnings)
 
-        # Storage provider validation
-        if self.storage_provider == StorageProvider.AZURE:
-            if not self.storage_azure_container:
-                errors.append("STORAGE_AZURE_CONTAINER required for Azure storage")
-            if not self.storage_azure_connection_string:
-                errors.append("STORAGE_AZURE_CONNECTION_STRING required for Azure storage")
-
-        elif self.storage_provider == StorageProvider.AWS_S3:
-            if not self.storage_aws_bucket:
-                errors.append("STORAGE_AWS_BUCKET required for S3 storage")
-            if not self.storage_aws_region:
-                errors.append("STORAGE_AWS_REGION required for S3 storage")
-
-        elif self.storage_provider == StorageProvider.GCS:
-            if not self.storage_gcs_bucket:
-                errors.append("STORAGE_GCS_BUCKET required for GCS storage")
-            if not self.storage_gcs_project_id:
-                errors.append("STORAGE_GCS_PROJECT_ID required for GCS storage")
-
-        # Production environment warnings
-        if self.environment == "production":
-            if "*" in self.cors_allowed_origins or "http://localhost" in str(
-                self.cors_allowed_origins
-            ):
-                warnings.append(
-                    "CORS_ALLOWED_ORIGINS contains localhost or wildcard in production"
-                )
-            if self.sqlalchemy_echo:
-                warnings.append("SQLALCHEMY_ECHO=true in production (verbose SQL logging)")
-
-        # Raise if there are critical errors
         if errors:
             error_summary = "; ".join(errors)
-            raise ValueError(f"Configuration errors: {error_summary}")
+            error_msg = f"Configuration errors: {error_summary}"
+            raise ConfigurationError(error_msg)
 
         return warnings
 

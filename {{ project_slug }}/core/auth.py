@@ -97,7 +97,21 @@ class CurrentUser(BaseModel):
 class TokenValidationError(Exception):
     """Raised when token validation fails."""
 
-    pass
+
+class JWKSFetchResult(BaseModel):
+    """Result of fetching JWKS from an auth provider."""
+
+    success: bool
+    jwks: dict[str, Any] | None = None
+    error_type: str | None = None
+
+
+class TokenHeaderResult(BaseModel):
+    """Result of extracting token header."""
+
+    success: bool
+    kid: str | None = None
+    error_type: str | None = None
 
 
 def _extract_bearer_token(authorization_header: str | None) -> str | None:
@@ -456,6 +470,121 @@ async def _verify_token_remote_keycloak(token: str) -> dict[str, Any] | None:
         return None
 
 
+async def _fetch_jwks_for_cognito(jwks_url: str) -> JWKSFetchResult:
+    """Fetch JWKS from Cognito with error handling.
+
+    Args:
+        jwks_url: URL to fetch JWKS from
+
+    Returns:
+        JWKSFetchResult with success status and JWKS or error info
+    """
+    try:
+        jwks = await get_jwks_cached(jwks_url)
+        return JWKSFetchResult(success=True, jwks=jwks)
+    except httpx.RequestError:
+        context = get_logging_context()
+        LOGGER.exception(
+            "cognito_jwks_fetch_failed",
+            extra={**context, "jwks_url": jwks_url},
+        )
+        return JWKSFetchResult(success=False, error_type="request_error")
+    except httpx.HTTPStatusError as e:
+        context = get_logging_context()
+        LOGGER.warning(
+            "cognito_jwks_status_error",
+            extra={**context, "jwks_url": jwks_url, "status_code": e.response.status_code},
+        )
+        return JWKSFetchResult(success=False, error_type="http_status_error")
+
+
+def _extract_token_kid(token: str) -> TokenHeaderResult:
+    """Extract key ID (kid) from JWT token header.
+
+    Args:
+        token: JWT token string
+
+    Returns:
+        TokenHeaderResult with success status and kid or error info
+    """
+    try:
+        unverified_header = jwt.get_unverified_header(token)
+        kid = unverified_header.get("kid")
+        if not kid:
+            context = get_logging_context()
+            LOGGER.warning("cognito_token_missing_kid", extra=context)
+            return TokenHeaderResult(success=False, error_type="missing_kid")
+        return TokenHeaderResult(success=True, kid=kid)
+    except jwt.DecodeError:
+        context = get_logging_context()
+        LOGGER.warning("cognito_token_decode_error", extra=context)
+        return TokenHeaderResult(success=False, error_type="decode_error")
+
+
+def _find_public_key_in_jwks(jwks: dict[str, Any], kid: str) -> Any | None:
+    """Find and parse public key from JWKS by key ID.
+
+    Args:
+        jwks: JWKS dictionary containing keys array
+        kid: Key ID to search for
+
+    Returns:
+        Public key object if found and parseable, None otherwise
+    """
+    for key in jwks.get("keys", []):
+        if key.get("kid") == kid:
+            try:
+                return jwt.algorithms.RSAAlgorithm.from_jwk(key)
+            except (ValueError, KeyError):
+                context = get_logging_context()
+                LOGGER.warning(
+                    "cognito_jwk_parse_error",
+                    extra={**context, "kid": kid},
+                    exc_info=True,
+                )
+                continue
+
+    context = get_logging_context()
+    available_kids = [k.get("kid") for k in jwks.get("keys", [])]
+    LOGGER.warning(
+        "cognito_key_not_found",
+        extra={**context, "kid": kid, "available_kids": available_kids},
+    )
+    return None
+
+
+def _decode_jwt_with_key(token: str, public_key: Any) -> dict[str, Any] | None:
+    """Decode and verify JWT token with public key.
+
+    Args:
+        token: JWT token string
+        public_key: RSA public key for verification
+
+    Returns:
+        Decoded claims if valid, None if invalid
+    """
+    try:
+        decoded = jwt.decode(
+            token,
+            public_key,
+            algorithms=["RS256"],
+            issuer=settings.auth_provider_issuer,
+            leeway=TOKEN_EXPIRY_LEEWAY_SECONDS,
+        )
+        context = get_logging_context()
+        context.update({"validation_method": "cognito_jwks", "subject": decoded.get("sub")})
+        LOGGER.info("token_validated", extra=context)
+        return decoded
+    except jwt.ExpiredSignatureError:
+        context = get_logging_context()
+        LOGGER.info("cognito_token_expired", extra=context)
+        return None
+    except jwt.InvalidTokenError:
+        context = get_logging_context()
+        LOGGER.info("cognito_token_invalid", extra=context, exc_info=True)
+        return None
+
+
 async def _verify_token_remote_cognito(token: str) -> dict[str, Any] | None:
     """Verify token using AWS Cognito JWKS.
 
@@ -491,84 +620,22 @@ async def _verify_token_remote_cognito(token: str) -> dict[str, Any] | None:
 
     # Fetch JWKS for key lookup
     jwks_url = f"{settings.auth_provider_url}/.well-known/jwks.json"
-
-    try:
-        jwks = await get_jwks_cached(jwks_url)
-    except httpx.RequestError:
-        context = get_logging_context()
-        LOGGER.error(
-            "cognito_jwks_fetch_failed",
-            extra={**context, "jwks_url": jwks_url},
-            exc_info=True,
-        )
-        return None
-    except httpx.HTTPStatusError as e:
-        context = get_logging_context()
-        LOGGER.error(
-            "cognito_jwks_status_error",
-            extra={**context, "jwks_url": jwks_url, "status_code": e.response.status_code},
-        )
+    jwks_result = await _fetch_jwks_for_cognito(jwks_url)
+    if not jwks_result.success or jwks_result.jwks is None:
         return None
 
-    # Decode token header to get key ID (kid)
-    try:
-        unverified_header = jwt.get_unverified_header(token)
-        kid = unverified_header.get("kid")
-        if not kid:
-            context = get_logging_context()
-            LOGGER.warning("cognito_token_missing_kid", extra=context)
-            return None
-    except jwt.DecodeError:
-        context = get_logging_context()
-        LOGGER.warning("cognito_token_decode_error", extra=context)
+    # Extract key ID from token header
+    header_result = _extract_token_kid(token)
+    if not header_result.success or header_result.kid is None:
         return None
 
-    # Find matching key in JWKS
-    public_key = None
-    for key in jwks.get("keys", []):
-        if key.get("kid") == kid:
-            try:
-                public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
-                break
-            except (ValueError, KeyError):
-                context = get_logging_context()
-                LOGGER.warning(
-                    "cognito_jwk_parse_error",
-                    extra={**context, "kid": kid},
-                    exc_info=True,
-                )
-                continue
-
-    if not public_key:
-        context = get_logging_context()
-        LOGGER.warning(
-            "cognito_key_not_found",
-            extra={**context, "kid": kid, "available_kids": [k.get("kid") for k in jwks.get("keys", [])]},
-        )
+    # Find matching public key in JWKS
+    public_key = _find_public_key_in_jwks(jwks_result.jwks, header_result.kid)
+    if public_key is None:
         return None
 
-    # Verify token with the public key
-    try:
-        decoded = jwt.decode(
-            token,
-            public_key,
-            algorithms=["RS256"],
-            issuer=settings.auth_provider_issuer,
-            leeway=TOKEN_EXPIRY_LEEWAY_SECONDS,
-        )
-    except jwt.ExpiredSignatureError:
-        context = get_logging_context()
-        LOGGER.info("cognito_token_expired", extra=context)
-        return None
-    except jwt.InvalidTokenError:
-        context = get_logging_context()
-        LOGGER.info("cognito_token_invalid", extra=context, exc_info=True)
-        return None
-
-    context = get_logging_context()
-    context.update({"validation_method": "cognito_jwks", "subject": decoded.get("sub")})
-    LOGGER.info("token_validated", extra=context)
-    return decoded
+    # Verify and decode token
+    return _decode_jwt_with_key(token, public_key)
 
 
 async def verify_token(token: str) -> dict[str, Any] | None:

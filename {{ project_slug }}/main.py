@@ -44,11 +44,11 @@ from slowapi.util import get_remote_address
 from sqlalchemy import text
 
 from {{ project_slug }}.api.routes import router as api_router
-from {{ project_slug }}.core.config import settings
+from {{ project_slug }}.core.config import ConfigurationError, settings
 from {{ project_slug }}.core.logging import LoggingMiddleware
 from {{ project_slug }}.core.metrics import metrics_app
 from {{ project_slug }}.core.pagination import configure_pagination
-from {{ project_slug }}.db.session import create_db_engine, create_session_maker
+from {{ project_slug }}.db.session import PoolConfig, create_db_engine, create_session_maker
 
 logger = logging.getLogger(__name__)
 
@@ -73,19 +73,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         config_warnings = settings.validate()
         for warning in config_warnings:
             logger.warning("Configuration warning: %s", warning)
-    except ValueError as e:
-        logger.error("Configuration validation failed: %s", e)
+    except ConfigurationError as e:
+        logger.exception("Configuration validation failed: %s", e)
         raise
 
     # Startup: Initialize database engine and session maker
+    pool_config = PoolConfig(
+        size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+        timeout=settings.db_pool_timeout,
+        recycle=settings.db_pool_recycle,
+        pre_ping=settings.db_pool_pre_ping,
+    )
     app.state.engine = create_db_engine(
         settings.database_url,
         echo=settings.sqlalchemy_echo,
-        pool_size=settings.db_pool_size,
-        max_overflow=settings.db_max_overflow,
-        pool_timeout=settings.db_pool_timeout,
-        pool_recycle=settings.db_pool_recycle,
-        pool_pre_ping=settings.db_pool_pre_ping,
+        pool=pool_config,
     )
     app.state.async_session_maker = create_session_maker(app.state.engine)
 

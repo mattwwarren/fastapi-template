@@ -5,6 +5,7 @@ from collections.abc import AsyncGenerator
 from typing import Annotated
 
 from fastapi import Depends
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 
@@ -14,15 +15,44 @@ from {{ project_slug }}.core.logging import get_logging_context
 LOGGER = logging.getLogger(__name__)
 
 
+class PoolConfig(BaseModel, frozen=True):
+    """Database connection pool configuration.
+
+    This model encapsulates all pool-related settings for SQLAlchemy's
+    async engine. Using a Pydantic model ensures validation and provides
+    a clean API for configuring database connections.
+
+    Attributes:
+        size: Number of connections to keep in pool
+        max_overflow: Max connections beyond pool_size
+        timeout: Seconds to wait for available connection
+        recycle: Seconds before recycling connection (-1 to disable)
+        pre_ping: Test connection validity before use
+
+    Example:
+        # Default configuration
+        config = PoolConfig()
+
+        # Custom configuration for high-traffic service
+        config = PoolConfig(size=20, max_overflow=40, timeout=10.0)
+    """
+
+    size: int = Field(default=5, ge=1, le=100, description="Pool size")
+    max_overflow: int = Field(default=10, ge=0, le=100, description="Max overflow")
+    timeout: float = Field(default=30.0, ge=1.0, description="Connection timeout")
+    recycle: int = Field(default=1800, ge=-1, description="Connection recycle time")
+    pre_ping: bool = Field(default=True, description="Enable pre-ping health check")
+
+
+# Default pool configuration
+DEFAULT_POOL_CONFIG = PoolConfig()
+
+
 def create_db_engine(
     database_url: str,
     *,
     echo: bool = False,
-    pool_size: int = 5,
-    max_overflow: int = 10,
-    pool_timeout: float = 30.0,
-    pool_recycle: int = 1800,
-    pool_pre_ping: bool = True,
+    pool: PoolConfig | None = None,
 ) -> AsyncEngine:
     """Factory function to create database engine.
 
@@ -32,23 +62,28 @@ def create_db_engine(
     Args:
         database_url: Database connection URL
         echo: Echo SQL statements to logs
-        pool_size: Number of connections to keep in pool
-        max_overflow: Max connections beyond pool_size
-        pool_timeout: Seconds to wait for available connection
-        pool_recycle: Seconds before recycling connection
-        pool_pre_ping: Test connection validity before use
+        pool: Connection pool configuration (uses defaults if not specified)
 
     Returns:
         Configured async SQLAlchemy engine
+
+    Example:
+        # With defaults
+        engine = create_db_engine("postgresql+asyncpg://...")
+
+        # With custom pool config
+        pool_config = PoolConfig(size=10, max_overflow=20)
+        engine = create_db_engine("postgresql+asyncpg://...", pool=pool_config)
     """
+    pool_config = pool or DEFAULT_POOL_CONFIG
     return create_async_engine(
         database_url,
         echo=echo,
-        pool_size=pool_size,
-        max_overflow=max_overflow,
-        pool_timeout=pool_timeout,
-        pool_recycle=pool_recycle,
-        pool_pre_ping=pool_pre_ping,
+        pool_size=pool_config.size,
+        max_overflow=pool_config.max_overflow,
+        pool_timeout=pool_config.timeout,
+        pool_recycle=pool_config.recycle,
+        pool_pre_ping=pool_config.pre_ping,
     )
 
 
@@ -78,14 +113,17 @@ def create_session_maker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession
 #
 # For new code, prefer using app.state.engine and app.state.async_session_maker
 # via the get_session() dependency or request.app.state in middleware.
+_default_pool = PoolConfig(
+    size=settings.db_pool_size,
+    max_overflow=settings.db_max_overflow,
+    timeout=settings.db_pool_timeout,
+    recycle=settings.db_pool_recycle,
+    pre_ping=settings.db_pool_pre_ping,
+)
 engine = create_db_engine(
     settings.database_url,
     echo=settings.sqlalchemy_echo,
-    pool_size=settings.db_pool_size,
-    max_overflow=settings.db_max_overflow,
-    pool_timeout=settings.db_pool_timeout,
-    pool_recycle=settings.db_pool_recycle,
-    pool_pre_ping=settings.db_pool_pre_ping,
+    pool=_default_pool,
 )
 async_session_maker: async_sessionmaker[AsyncSession] = create_session_maker(engine)
 
