@@ -41,22 +41,26 @@ This template assumes:
 - **Container**: Docker, Kubernetes
 - **Cloud**: Generic cloud provider (Azure, AWS, GCP)
 
-## Project Structure Expected
+## Project Structure
 
 ```
-project/
-├── app/                    # Application code
-│   ├── api/               # API endpoints
-│   ├── models/            # Database models
-│   ├── services/          # Business logic
-│   └── main.py            # FastAPI app
-├── tests/                 # Test suite
-│   ├── unit/             # Unit tests
-│   ├── integration/      # Integration tests
-│   └── conftest.py       # Shared fixtures
-├── alembic/              # Database migrations
-├── pyproject.toml        # Python dependencies
-└── .claude/              # This directory
+fastapi-template/
+├── fastapi_template/        # Runnable Python package (main branch)
+│   ├── api/                # API endpoints
+│   ├── models/             # Database models
+│   ├── services/           # Business logic
+│   └── main.py             # FastAPI app
+├── tests/                   # Test suite
+│   ├── unit/               # Unit tests
+│   ├── integration/        # Integration tests
+│   └── conftest.py         # Shared fixtures
+├── scripts/
+│   ├── templatize.sh       # Generate template from runnable code
+│   └── ...
+├── copier.yaml              # Copier configuration
+├── _tasks.py                # Post-generation tasks
+├── pyproject.toml           # Python dependencies
+└── .claude/                 # Claude Code configuration
 ```
 
 ## How to Use
@@ -105,7 +109,11 @@ See [PYTHON-PATTERNS.md](../PYTHON-PATTERNS.md) for coding standards
 
 ### Runnable-First Architecture
 
-This template is designed to be **directly runnable** without Copier generation:
+This template uses a **runnable-first** architecture:
+
+- **Main branch** contains runnable Python code (`fastapi_template/`)
+- **`copier` branch** contains the Copier template (auto-generated on release)
+- Template variables (`{{ project_slug }}`) are generated at release time via GitHub Actions
 
 ```bash
 # Development happens directly on the template
@@ -175,7 +183,7 @@ Use the built-in skills for worktree management:
 
 ```bash
 # Creating a new production project from the template
-copier copy /path/to/fastapi-template /path/to/my-new-service
+copier copy gh:mattwwarren/fastapi-template --vcs-ref copier /path/to/my-new-service
 
 # Updating an existing production instance with template changes
 cd /path/to/my-service
@@ -187,33 +195,18 @@ copier update
 - Running tests during template development
 - Quick prototyping of new features
 
-## Template Testing Protocol
+### Testing Template Generation (Pre-Release)
 
-**Updated approach:** This template is now directly runnable. Development and testing happen without Copier generation.
-
-### Direct Development (Recommended)
+Before releasing, test that template generation works:
 
 ```bash
-# Development happens directly on the template
-uv sync
-uv run pytest          # Run tests directly
-uv run ruff check .    # Lint directly
-uv run mypy .          # Type check directly
-```
+# Generate templatized version
+./scripts/templatize.sh
 
-### Copier Generation (Production Instances Only)
-
-When creating production instances or testing Copier-specific features:
-
-```bash
-# Step 1: Generate project from template
-copier copy /path/to/fastapi-template /path/to/generated-project
-
-# Step 2: Verify generated instance
-cd /path/to/generated-project
-ruff check .
-mypy .
-pytest
+# Test generation locally
+copier copy .templatized/ /tmp/test-project --trust
+cd /tmp/test-project
+uv run pytest
 ```
 
 ### Agent Guidance
@@ -234,7 +227,7 @@ For development iteration:
 - Use git worktrees for parallel feature work
 
 For production instance creation:
-- Use copier copy to generate new projects
+- Use copier copy gh:mattwwarren/fastapi-template --vcs-ref copier
 - Use copier update to sync existing instances
 ```
 
@@ -277,49 +270,21 @@ For production instance creation:
 - Proper async context manager usage
 - Session lifecycle management
 
-## Test Instance Workflow
+## Test Instance Workflow (Deprecated)
 
-**Persistent test instance**: `$HOME/workspace/meta-work/fastapi-template-test-instance/`
+> **Note**: This workflow is **deprecated** with the runnable-first architecture.
+> Work directly on `fastapi_template/` instead. See "Runnable-First Architecture" above.
 
-### Quick Commands
+The old test instance workflow using `manage-test-instance.sh` is no longer needed:
 
-```bash
-# Via skill (recommended)
-/test-instance generate   # Create fresh instance
-/test-instance verify     # Check quality (ruff, mypy, pytest)
-/test-instance sync       # Update from template changes
+| Old Command | New Approach |
+|-------------|--------------|
+| `/test-instance generate` | Not needed - work directly on main |
+| `/test-instance verify` | Run `uv run ruff check .`, `uv run mypy .`, `uv run pytest` directly |
+| `/test-instance sync` | Not needed - no instances to sync |
+| `reverse-sync` | Not needed - changes are made directly to code |
 
-# Via script (direct)
-./scripts/manage-test-instance.sh generate
-./scripts/manage-test-instance.sh verify
-```
-
-### Workflow: Making Template Changes
-
-1. Modify template source files
-2. Run `/test-instance sync` to pull changes into test instance
-3. Run `/test-instance verify` to check generated code
-4. If passes: commit template changes
-5. If fails: fix template, repeat
-
-### Auto-Approved Commands
-
-Claude Code auto-runs these in test instance without approval:
-- `git status/diff/log/checkout` (read-only + branch switching)
-- `uv run ruff check`
-- `uv run mypy`
-- `uv run pytest`
-- `copier update`
-
-### Why Git in Test Instance?
-
-Copier's `update` mechanism uses git three-way merge to:
-- Track which template version generated the instance
-- Merge template changes with instance customizations
-- Detect conflicts and preserve both sets of changes
-- Enable true bidirectional learning between template and instances
-
-See `docs/TEMPLATE-INSTANCE-SYNC.md` for comprehensive sync strategy.
+See [INSTANCES.md](INSTANCES.md) for the current deployment workflow.
 
 ## Review Process
 
