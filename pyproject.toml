@@ -81,7 +81,7 @@ max-complexity = 10
 # where we intentionally create insecure test data (hardcoded passwords, etc.)
 # PT009 allows raw assert statements which are appropriate for pytest
 # PLR2004 allows magic numbers in test assertions (expected counts, etc.)
-"fastapi_template/tests/**" = ["S", "PT009", "PLR2004"]
+"fastapi_template/tests/**" = ["S", "PT009", "PLR2004", "PLC0415", "ARG002", "TRY002"]
 # PLC0415 allows late imports for optional dependencies (azure, aws, gcs)
 "fastapi_template/core/storage.py" = ["PLC0415"]
 
@@ -110,8 +110,21 @@ ignore_missing_imports = true
 module = ["google.*"]
 ignore_missing_imports = true
 
+[tool.coverage.run]
+source = ["fastapi_template"]
+omit = [
+    "fastapi_template/tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
 [tool.pytest.ini_options]
-addopts = "--tb=short -n auto" # --cov --cov-fail-under=85"
+addopts = "--tb=short -n auto --cov=fastapi_template --cov-report=term-missing --cov-fail-under=85"
 asyncio_mode = "auto"
 testpaths = ["fastapi_template/tests"]
 
