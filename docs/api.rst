@@ -3,38 +3,38 @@ API Reference
 
 Core modules (auto-documented):
 
-.. automodule:: app.main
+.. automodule:: fastapi_template.main
    :members:
 
-.. automodule:: app.db.session
+.. automodule:: fastapi_template.db.session
    :members:
 
-.. automodule:: app.db.base
+.. automodule:: fastapi_template.db.base
    :members:
 
-.. automodule:: app.core.config
+.. automodule:: fastapi_template.core.config
    :members:
 
-.. automodule:: app.core.pagination
+.. automodule:: fastapi_template.core.pagination
    :members:
 
-.. automodule:: app.api.routes
+.. automodule:: fastapi_template.api.routes
    :members:
 
-.. automodule:: app.models.user
+.. automodule:: fastapi_template.models.user
    :members:
 
-.. automodule:: app.models.organization
+.. automodule:: fastapi_template.models.organization
    :members:
 
-.. automodule:: app.models.membership
+.. automodule:: fastapi_template.models.membership
    :members:
 
-.. automodule:: app.services.user_service
+.. automodule:: fastapi_template.services.user_service
    :members:
 
-.. automodule:: app.services.organization_service
+.. automodule:: fastapi_template.services.organization_service
    :members:
 
-.. automodule:: app.services.membership_service
+.. automodule:: fastapi_template.services.membership_service
    :members:

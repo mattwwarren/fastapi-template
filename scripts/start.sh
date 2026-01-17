@@ -3,7 +3,7 @@ set -eu
 
 host="${HOST:-0.0.0.0}"
 port="${PORT:-8000}"
-project_slug="${PROJECT_SLUG:-{{ project_slug }}}"
+project_slug="${PROJECT_SLUG:-fastapi_template}"
 
 exec uv run uvicorn "${project_slug}.main:app" \
   --host "${host}" \

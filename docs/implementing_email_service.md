@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `send_welcome_email_task()` in `{{ project_slug }}/core/background_tasks.py` is currently a **placeholder** that logs success but doesn't send emails. This guide shows how to implement a real email service integration.
+The `send_welcome_email_task()` in `fastapi_template/core/background_tasks.py` is currently a **placeholder** that logs success but doesn't send emails. This guide shows how to implement a real email service integration.
 
 **Current Placeholder Behavior**:
 ```python
@@ -168,9 +168,9 @@ async def send_welcome_email_task(user_id: UUID, email: str) -> None:
 
         # Create email message
         message = Mail(
-            from_email="noreply@{{ project_slug }}.example.com",
+            from_email="noreply@fastapi_template.example.com",
             to_emails=email,
-            subject="Welcome to {{ project_slug }}!",
+            subject="Welcome to fastapi_template!",
             html_content="<strong>Welcome!</strong><p>Your account has been created.</p>"
         )
 
@@ -199,7 +199,7 @@ from sendgrid.helpers.mail import Mail
 
 # Use SendGrid dynamic templates
 message = Mail(
-    from_email="noreply@{{ project_slug }}.example.com",
+    from_email="noreply@fastapi_template.example.com",
     to_emails=email,
 )
 message.template_id = "d-your-template-id"  # Create in SendGrid dashboard
@@ -249,10 +249,10 @@ async def send_welcome_email_task(user_id: UUID, email: str) -> None:
         session = aioboto3.Session()
         async with session.client("ses", region_name="us-east-1") as client:
             await client.send_email(
-                Source="noreply@{{ project_slug }}.example.com",
+                Source="noreply@fastapi_template.example.com",
                 Destination={"ToAddresses": [email]},
                 Message={
-                    "Subject": {"Data": "Welcome to {{ project_slug }}!"},
+                    "Subject": {"Data": "Welcome to fastapi_template!"},
                     "Body": {
                         "Html": {
                             "Data": "<strong>Welcome!</strong><p>Your account has been created.</p>"
@@ -290,7 +290,7 @@ async def send_welcome_email_task(user_id: UUID, email: str) -> None:
 4. Add to `.env`:
    ```bash
    MAILGUN_API_KEY=key-your-api-key
-   MAILGUN_DOMAIN=mg.{{ project_slug }}.example.com
+   MAILGUN_DOMAIN=mg.fastapi_template.example.com
    ```
 
 **Installation**:
@@ -302,7 +302,7 @@ uv pip install httpx>=0.27.0
 
 ```python
 import httpx
-from {{ project_slug }}.core.http_client import http_client
+from fastapi_template.core.http_client import http_client
 
 async def send_welcome_email_task(user_id: UUID, email: str) -> None:
     """Send welcome email using Mailgun."""
@@ -320,9 +320,9 @@ async def send_welcome_email_task(user_id: UUID, email: str) -> None:
                 f"https://api.mailgun.net/v3/{mailgun_domain}/messages",
                 auth=("api", mailgun_api_key),
                 data={
-                    "from": f"noreply@{{ project_slug }}.example.com",
+                    "from": f"noreply@fastapi_template.example.com",
                     "to": email,
-                    "subject": "Welcome to {{ project_slug }}!",
+                    "subject": "Welcome to fastapi_template!",
                     "html": "<strong>Welcome!</strong><p>Your account has been created.</p>"
                 }
             )
@@ -357,7 +357,7 @@ SMTP_HOST=smtp.gmail.com  # or your mail server
 SMTP_PORT=587
 SMTP_USERNAME=your-email@gmail.com
 SMTP_PASSWORD=your-app-specific-password
-SMTP_FROM_EMAIL=noreply@{{ project_slug }}.example.com
+SMTP_FROM_EMAIL=noreply@fastapi_template.example.com
 ```
 
 **Installation**:
@@ -382,7 +382,7 @@ async def send_welcome_email_task(user_id: UUID, email: str) -> None:
 
         # Create message
         message = MIMEMultipart("alternative")
-        message["Subject"] = "Welcome to {{ project_slug }}!"
+        message["Subject"] = "Welcome to fastapi_template!"
         message["From"] = os.environ.get("SMTP_FROM_EMAIL")
         message["To"] = email
 
@@ -660,8 +660,8 @@ Store failed emails for manual review:
 async def handle_email_failure(user_id: UUID, email: str, error: str) -> None:
     """Store failed email in dead letter queue for later retry."""
     from datetime import datetime, UTC
-    from {{ project_slug }}.models import FailedEmail
-    from {{ project_slug }}.core.database import AsyncSessionLocal
+    from fastapi_template.models import FailedEmail
+    from fastapi_template.core.database import AsyncSessionLocal
 
     async with AsyncSessionLocal() as session:
         failed_email = FailedEmail(

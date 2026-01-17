@@ -52,7 +52,7 @@ ls -la
 
 **What this does:**
 - Generates a concrete project instance from the template
-- Replaces all `{{ project_slug }}` and `{{ project_name }}` variables
+- Replaces all `fastapi_template` and `{{ project_name }}` variables
 - Creates complete file structure with all dependencies
 
 **Expected output:**
@@ -365,11 +365,11 @@ When fixing template source files to improve the generated project:
 
 **Template source files:**
 - `alembic/env.py` - Database migrations
-- `{{ project_slug }}/api/*.py` - API endpoints
-- `{{ project_slug }}/core/*.py` - Config, auth, storage
-- `{{ project_slug }}/models/*.py` - Pydantic schemas
-- `{{ project_slug }}/services/*.py` - Business logic
-- `{{ project_slug }}/tests/*.py` - Test fixtures
+- `fastapi_template/api/*.py` - API endpoints
+- `fastapi_template/core/*.py` - Config, auth, storage
+- `fastapi_template/models/*.py` - Pydantic schemas
+- `fastapi_template/services/*.py` - Business logic
+- `fastapi_template/tests/*.py` - Test fixtures
 - `pyproject.toml` - Dependencies and configuration
 
 **Template configuration:**

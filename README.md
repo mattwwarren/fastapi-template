@@ -1,6 +1,6 @@
-# {{ project_name }}
+# FastAPI Template
 
-{{ description }}
+A production-ready FastAPI microservice template with async database access, multi-tenant isolation, and comprehensive testing.
 
 ## What you get
 
@@ -27,7 +27,7 @@
 uv sync --dev
 cp .env.example .env
 uv run alembic upgrade head
-uv run uvicorn {{ project_slug }}.main:app --reload --log-config {{ project_slug }}/core/logging.yaml
+uv run uvicorn fastapi_template.main:app --reload --log-config fastapi_template/core/logging.yaml
 ```
 
 OpenAPI docs:
@@ -46,11 +46,11 @@ devspace dev -p dev
 DevSpace defaults live in `devspace.yaml` and can be overridden via env vars:
 
 ```bash
-export CLUSTER_NAME={{ project_slug }}
+export CLUSTER_NAME=fastapi_template
 export NAMESPACE=warren-enterprises-ltd
-export IMAGE_NAME={{ project_slug }}
+export IMAGE_NAME=fastapi_template
 export IMAGE_TAG=dev
-export APP_NAME={{ project_slug }}
+export APP_NAME=fastapi_template
 export ENVIRONMENT=dev
 export LOG_LEVEL=info
 export POSTGRES_DB=app
@@ -78,11 +78,11 @@ Key values:
 
 ## Logging
 
-Logging is configured **only** via `{{ project_slug }}/core/logging.yaml` and is ECS JSON.
+Logging is configured **only** via `fastapi_template/core/logging.yaml` and is ECS JSON.
 The runtime entrypoint (`scripts/start.sh`) uses `--log-config` and does not
 apply its own log level overrides.
 
-If you want a different verbosity, update `{{ project_slug }}/core/logging.yaml` (or provide an
+If you want a different verbosity, update `fastapi_template/core/logging.yaml` (or provide an
 alternate log config at startup).
 
 ## Database model behavior
@@ -93,9 +93,9 @@ alternate log config at startup).
 
 ### Model registration for Alembic
 
-Alembic autogenerate uses `SQLModel.metadata`. The module `{{ project_slug }}/db/base.py`
+Alembic autogenerate uses `SQLModel.metadata`. The module `fastapi_template/db/base.py`
 imports every model that should be included in migrations. When you add a new
-SQLModel table, **also add it to `{{ project_slug }}/db/base.py`** so Alembic can detect it.
+SQLModel table, **also add it to `fastapi_template/db/base.py`** so Alembic can detect it.
 
 ## Database migrations
 
@@ -162,7 +162,7 @@ uv run pytest --cov
 **Run specific test file**:
 
 ```bash
-uv run pytest {{ project_slug }}/tests/test_health.py
+uv run pytest fastapi_template/tests/test_health.py
 ```
 
 `pytest-docker` will automatically:
@@ -183,17 +183,17 @@ uv run pytest {{ project_slug }}/tests/test_health.py
 
 ```bash
 uv run ruff check
-uv run mypy {{ project_slug }}
+uv run mypy fastapi_template
 uv run pre-commit run --all-files
 ```
 
 ## Project layout
 
-- `{{ project_slug }}/main.py` FastAPI app
-- `{{ project_slug }}/api/` routers
-- `{{ project_slug }}/models/` SQLModel models and schemas
-- `{{ project_slug }}/services/` CRUD helpers
-- `{{ project_slug }}/db/` async engine/session + Alembic model registry
+- `fastapi_template/main.py` FastAPI app
+- `fastapi_template/api/` routers
+- `fastapi_template/models/` SQLModel models and schemas
+- `fastapi_template/services/` CRUD helpers
+- `fastapi_template/db/` async engine/session + Alembic model registry
 - `alembic/` migrations
 - `k8s/` Kubernetes manifests
 - `devspace.yaml` DevSpace configuration
@@ -224,18 +224,18 @@ Key docs live in `docs/`:
 
 ## How to add a model/endpoint (summary)
 
-1. Create the SQLModel table + schemas in `{{ project_slug }}/models/`.
-2. Import the model in `{{ project_slug }}/db/base.py` so Alembic sees it.
+1. Create the SQLModel table + schemas in `fastapi_template/models/`.
+2. Import the model in `fastapi_template/db/base.py` so Alembic sees it.
 3. Generate a migration via `alembic revision --autogenerate`.
-4. Add service helpers in `{{ project_slug }}/services/`.
-5. Add endpoints in `{{ project_slug }}/api/`.
-6. Add tests under `{{ project_slug }}/tests/`.
+4. Add service helpers in `fastapi_template/services/`.
+5. Add endpoints in `fastapi_template/api/`.
+6. Add tests under `fastapi_template/tests/`.
 
 ## Troubleshooting (quick hits)
 
-- Missing tables in tests: ensure the model is imported in `{{ project_slug }}/db/base.py`.
+- Missing tables in tests: ensure the model is imported in `fastapi_template/db/base.py`.
 - DevSpace can't find pods: check image selector and run `devspace build`.
-- Logs look wrong: `{{ project_slug }}/core/logging.yaml` is the single source of truth.
+- Logs look wrong: `fastapi_template/core/logging.yaml` is the single source of truth.
 
 ## Notes
 

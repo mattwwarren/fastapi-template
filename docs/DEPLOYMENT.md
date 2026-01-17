@@ -1,6 +1,6 @@
 # Deployment Guide
 
-Step-by-step guide for deploying {{ project_slug }} to production environments.
+Step-by-step guide for deploying fastapi_template to production environments.
 
 ## Prerequisites
 
@@ -28,13 +28,13 @@ Before deploying, ensure you have:
 
 ```bash
 # Build production image
-docker build -t {{ project_slug }}:latest .
+docker build -t fastapi_template:latest .
 
 # Tag for registry (replace with your registry)
-docker tag {{ project_slug }}:latest your-registry.com/{{ project_slug }}:v1.0.0
+docker tag fastapi_template:latest your-registry.com/fastapi_template:v1.0.0
 
 # Push to registry
-docker push your-registry.com/{{ project_slug }}:v1.0.0
+docker push your-registry.com/fastapi_template:v1.0.0
 ```
 
 ### 2. Create docker-compose.prod.yml
@@ -44,7 +44,7 @@ version: '3.8'
 
 services:
   api:
-    image: your-registry.com/{{ project_slug }}:v1.0.0
+    image: your-registry.com/fastapi_template:v1.0.0
     ports:
       - "8000:8000"
     environment:
@@ -99,26 +99,26 @@ docker compose -f docker-compose.prod.yml logs -f api
 
 ```bash
 # Build image
-docker build -t your-registry.com/{{ project_slug }}:v1.0.0 .
+docker build -t your-registry.com/fastapi_template:v1.0.0 .
 
 # Push to registry
-docker push your-registry.com/{{ project_slug }}:v1.0.0
+docker push your-registry.com/fastapi_template:v1.0.0
 ```
 
 ### 2. Create Kubernetes Secret
 
 ```bash
 # Create namespace
-kubectl create namespace {{ project_slug }}
+kubectl create namespace fastapi_template
 
 # Create secret from .env file
-kubectl create secret generic {{ project_slug }}-secrets \
+kubectl create secret generic fastapi_template-secrets \
   --from-env-file=.env.prod \
-  --namespace {{ project_slug }}
+  --namespace fastapi_template
 
 # Or create secret manually
-kubectl create secret generic {{ project_slug }}-secrets \
-  --namespace {{ project_slug }} \
+kubectl create secret generic fastapi_template-secrets \
+  --namespace fastapi_template \
   --from-literal=DATABASE_URL='postgresql+asyncpg://user:pass@db:5432/app' \
   --from-literal=JWT_PUBLIC_KEY='-----BEGIN PUBLIC KEY-----...'
 ```
@@ -131,19 +131,19 @@ Save as `k8s/deployment.yaml`:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ project_slug }}
-  namespace: {{ project_slug }}
+  name: fastapi_template
+  namespace: fastapi_template
   labels:
-    app: {{ project_slug }}
+    app: fastapi_template
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: {{ project_slug }}
+      app: fastapi_template
   template:
     metadata:
       labels:
-        app: {{ project_slug }}
+        app: fastapi_template
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8000"
@@ -151,12 +151,12 @@ spec:
     spec:
       containers:
         - name: api
-          image: your-registry.com/{{ project_slug }}:v1.0.0
+          image: your-registry.com/fastapi_template:v1.0.0
           ports:
             - containerPort: 8000
           envFrom:
             - secretRef:
-                name: {{ project_slug }}-secrets
+                name: fastapi_template-secrets
           env:
             - name: ENVIRONMENT
               value: "production"
@@ -189,11 +189,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ project_slug }}
-  namespace: {{ project_slug }}
+  name: fastapi_template
+  namespace: fastapi_template
 spec:
   selector:
-    app: {{ project_slug }}
+    app: fastapi_template
   ports:
     - port: 80
       targetPort: 8000
@@ -202,8 +202,8 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ project_slug }}
-  namespace: {{ project_slug }}
+  name: fastapi_template
+  namespace: fastapi_template
   annotations:
     kubernetes.io/ingress.class: nginx
     cert-manager.io/cluster-issuer: letsencrypt-prod
@@ -211,7 +211,7 @@ spec:
   tls:
     - hosts:
         - api.example.com
-      secretName: {{ project_slug }}-tls
+      secretName: fastapi_template-tls
   rules:
     - host: api.example.com
       http:
@@ -220,7 +220,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ project_slug }}
+                name: fastapi_template
                 port:
                   number: 80
 ```
@@ -229,38 +229,38 @@ spec:
 
 ```bash
 # Apply database manifests (if using in-cluster postgres)
-kubectl apply -f k8s/postgres-secret.yaml -n {{ project_slug }}
-kubectl apply -f k8s/postgres-service.yaml -n {{ project_slug }}
-kubectl apply -f k8s/postgres-statefulset.yaml -n {{ project_slug }}
+kubectl apply -f k8s/postgres-secret.yaml -n fastapi_template
+kubectl apply -f k8s/postgres-service.yaml -n fastapi_template
+kubectl apply -f k8s/postgres-statefulset.yaml -n fastapi_template
 
 # Wait for database to be ready
-kubectl wait --for=condition=ready pod -l app=postgres -n {{ project_slug }} --timeout=120s
+kubectl wait --for=condition=ready pod -l app=postgres -n fastapi_template --timeout=120s
 
 # Run database migrations
 kubectl run migrations --rm -it --restart=Never \
-  --image=your-registry.com/{{ project_slug }}:v1.0.0 \
-  --namespace={{ project_slug }} \
-  --env-from=secret/{{ project_slug }}-secrets \
+  --image=your-registry.com/fastapi_template:v1.0.0 \
+  --namespace=fastapi_template \
+  --env-from=secret/fastapi_template-secrets \
   -- alembic upgrade head
 
 # Apply application manifests
 kubectl apply -f k8s/deployment.yaml
 
 # Check rollout status
-kubectl rollout status deployment/{{ project_slug }} -n {{ project_slug }}
+kubectl rollout status deployment/fastapi_template -n fastapi_template
 
 # Verify pods are running
-kubectl get pods -n {{ project_slug }}
+kubectl get pods -n fastapi_template
 ```
 
 ### 5. Verify Deployment
 
 ```bash
 # Check pod logs
-kubectl logs -f deployment/{{ project_slug }} -n {{ project_slug }}
+kubectl logs -f deployment/fastapi_template -n fastapi_template
 
 # Test health endpoint (via port-forward)
-kubectl port-forward svc/{{ project_slug }} 8000:80 -n {{ project_slug }}
+kubectl port-forward svc/fastapi_template 8000:80 -n fastapi_template
 curl http://localhost:8000/health
 
 # Check metrics
@@ -280,8 +280,8 @@ For debugging or non-containerized deployments.
 # Install uv package manager
 
 # Clone and setup
-git clone <your-repo> {{ project_slug }}
-cd {{ project_slug }}
+git clone <your-repo> fastapi_template
+cd fastapi_template
 uv sync --frozen
 ```
 
@@ -302,7 +302,7 @@ uv run alembic upgrade head
 
 ```bash
 # Production server with uvicorn
-uv run uvicorn {{ project_slug }}.main:app \
+uv run uvicorn fastapi_template.main:app \
   --host 0.0.0.0 \
   --port 8000 \
   --workers 4 \
@@ -313,7 +313,7 @@ uv run uvicorn {{ project_slug }}.main:app \
 ### 5. Configure Reverse Proxy (nginx)
 
 ```nginx
-upstream {{ project_slug }} {
+upstream fastapi_template {
     server 127.0.0.1:8000;
 }
 
@@ -325,7 +325,7 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/api.example.com/privkey.pem;
 
     location / {
-        proxy_pass http://{{ project_slug }};
+        proxy_pass http://fastapi_template;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -340,7 +340,7 @@ server {
 
     # Health check endpoint (no auth)
     location /health {
-        proxy_pass http://{{ project_slug }}/health;
+        proxy_pass http://fastapi_template/health;
     }
 }
 ```
@@ -368,18 +368,18 @@ Add this step to your CI/CD pipeline:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ project_slug }}-migration
-  namespace: {{ project_slug }}
+  name: fastapi_template-migration
+  namespace: fastapi_template
 spec:
   template:
     spec:
       containers:
         - name: migration
-          image: your-registry.com/{{ project_slug }}:v1.0.0
+          image: your-registry.com/fastapi_template:v1.0.0
           command: ["alembic", "upgrade", "head"]
           envFrom:
             - secretRef:
-                name: {{ project_slug }}-secrets
+                name: fastapi_template-secrets
       restartPolicy: Never
   backoffLimit: 3
 ```
@@ -387,7 +387,7 @@ spec:
 Apply with:
 ```bash
 kubectl apply -f k8s/migration-job.yaml
-kubectl wait --for=condition=complete job/{{ project_slug }}-migration -n {{ project_slug }}
+kubectl wait --for=condition=complete job/fastapi_template-migration -n fastapi_template
 ```
 
 ---
@@ -459,20 +459,20 @@ ssl_certificate_key /etc/ssl/private/api.example.com.key;
 
 ```bash
 # View rollout history
-kubectl rollout history deployment/{{ project_slug }} -n {{ project_slug }}
+kubectl rollout history deployment/fastapi_template -n fastapi_template
 
 # Rollback to previous version
-kubectl rollout undo deployment/{{ project_slug }} -n {{ project_slug }}
+kubectl rollout undo deployment/fastapi_template -n fastapi_template
 
 # Rollback to specific revision
-kubectl rollout undo deployment/{{ project_slug }} --to-revision=2 -n {{ project_slug }}
+kubectl rollout undo deployment/fastapi_template --to-revision=2 -n fastapi_template
 ```
 
 ### Docker Compose Rollback
 
 ```bash
 # Pull previous image version
-docker pull your-registry.com/{{ project_slug }}:v0.9.0
+docker pull your-registry.com/fastapi_template:v0.9.0
 
 # Update docker-compose.prod.yml with previous version
 # Redeploy
@@ -533,7 +533,7 @@ Configure log forwarding to your preferred platform (ELK, Datadog, CloudWatch).
 
 ```bash
 # Check configuration validation errors
-docker logs {{ project_slug }}
+docker logs fastapi_template
 
 # Common issues:
 # - DATABASE_URL not set or invalid
@@ -545,8 +545,8 @@ docker logs {{ project_slug }}
 
 ```bash
 # Test database connectivity
-docker exec {{ project_slug }} python -c "
-from {{ project_slug }}.core.config import settings
+docker exec fastapi_template python -c "
+from fastapi_template.core.config import settings
 print(f'Connecting to: {settings.database_url.split(\"@\")[-1]}')
 "
 
@@ -580,4 +580,4 @@ After deployment:
 ---
 
 **Last Updated**: 2026-01-15
-**Maintainer**: {{ project_slug }} team
+**Maintainer**: fastapi_template team

@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Welcome! You've generated a production-ready FastAPI template with automated setup.
+Welcome! This is a production-ready FastAPI template with a runnable-first architecture.
 
 ## Prerequisites
 
@@ -8,86 +8,83 @@ Welcome! You've generated a production-ready FastAPI template with automated set
 - Docker (for PostgreSQL)
 - `uv` package manager (https://docs.astral.sh/uv/)
 
-## What Was Automated
-
-During project generation, the following tasks were completed automatically:
-
-✅ Environment file (`.env`) created from template
-✅ Dependencies installed via `uv sync --dev` (if uv available)
-✅ Database migrations attempted via `alembic upgrade head` (if database configured)
-
 ## Quick Start (2 minutes)
 
-### 1. Configure Database Connection
-
-The `.env` file was created automatically. Edit it to set your database connection:
+### 1. Install Dependencies
 
 ```bash
-# Edit .env and update this line:
+uv sync --dev
+```
+
+### 2. Configure Environment
+
+```bash
+# Copy environment template
+cp dotenv.example .env
+
+# Edit .env and update database connection:
 DATABASE_URL=postgresql+asyncpg://app:app@localhost:5432/app
 ```
 
-### 2. Run Database Migrations (if not already done)
+### 3. Start Database
 
-If the automated migration failed during generation, run it manually:
+```bash
+docker run -d \
+  -e POSTGRES_USER=app \
+  -e POSTGRES_PASSWORD=app \
+  -e POSTGRES_DB=app \
+  -p 5432:5432 \
+  --name postgres \
+  postgres:15
+```
+
+### 4. Run Database Migrations
 
 ```bash
 uv run alembic upgrade head
 ```
 
-### 3. Start Development Server
+### 5. Start Development Server
 
 ```bash
-uv run fastapi dev {{ project_slug }}/main.py
-# Opens http://localhost:{{ port }}
-# API docs: http://localhost:{{ port }}/docs
+uv run fastapi dev fastapi_template/main.py
+# Opens http://localhost:8000
+# API docs: http://localhost:8000/docs
 ```
 
-Verify the server is running by visiting http://localhost:{{ port }}/health in your browser.
+Verify the server is running by visiting http://localhost:8000/health in your browser.
 
 ---
 
-## Your Configuration
+## Configuration Options
 
-During generation, you configured the following features:
+All configuration is done via environment variables in `.env`. See [dotenv.example](dotenv.example) for the full list.
 
-{% if auth_enabled -%}
-### Authentication: ENABLED ({{ auth_provider }})
+### Authentication
 
-**Status**: ✅ Enabled in `{{ project_slug }}/main.py`
-**Provider**: {{ auth_provider }}
+**Default**: Disabled (public API mode)
 
-**Configuration in `.env`**:
-- `AUTH_PROVIDER_TYPE={{ auth_provider }}`
-- Update `AUTH_PROVIDER_URL`, `AUTH_PROVIDER_ISSUER`, `JWT_PUBLIC_KEY` as needed
+To enable authentication:
+1. Set `AUTH_PROVIDER_TYPE` to your provider (ory, auth0, keycloak, cognito)
+2. Configure `AUTH_PROVIDER_URL`, `AUTH_PROVIDER_ISSUER`, `JWT_PUBLIC_KEY`
+3. Uncomment AuthMiddleware in `fastapi_template/main.py`
+
+**Available Providers**: ory, auth0, keycloak, cognito
 
 For provider-specific setup, see [CONFIGURATION-GUIDE.md](CONFIGURATION-GUIDE.md#authentication)
-{% else -%}
-### Authentication: DISABLED
-
-**Status**: ❌ Disabled (public API mode)
-
-To enable authentication later, regenerate the project with copier or manually:
-1. Uncomment AuthMiddleware in `{{ project_slug }}/main.py`
-2. Configure `.env` with your auth provider details
 
 **Test endpoints without authentication**:
 ```bash
-curl http://localhost:{{ port }}/health
-curl http://localhost:{{ port }}/ping
-curl http://localhost:{{ port }}/docs
+curl http://localhost:8000/health
+curl http://localhost:8000/ping
+curl http://localhost:8000/docs
 ```
-{% endif -%}
 
 ---
 
-{% if multi_tenant and auth_enabled -%}
-### Multi-Tenant Isolation: ENABLED
+### Multi-Tenant Isolation
 
-**Status**: ✅ Enabled in `{{ project_slug }}/main.py`
-
-**Configuration in `.env`**:
-- `ENFORCE_TENANT_ISOLATION=true`
+**Default**: Enabled (`ENFORCE_TENANT_ISOLATION=true`)
 
 **What this does**:
 - Prevents User A from accessing Organization B's data
@@ -95,83 +92,49 @@ curl http://localhost:{{ port }}/docs
 - Applies WHERE clauses to all database queries
 - Protects documents, users, memberships, and custom data
 
+**Note**: Multi-tenant isolation requires authentication to be enabled for full functionality.
+
 For details, see [docs/TENANT_ISOLATION.md](docs/TENANT_ISOLATION.md)
-{% elif multi_tenant and not auth_enabled -%}
-### Multi-Tenant Isolation: DISABLED (requires authentication)
-
-**Status**: ⚠️ Multi-tenant mode requires authentication to be enabled
-
-To enable:
-1. Enable authentication (see above)
-2. Middleware will automatically enforce tenant isolation
-{% else -%}
-### Multi-Tenant Isolation: DISABLED
-
-**Status**: ❌ Disabled (single-tenant mode)
-
-**Configuration in `.env`**:
-- `ENFORCE_TENANT_ISOLATION=false`
-
-To enable later, regenerate with copier or manually uncomment TenantIsolationMiddleware.
-{% endif -%}
 
 ---
 
-### Storage Provider: {{ storage_provider }}
+### Storage Provider
 
-**Configuration in `.env`**:
-- `STORAGE_PROVIDER={{ storage_provider }}`
-{% if storage_provider == 'local' -%}
-- `STORAGE_LOCAL_PATH=./uploads`
+**Default**: Local storage (`STORAGE_PROVIDER=local`)
 
-**Note**: Local storage is suitable for development. For production, consider cloud storage (S3, Azure, GCS).
-{% elif storage_provider == 's3' -%}
-- `STORAGE_AWS_BUCKET=my-bucket` (update with your bucket name)
-- `STORAGE_AWS_REGION=us-east-1` (update with your region)
+**Available Options**:
 
-Configure AWS credentials via `~/.aws/credentials` or IAM role.
-{% elif storage_provider == 'azure' -%}
-- `STORAGE_AZURE_CONTAINER=documents` (update with your container name)
-- `STORAGE_AZURE_CONNECTION_STRING=...` (update with your connection string)
+| Provider | Config | Requirements |
+|----------|--------|--------------|
+| Local | `STORAGE_PROVIDER=local` | None (development only) |
+| AWS S3 | `STORAGE_PROVIDER=s3` | `pip install .[aws]` |
+| Azure Blob | `STORAGE_PROVIDER=azure` | `pip install .[azure]` |
+| Google Cloud | `STORAGE_PROVIDER=gcs` | `pip install .[gcs]` |
 
-Get connection string from Azure Portal → Storage Account → Access Keys.
-{% elif storage_provider == 'gcs' -%}
-- `STORAGE_GCS_BUCKET=my-bucket` (update with your bucket name)
-- `STORAGE_GCS_PROJECT_ID=my-project` (update with your project ID)
-- `GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json`
-
-Get service account key from GCP Console → IAM → Service Accounts.
-{% endif -%}
+**Note**: Local storage is suitable for development. For production, use cloud storage (S3, Azure, GCS).
 
 For setup guides, see [CONFIGURATION-GUIDE.md](CONFIGURATION-GUIDE.md#storage)
 
 ---
 
-### Activity Logging: {{ 'ENABLED' if enable_activity_logging else 'DISABLED' }}
+### Activity Logging
 
-**Configuration in `.env`**:
-- `ACTIVITY_LOGGING_ENABLED={{ 'true' if enable_activity_logging else 'false' }}`
+**Default**: Enabled (`ACTIVITY_LOGGING_ENABLED=true`)
 
-{% if enable_activity_logging -%}
 All create, read, update, and delete operations are logged with:
 - Timestamp
 - User ID and email
 - Action type (CREATE, READ, UPDATE, DELETE)
 - Resource type and ID
 - Changes made (for UPDATE)
-{% else -%}
-To enable, update `.env` and set `ACTIVITY_LOGGING_ENABLED=true`.
-{% endif -%}
 
 ---
 
-### Metrics (Prometheus): {{ 'ENABLED' if enable_metrics else 'DISABLED' }}
+### Metrics (Prometheus)
 
-**Configuration in `.env`**:
-- `ENABLE_METRICS={{ 'true' if enable_metrics else 'false' }}`
+**Default**: Enabled (`ENABLE_METRICS=true`)
 
-{% if enable_metrics -%}
-**Access**: http://localhost:{{ port }}/metrics
+**Access**: http://localhost:8000/metrics
 
 Metrics include:
 - User operations (users_created_total, users_updated_total)
@@ -179,9 +142,6 @@ Metrics include:
 - Document uploads (documents_uploaded_total)
 - Database query duration
 - HTTP request latency
-{% else -%}
-To enable, update `.env` and set `ENABLE_METRICS=true`.
-{% endif -%}
 
 ---
 
@@ -189,16 +149,16 @@ To enable, update `.env` and set `ENABLE_METRICS=true`.
 
 ```bash
 # Run all tests
-uv run pytest tests/ -v
+uv run pytest fastapi_template/tests/ -v
 
 # Run specific test file
-uv run pytest tests/test_users.py -v
+uv run pytest fastapi_template/tests/test_users.py -v
 
 # Run specific test
-uv run pytest tests/test_users.py::TestUserCRUD::test_create_user_success -v
+uv run pytest fastapi_template/tests/test_users.py::TestUserCRUD::test_create_user_success -v
 
 # Run with coverage report
-uv run pytest tests/ --cov={{ project_slug }} --cov-report=html
+uv run pytest fastapi_template/tests/ --cov=fastapi_template --cov-report=html
 ```
 
 After running tests, open `htmlcov/index.html` to view coverage report.
@@ -211,13 +171,13 @@ Verify your code meets production standards before committing:
 
 ```bash
 # Lint violations
-uv run ruff check .
+uv run ruff check fastapi_template
 
 # Type checking
-uv run mypy .
+uv run mypy fastapi_template
 
 # Run tests
-uv run pytest tests/
+uv run pytest fastapi_template/tests/
 ```
 
 All three must pass before pushing to repository.
@@ -263,7 +223,7 @@ All three must pass before pushing to repository.
 **Solution**:
 ```bash
 # Use a different port
-uv run fastapi dev {{ project_slug }}/main.py --port 8001
+uv run fastapi dev fastapi_template/main.py --port 8001
 
 # Or kill the process using port 8000
 lsof -i :8000 | grep LISTEN | awk '{print $2}' | xargs kill -9
@@ -303,10 +263,10 @@ uv run ruff check .
 uv sync --dev
 
 # Verify Python path
-uv run python -c "import {{ project_slug }}"
+uv run python -c "import fastapi_template"
 
 # Check package structure
-ls -la {{ project_slug }}/
+ls -la fastapi_template/
 ```
 
 ---
@@ -324,7 +284,7 @@ Before deploying to production, verify all items:
 - [ ] Set up SSL/TLS (use nginx reverse proxy)
 - [ ] Configure logging level (info for production)
 - [ ] Set up monitoring and alerting
-- [ ] Run full test suite: `uv run pytest tests/`
+- [ ] Run full test suite: `uv run pytest fastapi_template/tests/`
 - [ ] Run security checks: `uv run ruff check . && uv run mypy .`
 - [ ] Review API documentation at /docs endpoint
 - [ ] Test all enabled features in staging environment
@@ -354,7 +314,7 @@ If you encounter issues:
 
 ---
 
-## Background Tasks: Implementation Required ⚠️
+## Background Tasks: Implementation Required
 
 This template includes **placeholder background tasks** that require implementation before production use.
 
@@ -362,24 +322,24 @@ This template includes **placeholder background tasks** that require implementat
 
 The following background tasks are **stubs** and do not perform actual operations:
 
-1. **Email Service** (`{{ project_slug }}/core/background_tasks.py:send_welcome_email_task`)
+1. **Email Service** (`fastapi_template/core/background_tasks.py:send_welcome_email_task`)
    - **Current**: Logs "welcome_email_sent" but doesn't send emails
    - **Action Required**: Implement email integration
    - **Guide**: [docs/implementing_email_service.md](docs/implementing_email_service.md)
 
-2. **Log Archival** (`{{ project_slug }}/core/background_tasks.py:archive_old_activity_logs_task`)
+2. **Log Archival** (`fastapi_template/core/background_tasks.py:archive_old_activity_logs_task`)
    - **Current**: Logs "activity_logs_archived" but doesn't archive anything
    - **Action Required**: Implement archival strategy
    - **Guide**: [docs/implementing_log_archival.md](docs/implementing_log_archival.md)
 
-3. **Report Generation** (`{{ project_slug }}/core/background_tasks.py:generate_activity_report_task`)
+3. **Report Generation** (`fastapi_template/core/background_tasks.py:generate_activity_report_task`)
    - **Current**: Logs "activity_report_generated" but doesn't generate reports
    - **Action Required**: Implement report generation and delivery
    - **Guide**: [docs/implementing_reports.md](docs/implementing_reports.md)
 
 ### HTTP Client Examples
 
-The file `{{ project_slug }}/core/http_client.py` contains **commented example patterns** (lines 61-253):
+The file `fastapi_template/core/http_client.py` contains **commented example patterns** (lines 61-253):
 - These are reference implementations, not production code
 - Uncomment and adapt when integrating with external services
 - See [docs/service_integration_patterns.md](docs/service_integration_patterns.md) for integration guides
@@ -390,7 +350,7 @@ The file `{{ project_slug }}/core/http_client.py` contains **commented example p
 
 ```bash
 # Search for placeholder markers
-grep -r "asyncio.sleep(0.1)" {{ project_slug }}/
+grep -r "asyncio.sleep(0.1)" fastapi_template/
 
 # If this returns results, you have unimplemented features
 ```
@@ -399,10 +359,10 @@ grep -r "asyncio.sleep(0.1)" {{ project_slug }}/
 
 ## What's Next?
 
-Your FastAPI application is ready. Start building! 🚀
+Your FastAPI application is ready. Start building!
 
-1. Create your first endpoint in `{{ project_slug }}/api/`
-2. Add your data models in `{{ project_slug }}/models/`
-3. Implement business logic in `{{ project_slug }}/services/`
-4. Write tests in `{{ project_slug }}/tests/`
+1. Create your first endpoint in `fastapi_template/api/`
+2. Add your data models in `fastapi_template/models/`
+3. Implement business logic in `fastapi_template/services/`
+4. Write tests in `fastapi_template/tests/`
 5. Deploy with confidence knowing tests pass and code is clean

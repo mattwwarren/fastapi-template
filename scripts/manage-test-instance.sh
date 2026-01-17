@@ -1,5 +1,18 @@
 #!/usr/bin/env bash
 
+# ============================================================================
+# DEPRECATED: This script is deprecated with the runnable-first architecture.
+#
+# The fastapi-template now uses a runnable-first workflow:
+# - Work directly on fastapi_template/ in the template repository
+# - No need for separate test instances
+# - Use git worktrees for parallel development
+#
+# See CLAUDE.md for the current development workflow.
+#
+# This script will be removed in a future version.
+# ============================================================================
+
 # FastAPI Template Test Instance Manager
 # Manage persistent test instance for template verification and development
 

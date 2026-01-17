@@ -46,7 +46,7 @@ ActivityLog stored with all metadata
 ### Pattern 1: Automatic Logging with Decorator
 
 ```python
-from {{ project_slug }}.core.activity_logging import ActivityAction, log_activity_decorator
+from fastapi_template.core.activity_logging import ActivityAction, log_activity_decorator
 
 @router.post("", response_model=UserRead, status_code=201)
 @log_activity_decorator(ActivityAction.CREATE, "user")
@@ -86,7 +86,7 @@ async def delete_user_endpoint(
 ### Pattern 2: Manual Logging in Business Logic
 
 ```python
-from {{ project_slug }}.core.activity_logging import log_activity, ActivityAction
+from fastapi_template.core.activity_logging import log_activity, ActivityAction
 
 async def archive_document(
     session: AsyncSession,
@@ -112,7 +112,7 @@ async def archive_document(
 ### Pattern 3: Fire-and-Forget Logging for Background Tasks
 
 ```python
-from {{ project_slug }}.core.activity_logging import log_activity, ActivityAction
+from fastapi_template.core.activity_logging import log_activity, ActivityAction
 
 async def send_email_notification(user_id: UUID, email: str) -> None:
     """Background task - log independently from request."""
@@ -152,7 +152,7 @@ The activity logging system automatically inherits context from the HTTP request
 Context is automatically available via dependency injection:
 
 ```python
-from {{ project_slug }}.core.logging import get_logging_context
+from fastapi_template.core.logging import get_logging_context
 
 @router.post("/documents")
 async def create_document(

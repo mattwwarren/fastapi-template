@@ -1,5 +1,11 @@
 # Reverse Sync Quick Start Guide
 
+> **Deprecation Notice**: This workflow is **deprecated** with the runnable-first architecture.
+> Changes are now made directly to `fastapi_template/` - no reverse sync needed.
+> See [INSTANCES.md](INSTANCES.md) for the current deployment workflow.
+
+---
+
 ## The Problem You're Solving
 
 You fixed ruff/mypy errors in your test instance and don't want to lose those fixes when you delete the instance.
@@ -90,7 +96,7 @@ cd fastapi-template
 ## What It's Doing Behind the Scenes
 
 1. **Finds** changed files in test instance
-2. **Maps** instance paths to template paths (`fastapi_template_test/` → `{{ project_slug }}/`)
+2. **Maps** instance paths to template paths (`fastapi_template_test/` → `fastapi_template/`)
 3. **Creates patches** of the changes
 4. **Applies** patches to template files
 5. **Verifies roundtrip** - ensures changes survive template transformation

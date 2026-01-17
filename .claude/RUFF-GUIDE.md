@@ -10,7 +10,7 @@ This template enforces a comprehensive set of ruff linting rules to maintain pro
 
 **File:** `pyproject.toml`
 - **Line length:** 88 characters
-- **Source dirs:** `{{ project_slug }}`
+- **Source dirs:** `fastapi_template`
 
 ## Rule Categories
 
@@ -287,11 +287,11 @@ uv run pytest -xvs 2>&1 | head -50
 
 ### Template Source Files
 - `alembic/env.py` - Database migrations
-- `{{ project_slug }}/api/*.py` - API endpoints
-- `{{ project_slug }}/core/*.py` - Business logic, middleware
-- `{{ project_slug }}/models/*.py` - Database models
-- `{{ project_slug }}/services/*.py` - Service layer
-- `{{ project_slug }}/tests/*.py` - Test fixtures and test cases
+- `fastapi_template/api/*.py` - API endpoints
+- `fastapi_template/core/*.py` - Business logic, middleware
+- `fastapi_template/models/*.py` - Database models
+- `fastapi_template/services/*.py` - Service layer
+- `fastapi_template/tests/*.py` - Test fixtures and test cases
 
 ### Never Suppress Violations
 Only use `# noqa` for:

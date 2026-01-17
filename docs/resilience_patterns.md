@@ -369,7 +369,7 @@ async def resilient_auth_check(
 ```python
 # core/auth.py
 
-from {{ project_slug }}.core.resilience import AsyncCircuitBreaker
+from fastapi_template.core.resilience import AsyncCircuitBreaker
 
 # Create circuit breaker for remote auth provider
 remote_auth_breaker = AsyncCircuitBreaker(

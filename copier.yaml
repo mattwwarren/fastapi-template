@@ -4,9 +4,13 @@ _envops:
   keep_trailing_newline: true
 _exclude:
   - "scripts/manage-test-instance.sh"
+  - "scripts/templatize.sh"
   - ".git"
   - ".git/**"
+  - ".templatized"
+  - ".templatized/**"
   - "REMEDIATION-STATUS.md"
+  - "REVERSE-SYNC-QUICK-START.md"
 
 project_name:
   type: str

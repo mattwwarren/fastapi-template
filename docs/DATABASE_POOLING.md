@@ -247,7 +247,7 @@ connection timed out, timeout 30.00
 Track these metrics in production (via Prometheus or CloudWatch):
 
 ```python
-# {{ project_slug }}/core/metrics.py example
+# fastapi_template/core/metrics.py example
 from prometheus_client import Gauge
 
 db_pool_size = Gauge(
