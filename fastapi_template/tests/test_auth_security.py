@@ -296,7 +296,7 @@ class TestOryProvider:
                 mock_response.json.return_value = ory_introspection_response
                 mock_client.post = AsyncMock(return_value=mock_response)
                 mock_client.__aenter__.return_value = mock_client
-                mock_client.__aexit__.return_value = None
+                mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_http_client.return_value = mock_client
 
                 response = await auth_client.get(
@@ -323,7 +323,7 @@ class TestOryProvider:
                 mock_response.status_code = 500  # Ory server error
                 mock_client.post = AsyncMock(return_value=mock_response)
                 mock_client.__aenter__.return_value = mock_client
-                mock_client.__aexit__.return_value = None
+                mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_http_client.return_value = mock_client
 
                 response = await auth_client.get(
@@ -352,7 +352,7 @@ class TestOryProvider:
                 mock_response.json.return_value = ory_inactive_response
                 mock_client.post = AsyncMock(return_value=mock_response)
                 mock_client.__aenter__.return_value = mock_client
-                mock_client.__aexit__.return_value = None
+                mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_http_client.return_value = mock_client
 
                 response = await auth_client.get(
@@ -375,7 +375,7 @@ class TestOryProvider:
                 mock_client = AsyncMock()
                 mock_client.post = AsyncMock(side_effect=RequestError("Connection timeout"))
                 mock_client.__aenter__.return_value = mock_client
-                mock_client.__aexit__.return_value = None
+                mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_http_client.return_value = mock_client
 
                 response = await auth_client.get(
@@ -411,7 +411,7 @@ class TestAuth0Provider:
                 mock_response.json.return_value = auth0_userinfo_response
                 mock_client.get = AsyncMock(return_value=mock_response)
                 mock_client.__aenter__.return_value = mock_client
-                mock_client.__aexit__.return_value = None
+                mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_http_client.return_value = mock_client
 
                 response = await auth_client.get(
@@ -437,7 +437,7 @@ class TestAuth0Provider:
                 mock_response.status_code = 503  # Service unavailable
                 mock_client.get = AsyncMock(return_value=mock_response)
                 mock_client.__aenter__.return_value = mock_client
-                mock_client.__aexit__.return_value = None
+                mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_http_client.return_value = mock_client
 
                 response = await auth_client.get(
@@ -528,7 +528,7 @@ class TestKeycloakProvider:
                 mock_response.json.return_value = keycloak_introspection_response
                 mock_client.post = AsyncMock(return_value=mock_response)
                 mock_client.__aenter__.return_value = mock_client
-                mock_client.__aexit__.return_value = None
+                mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_http_client.return_value = mock_client
 
                 response = await auth_client.get(
@@ -560,7 +560,7 @@ class TestKeycloakProvider:
                 }
                 mock_client.post = AsyncMock(return_value=mock_response)
                 mock_client.__aenter__.return_value = mock_client
-                mock_client.__aexit__.return_value = None
+                mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_http_client.return_value = mock_client
 
                 # Make request to verify realm is used in introspection URL
@@ -594,7 +594,7 @@ class TestKeycloakProvider:
                 mock_response.json.return_value = keycloak_offline_response
                 mock_client.post = AsyncMock(return_value=mock_response)
                 mock_client.__aenter__.return_value = mock_client
-                mock_client.__aexit__.return_value = None
+                mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_http_client.return_value = mock_client
 
                 response = await auth_client.get(

@@ -167,7 +167,7 @@ class TestGetJwksCached:
             mock_response.raise_for_status = MagicMock()
             mock_client.get = AsyncMock(return_value=mock_response)
             mock_client.__aenter__.return_value = mock_client
-            mock_client.__aexit__.return_value = None
+            mock_client.__aexit__ = AsyncMock(return_value=None)
             mock_http.return_value = mock_client
 
             result = await get_jwks_cached(jwks_url)
@@ -186,7 +186,7 @@ class TestGetJwksCached:
             mock_response.raise_for_status = MagicMock()
             mock_client.get = AsyncMock(return_value=mock_response)
             mock_client.__aenter__.return_value = mock_client
-            mock_client.__aexit__.return_value = None
+            mock_client.__aexit__ = AsyncMock(return_value=None)
             mock_http.return_value = mock_client
 
             # First call - fetches
@@ -217,7 +217,7 @@ class TestClearJwksCache:
             mock_response.raise_for_status = MagicMock()
             mock_client.get = AsyncMock(return_value=mock_response)
             mock_client.__aenter__.return_value = mock_client
-            mock_client.__aexit__.return_value = None
+            mock_client.__aexit__ = AsyncMock(return_value=None)
             mock_http.return_value = mock_client
 
             # Populate cache
@@ -267,7 +267,7 @@ class TestVerifyTokenRemoteAuth0:
                 mock_client = AsyncMock()
                 mock_client.get = AsyncMock(side_effect=httpx.RequestError("Network error"))
                 mock_client.__aenter__.return_value = mock_client
-                mock_client.__aexit__.return_value = None
+                mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_http.return_value = mock_client
 
                 result = await _verify_token_remote_auth0("some-token")
@@ -288,7 +288,7 @@ class TestVerifyTokenRemoteAuth0:
                 mock_response.json.return_value = userinfo
                 mock_client.get = AsyncMock(return_value=mock_response)
                 mock_client.__aenter__.return_value = mock_client
-                mock_client.__aexit__.return_value = None
+                mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_http.return_value = mock_client
 
                 result = await _verify_token_remote_auth0("valid-token")
@@ -320,7 +320,7 @@ class TestVerifyTokenRemoteKeycloak:
                 mock_response.json.return_value = {"active": False}
                 mock_client.post = AsyncMock(return_value=mock_response)
                 mock_client.__aenter__.return_value = mock_client
-                mock_client.__aexit__.return_value = None
+                mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_http.return_value = mock_client
 
                 result = await _verify_token_remote_keycloak("inactive-token")
@@ -338,7 +338,7 @@ class TestVerifyTokenRemoteKeycloak:
                 mock_response.status_code = 500
                 mock_client.post = AsyncMock(return_value=mock_response)
                 mock_client.__aenter__.return_value = mock_client
-                mock_client.__aexit__.return_value = None
+                mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_http.return_value = mock_client
 
                 result = await _verify_token_remote_keycloak("some-token")
@@ -354,7 +354,7 @@ class TestVerifyTokenRemoteKeycloak:
                 mock_client = AsyncMock()
                 mock_client.post = AsyncMock(side_effect=httpx.RequestError("Network error"))
                 mock_client.__aenter__.return_value = mock_client
-                mock_client.__aexit__.return_value = None
+                mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_http.return_value = mock_client
 
                 result = await _verify_token_remote_keycloak("some-token")
@@ -375,7 +375,7 @@ class TestVerifyTokenRemoteKeycloak:
                 mock_response.json.return_value = claims
                 mock_client.post = AsyncMock(return_value=mock_response)
                 mock_client.__aenter__.return_value = mock_client
-                mock_client.__aexit__.return_value = None
+                mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_http.return_value = mock_client
 
                 result = await _verify_token_remote_keycloak("valid-token")
@@ -650,6 +650,42 @@ class TestExtractUserFromClaims:
         }
         user = _extract_user_from_claims(claims)
         assert str(user.organization_id) == VALID_ORG_ID
+
+    def test_handles_malformed_email_format(self) -> None:
+        """Document current behavior: accepts any string as email.
+
+        The current implementation is permissive and accepts any string as email.
+        This test documents that behavior - if stricter validation is needed,
+        this test should be updated to expect TokenValidationError.
+        """
+        claims: dict[str, Any] = {
+            "sub": VALID_USER_ID,
+            "email": "not-a-valid-email",
+        }
+        user = _extract_user_from_claims(claims)
+        # Current behavior: accepts invalid email format
+        assert user.email == "not-a-valid-email"
+
+    def test_rejects_empty_email_string(self) -> None:
+        """Should reject empty string email as missing email."""
+        from fastapi_template.core.auth import TokenValidationError
+
+        claims: dict[str, Any] = {
+            "sub": VALID_USER_ID,
+            "email": "",
+        }
+        with pytest.raises(TokenValidationError, match="Missing email claim"):
+            _extract_user_from_claims(claims)
+
+    def test_prefers_email_over_preferred_username(self) -> None:
+        """Should use email claim when both email and preferred_username exist."""
+        claims: dict[str, Any] = {
+            "sub": VALID_USER_ID,
+            "email": "primary@example.com",
+            "preferred_username": "fallback@example.com",
+        }
+        user = _extract_user_from_claims(claims)
+        assert user.email == "primary@example.com"
 
 
 class TestAuthMiddleware:
