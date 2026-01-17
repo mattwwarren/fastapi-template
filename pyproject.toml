@@ -112,6 +112,11 @@ ignore_missing_imports = true
 
 [tool.coverage.run]
 source = ["fastapi_template"]
+# Required for accurate coverage with FastAPI + async SQLAlchemy
+# SQLAlchemy async uses greenlets internally, and coverage.py loses track
+# of execution across greenlet boundaries without this setting.
+# See: https://github.com/nedbat/coveragepy/issues/1240
+concurrency = ["greenlet", "thread"]
 omit = [
     "fastapi_template/tests/*",
 ]
@@ -124,7 +129,7 @@ exclude_lines = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "--tb=short -n auto --cov=fastapi_template --cov-report=term-missing --cov-fail-under=85"
+addopts = "--tb=short -n auto --cov=fastapi_template --cov-report=term-missing --cov-fail-under=90"
 asyncio_mode = "auto"
 testpaths = ["fastapi_template/tests"]
 
