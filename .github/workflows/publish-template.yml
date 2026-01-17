@@ -23,6 +23,10 @@ on:
         default: 'false'
         type: boolean
 
+concurrency:
+  group: publish-template
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -66,6 +70,24 @@ jobs:
           # Check for Jinja2 syntax in key files
           if ! grep -q "{{ project_slug }}" ".templatized/pyproject.toml"; then
             echo "ERROR: pyproject.toml missing template variables"
+            exit 1
+          fi
+
+          # Verify Dockerfile was templatized
+          if ! grep -q "{{ project_slug }}" ".templatized/Dockerfile"; then
+            echo "ERROR: Dockerfile missing template variables"
+            exit 1
+          fi
+
+          # Verify devspace.yaml was templatized
+          if ! grep -q "{{ project_slug }}" ".templatized/devspace.yaml"; then
+            echo "ERROR: devspace.yaml missing template variables"
+            exit 1
+          fi
+
+          # Verify .pre-commit-config.yaml was templatized
+          if ! grep -q "{{ project_slug }}" ".templatized/.pre-commit-config.yaml"; then
+            echo "ERROR: .pre-commit-config.yaml missing template variables"
             exit 1
           fi
 

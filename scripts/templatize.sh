@@ -167,6 +167,81 @@ if [[ -f "${OUTPUT_DIR}/_tasks.py" ]]; then
     fi
 fi
 
+# Dockerfile - COPY command references the package directory
+if [[ -f "${OUTPUT_DIR}/Dockerfile" ]]; then
+    if grep -q "fastapi_template" "${OUTPUT_DIR}/Dockerfile" 2>/dev/null; then
+        sed -i "s/fastapi_template/${SED_REPLACEMENT}/g" "${OUTPUT_DIR}/Dockerfile"
+        echo "  Updated: Dockerfile"
+    fi
+fi
+
+# devspace.yaml - container and deployment references
+if [[ -f "${OUTPUT_DIR}/devspace.yaml" ]]; then
+    if grep -q "fastapi_template" "${OUTPUT_DIR}/devspace.yaml" 2>/dev/null; then
+        sed -i "s/fastapi_template/${SED_REPLACEMENT}/g" "${OUTPUT_DIR}/devspace.yaml"
+        echo "  Updated: devspace.yaml"
+    fi
+fi
+
+# .pre-commit-config.yaml - mypy args reference the package
+if [[ -f "${OUTPUT_DIR}/.pre-commit-config.yaml" ]]; then
+    if grep -q "fastapi_template" "${OUTPUT_DIR}/.pre-commit-config.yaml" 2>/dev/null; then
+        sed -i "s/fastapi_template/${SED_REPLACEMENT}/g" "${OUTPUT_DIR}/.pre-commit-config.yaml"
+        echo "  Updated: .pre-commit-config.yaml"
+    fi
+fi
+
+# Shell scripts in scripts/ - may reference the project name
+for script in "${OUTPUT_DIR}"/scripts/*.sh; do
+    if [[ -f "$script" ]] && grep -q "fastapi_template" "$script" 2>/dev/null; then
+        sed -i "s/fastapi_template/${SED_REPLACEMENT}/g" "$script"
+        echo "  Updated: scripts/$(basename "$script")"
+    fi
+done
+
+# Markdown documentation files at project root
+MD_COUNT=0
+for mdfile in "${OUTPUT_DIR}"/*.md; do
+    if [[ -f "$mdfile" ]] && grep -q "fastapi_template" "$mdfile" 2>/dev/null; then
+        sed -i "s/fastapi_template/${SED_REPLACEMENT}/g" "$mdfile"
+        ((MD_COUNT++)) || true
+        echo "  Updated: $(basename "$mdfile")"
+    fi
+done
+echo "  Updated ${MD_COUNT} markdown files at root"
+
+# docs/ directory - markdown and rst files
+if [[ -d "${OUTPUT_DIR}/docs" ]]; then
+    DOCS_COUNT=0
+    while IFS= read -r -d '' file; do
+        if grep -q "fastapi_template" "$file" 2>/dev/null; then
+            sed -i "s/fastapi_template/${SED_REPLACEMENT}/g" "$file"
+            ((DOCS_COUNT++)) || true
+        fi
+    done < <(find "${OUTPUT_DIR}/docs" \( -name "*.md" -o -name "*.rst" \) -print0 2>/dev/null)
+    echo "  Updated ${DOCS_COUNT} files in docs/"
+fi
+
+# .claude/ directory - agent definitions, skills, shared configs
+if [[ -d "${OUTPUT_DIR}/.claude" ]]; then
+    CLAUDE_COUNT=0
+    while IFS= read -r -d '' file; do
+        if grep -q "fastapi_template" "$file" 2>/dev/null; then
+            sed -i "s/fastapi_template/${SED_REPLACEMENT}/g" "$file"
+            ((CLAUDE_COUNT++)) || true
+        fi
+    done < <(find "${OUTPUT_DIR}/.claude" -type f \( -name "*.md" -o -name "*.yaml" -o -name "*.yml" \) -print0 2>/dev/null)
+    echo "  Updated ${CLAUDE_COUNT} files in .claude/"
+fi
+
+# dotenv.example - environment variable defaults
+if [[ -f "${OUTPUT_DIR}/dotenv.example" ]]; then
+    if grep -q "fastapi_template" "${OUTPUT_DIR}/dotenv.example" 2>/dev/null; then
+        sed -i "s/fastapi_template/${SED_REPLACEMENT}/g" "${OUTPUT_DIR}/dotenv.example"
+        echo "  Updated: dotenv.example"
+    fi
+fi
+
 # Step 5: Verify Jinja2 templated files are preserved
 echo -e "${GREEN}[5/5] Verifying Jinja2 templated files...${NC}"
 
