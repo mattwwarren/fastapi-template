@@ -142,9 +142,6 @@ class TestLifespanEvents:
         mock_connection = AsyncMock()
         mock_connection.execute = AsyncMock()
 
-        async def mock_begin():
-            return mock_connection
-
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_connection)
         mock_context.__aexit__ = AsyncMock(return_value=None)

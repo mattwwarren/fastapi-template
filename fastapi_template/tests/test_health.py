@@ -44,7 +44,7 @@ class TestHealthErrorPaths:
     async def test_health_returns_503_on_operational_error(self, client: AsyncClient) -> None:
         """Health endpoint returns 503 when database connection fails."""
         with patch("fastapi_template.api.health.asyncio.wait_for") as mock_wait:
-            mock_wait.side_effect = OperationalError("connection refused", None, None)
+            mock_wait.side_effect = OperationalError(None, None, Exception("connection refused"))
 
             response = await client.get("/health")
 
@@ -55,7 +55,7 @@ class TestHealthErrorPaths:
     async def test_health_returns_503_on_database_error(self, client: AsyncClient) -> None:
         """Health endpoint returns 503 on generic database error."""
         with patch("fastapi_template.api.health.asyncio.wait_for") as mock_wait:
-            mock_wait.side_effect = DatabaseError("query failed", None, None)
+            mock_wait.side_effect = DatabaseError(None, None, Exception("query failed"))
 
             response = await client.get("/health")
 

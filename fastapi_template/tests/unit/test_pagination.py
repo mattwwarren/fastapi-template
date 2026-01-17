@@ -107,11 +107,6 @@ class TestConfigurePagination:
 
     def test_sets_valid_page_class(self) -> None:
         """Should call set_page with valid Page subclass."""
-        # Create a mock Page subclass
-        custom_page = MagicMock()
-        custom_page.__class__ = type
-        custom_page.__mro__ = [custom_page, Page, object]
-
         with (
             patch("fastapi_template.core.pagination.settings") as mock_settings,
             patch("fastapi_template.core.pagination.importlib") as mock_importlib,

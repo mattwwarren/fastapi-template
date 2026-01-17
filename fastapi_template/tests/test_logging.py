@@ -4,6 +4,7 @@ These are unit tests that do not require database access.
 """
 
 import logging
+from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -40,7 +41,7 @@ def default_auth_user_in_org() -> None:
 
 
 @pytest.fixture(autouse=True)
-def reset_context_vars() -> None:
+def reset_context_vars() -> Generator[None]:
     """Reset context vars before each test."""
     token1 = _request_id_var.set(None)
     token2 = _user_id_var.set(None)

@@ -34,7 +34,6 @@ async def engine() -> AsyncGenerator[AsyncEngine]:
     """Override engine fixture - unit tests should not use this."""
     error_msg = "Unit tests should not require database engine"
     raise NotImplementedError(error_msg)
-    return  # type: ignore[misc]  # pragma: no cover
 
 
 @pytest.fixture
@@ -42,4 +41,3 @@ async def session() -> AsyncGenerator[AsyncSession]:
     """Override session fixture - unit tests should not use this."""
     error_msg = "Unit tests should not require database session"
     raise NotImplementedError(error_msg)
-    return  # type: ignore[misc]  # pragma: no cover

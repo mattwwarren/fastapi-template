@@ -226,9 +226,9 @@ async def validation_exception_handler(
     FastAPI uses RequestValidationError for request body validation failures.
     """
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         content={
-            "status_code": status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "status_code": status.HTTP_422_UNPROCESSABLE_CONTENT,
             "error_code": "VALIDATION_ERROR",
             "message": "Request validation failed",
             "details": exc.errors(),
@@ -247,9 +247,9 @@ async def pydantic_validation_exception_handler(
     This catches ValidationError raised in service layer or business logic.
     """
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         content={
-            "status_code": status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "status_code": status.HTTP_422_UNPROCESSABLE_CONTENT,
             "error_code": "VALIDATION_ERROR",
             "message": "Data validation failed",
             "details": exc.errors(),

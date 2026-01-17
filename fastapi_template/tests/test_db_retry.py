@@ -32,7 +32,7 @@ _DB_TEST_ERROR = "test"
 
 def _create_operational_error(msg: str = _DB_FAIL_ERROR) -> OperationalError:
     """Create an OperationalError for testing."""
-    return OperationalError(msg, None, None)
+    return OperationalError(None, None, Exception(msg))
 
 
 class TestDbRetryDecorator:

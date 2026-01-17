@@ -3,6 +3,8 @@
 These are unit tests that do not require database access.
 """
 
+from typing import cast
+
 import pytest
 
 from fastapi_template.core.metrics import (
@@ -199,12 +201,12 @@ class TestMetricsApp:
         async def send(message: dict[str, object]) -> None:
             nonlocal received_status, received_headers, body_parts
             if message["type"] == "http.response.start":
-                received_status = message.get("status")  # type: ignore[assignment]
-                received_headers = list(message.get("headers", []))  # type: ignore[arg-type]
+                received_status = cast(int, message.get("status"))
+                received_headers = list(cast(list[tuple[bytes, bytes]], message.get("headers", [])))
             elif message["type"] == "http.response.body":
-                body = message.get("body", b"")
+                body = cast(bytes, message.get("body", b""))
                 if body:
-                    body_parts.append(body)  # type: ignore[arg-type]
+                    body_parts.append(body)
 
         scope = {
             "type": "http",
