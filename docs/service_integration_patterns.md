@@ -2,7 +2,7 @@
 
 ## Overview
 
-The file `{{ project_slug }}/core/http_client.py` (lines 61-253) contains **commented example patterns** showing how to integrate with external services. These are **REFERENCE IMPLEMENTATIONS**, not active code - uncomment and adapt when integrating with your services.
+The file `fastapi_template/core/http_client.py` (lines 61-253) contains **commented example patterns** showing how to integrate with external services. These are **REFERENCE IMPLEMENTATIONS**, not active code - uncomment and adapt when integrating with your services.
 
 This guide explains:
 - When to use the HTTP client
@@ -37,7 +37,7 @@ This guide explains:
 ### Basic Usage
 
 ```python
-from {{ project_slug }}.core.http_client import http_client
+from fastapi_template.core.http_client import http_client
 
 async def call_external_service():
     """Example: Call external service."""
@@ -267,7 +267,7 @@ async def resilient_service_call(url: str) -> dict:
 ### Add to Settings
 
 ```python
-# In {{ project_slug }}/core/config.py
+# In fastapi_template/core/config.py
 
 from pydantic import BaseSettings, validator
 
@@ -310,7 +310,7 @@ ANALYTICS_SERVICE_URL=http://localhost:8003
 ### Use in Code
 
 ```python
-from {{ project_slug }}.core.config import settings
+from fastapi_template.core.config import settings
 
 async def verify_token():
     """Use configured service URL."""
@@ -360,7 +360,7 @@ async def verify_token_with_auth_service(token: str) -> dict | None:
 
 **To use in middleware**:
 ```python
-from {{ project_slug }}.core.http_client import verify_token_with_auth_service
+from fastapi_template.core.http_client import verify_token_with_auth_service
 
 async def verify_auth(request: Request):
     """Middleware to verify tokens."""
@@ -509,7 +509,7 @@ from unittest.mock import AsyncMock
 @pytest.mark.asyncio
 async def test_verify_token_with_mock(httpx_mock):
     """Test token verification with mocked HTTP response."""
-    from {{ project_slug }}.core.http_client import verify_token_with_auth_service
+    from fastapi_template.core.http_client import verify_token_with_auth_service
 
     # Mock auth service response
     httpx_mock.add_response(
@@ -561,7 +561,7 @@ services:
 @pytest.mark.asyncio
 async def test_verify_token_integration():
     """Test with real test service."""
-    from {{ project_slug }}.core.http_client import verify_token_with_auth_service
+    from fastapi_template.core.http_client import verify_token_with_auth_service
 
     # Requires auth-service running on localhost:8001
     claims = await verify_token_with_auth_service("test-token")
@@ -589,7 +589,7 @@ def mock_auth_service():
 @pytest.mark.asyncio
 async def test_with_fixture(mock_auth_service):
     """Test using mock fixture."""
-    from {{ project_slug }}.core.http_client import verify_token_with_auth_service
+    from fastapi_template.core.http_client import verify_token_with_auth_service
 
     claims = await verify_token_with_auth_service("token")
     assert claims["sub"] == "user-123"

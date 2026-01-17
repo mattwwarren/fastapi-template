@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `archive_old_activity_logs_task()` in `{{ project_slug }}/core/background_tasks.py` is currently a **placeholder** that logs success but doesn't archive anything. This guide shows how to implement real log archival to manage database growth.
+The `archive_old_activity_logs_task()` in `fastapi_template/core/background_tasks.py` is currently a **placeholder** that logs success but doesn't archive anything. This guide shows how to implement real log archival to manage database growth.
 
 **Current Placeholder Behavior**:
 ```python
@@ -375,8 +375,8 @@ async def archive_logs_to_s3_with_checkpoint(
     batch_size: int = 1000
 ) -> None:
     """Archive logs to S3 with checkpoint-based resumption."""
-    from {{ project_slug }}.core.database import AsyncSessionLocal
-    from {{ project_slug }}.core.config import settings
+    from fastapi_template.core.database import AsyncSessionLocal
+    from fastapi_template.core.config import settings
     import json
     import gzip
 
@@ -504,8 +504,8 @@ async def verify_s3_archive_integrity(
     to_date: date
 ) -> dict:
     """Verify archived logs match database source."""
-    from {{ project_slug }}.core.database import AsyncSessionLocal
-    from {{ project_slug }}.core.config import settings
+    from fastapi_template.core.database import AsyncSessionLocal
+    from fastapi_template.core.config import settings
     import json
     import gzip
 
@@ -574,8 +574,8 @@ async def archive_logs_with_s3_fallback(
     days_older_than: int = 90
 ) -> None:
     """Archive to S3 with fallback to queue if S3 is down."""
-    from {{ project_slug }}.core.database import AsyncSessionLocal
-    from {{ project_slug }}.core.config import settings
+    from fastapi_template.core.database import AsyncSessionLocal
+    from fastapi_template.core.config import settings
     from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
     from botocore.exceptions import ClientError
 
@@ -609,7 +609,7 @@ async def archive_logs_with_s3_fallback(
 
 async def queue_archival_retry(org_id: UUID, days_older_than: int, retry_count: int = 0):
     """Queue failed archival for retry with exponential backoff."""
-    from {{ project_slug }}.core.database import AsyncSessionLocal
+    from fastapi_template.core.database import AsyncSessionLocal
 
     max_retries = 5
     if retry_count >= max_retries:
@@ -710,7 +710,7 @@ from datetime import datetime, timedelta, UTC
 from sqlalchemy import select, delete
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from botocore.exceptions import ClientError
-from {{ project_slug }}.models import ActivityLog
+from fastapi_template.models import ActivityLog
 
 @retry(
     retry=retry_if_exception_type(ClientError),
@@ -727,8 +727,8 @@ async def archive_logs_to_s3(
     batch_size: int = 1000
 ):
     """Archive logs to S3 with proper transaction handling."""
-    from {{ project_slug }}.core.database import AsyncSessionLocal
-    from {{ project_slug }}.core.config import settings
+    from fastapi_template.core.database import AsyncSessionLocal
+    from fastapi_template.core.config import settings
 
     cutoff_date = datetime.now(UTC) - timedelta(days=days_older_than)
 
@@ -796,7 +796,7 @@ async def retrieve_archived_logs(
     import gzip
     import json
     import aioboto3
-    from {{ project_slug }}.core.config import settings
+    from fastapi_template.core.config import settings
 
     all_logs = []
     session = aioboto3.Session()
@@ -860,7 +860,7 @@ async def archive_old_activity_logs_task(org_id: UUID, days_older_than: int) -> 
             extra={"org_id": str(org_id), "days_older_than": days_older_than},
         )
 
-        from {{ project_slug }}.core.database import AsyncSessionLocal
+        from fastapi_template.core.database import AsyncSessionLocal
         from sqlalchemy import select, delete, insert
 
         cutoff_date = datetime.now(UTC) - timedelta(days=days_older_than)
@@ -914,7 +914,7 @@ async def archive_old_activity_logs_task(org_id: UUID, days_older_than: int) -> 
 ```python
 async def get_archived_logs(org_id: UUID, from_date: date, to_date: date):
     """Query archived logs from cold storage."""
-    from {{ project_slug }}.core.database import AsyncSessionLocal
+    from fastapi_template.core.database import AsyncSessionLocal
     from sqlalchemy import select
 
     async with AsyncSessionLocal() as session:
@@ -950,7 +950,7 @@ async def archive_old_activity_logs_task(org_id: UUID, days_older_than: int) -> 
             },
         )
 
-        from {{ project_slug }}.core.database import AsyncSessionLocal
+        from fastapi_template.core.database import AsyncSessionLocal
         from sqlalchemy import delete
 
         cutoff_date = datetime.now(UTC) - timedelta(days=days_older_than)
@@ -1035,7 +1035,7 @@ async def handle_gdpr_deletion_request(
 async def delete_user_archives_from_s3(user_id: UUID, org_id: UUID) -> None:
     """Delete all S3 archives containing user's personal data."""
     import aioboto3
-    from {{ project_slug }}.core.config import settings
+    from fastapi_template.core.config import settings
 
     session = aioboto3.Session()
     async with session.client("s3") as s3:
@@ -1099,7 +1099,7 @@ async def delete_user_archives_from_s3(user_id: UUID, org_id: UUID) -> None:
 async def create_hipaa_compliant_s3_bucket() -> None:
     """Create S3 bucket with HIPAA compliance features."""
     import aioboto3
-    from {{ project_slug }}.core.config import settings
+    from fastapi_template.core.config import settings
 
     session = aioboto3.Session()
     async with session.client("s3") as s3:
@@ -1159,7 +1159,7 @@ async def archive_logs_hipaa_compliant(
     from datetime import datetime, timedelta, UTC
     import json, gzip
     import aioboto3
-    from {{ project_slug }}.core.config import settings
+    from fastapi_template.core.config import settings
 
     cutoff_date = datetime.now(UTC) - timedelta(days=days_older_than)
 
@@ -1236,8 +1236,8 @@ async def log_audit_access(
     timestamp: datetime = None
 ) -> None:
     """Log all access for SOC2 compliance."""
-    from {{ project_slug }}.core.database import AsyncSessionLocal
-    from {{ project_slug }}.models import AuditLog
+    from fastapi_template.core.database import AsyncSessionLocal
+    from fastapi_template.models import AuditLog
 
     if timestamp is None:
         timestamp = datetime.now(UTC)
@@ -1300,7 +1300,7 @@ Ensure logs are safely archived before deletion:
 ```python
 async def safe_archive_with_transaction(org_id: UUID, days_older_than: int):
     """Archive with transaction rollback on failure."""
-    from {{ project_slug }}.core.database import AsyncSessionLocal
+    from fastapi_template.core.database import AsyncSessionLocal
     from sqlalchemy import select, delete
 
     try:
@@ -1874,7 +1874,7 @@ async def backup_s3_archives(org_id: UUID, from_date: date, to_date: date) -> No
     """Backup S3 archives to secondary region for disaster recovery."""
     import aioboto3
     from datetime import datetime, UTC
-    from {{ project_slug }}.core.config import settings
+    from fastapi_template.core.config import settings
 
     session_s3 = aioboto3.Session()
 
@@ -1929,7 +1929,7 @@ Handle failures gracefully when archiving multiple organizations:
 ```python
 async def archive_all_orgs_with_concurrency(days_older_than: int = 90) -> None:
     """Archive logs for all organizations with proper concurrency control."""
-    from {{ project_slug }}.core.database import AsyncSessionLocal
+    from fastapi_template.core.database import AsyncSessionLocal
     from sqlalchemy import select
 
     async with AsyncSessionLocal() as session:
@@ -1988,7 +1988,7 @@ async def retrieve_archived_logs_optimized(
     """Retrieve archived logs with optional parallel downloads."""
     import gzip, json
     import aioboto3
-    from {{ project_slug }}.core.config import settings
+    from fastapi_template.core.config import settings
 
     all_logs = []
     session = aioboto3.Session()

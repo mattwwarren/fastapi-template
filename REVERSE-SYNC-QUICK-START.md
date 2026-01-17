@@ -96,7 +96,7 @@ cd fastapi-template
 ## What It's Doing Behind the Scenes
 
 1. **Finds** changed files in test instance
-2. **Maps** instance paths to template paths (`fastapi_template_test/` → `{{ project_slug }}/`)
+2. **Maps** instance paths to template paths (`fastapi_template_test/` → `fastapi_template/`)
 3. **Creates patches** of the changes
 4. **Applies** patches to template files
 5. **Verifies roundtrip** - ensures changes survive template transformation

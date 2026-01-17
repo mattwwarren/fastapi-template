@@ -1,6 +1,6 @@
 # Production Readiness Checklist
 
-Pre-deployment verification checklist for {{ project_slug }}. Complete all items before going live.
+Pre-deployment verification checklist for fastapi_template. Complete all items before going live.
 
 ## Quick Status
 
@@ -194,11 +194,11 @@ uv run pytest -v                 # Expected: 152/152 passing
 uv run pytest -v -k "security or sql_injection or xss or auth"
 
 # Configuration validation
-python -c "from {{ project_slug }}.core.config import settings; print(settings.validate())"
+python -c "from fastapi_template.core.config import settings; print(settings.validate())"
 
 # Database connectivity
 python -c "
-from {{ project_slug }}.db.session import engine
+from fastapi_template.db.session import engine
 import asyncio
 async def test():
     async with engine.begin() as conn:

@@ -1,6 +1,6 @@
 # Alerting Rules
 
-Prometheus alerting rules for {{ project_slug }}. Import these into your Prometheus AlertManager configuration.
+Prometheus alerting rules for fastapi_template. Import these into your Prometheus AlertManager configuration.
 
 ## Quick Start
 
@@ -16,7 +16,7 @@ Prometheus alerting rules for {{ project_slug }}. Import these into your Prometh
 
 ```yaml
 groups:
-  - name: {{ project_slug }}_availability
+  - name: fastapi_template_availability
     rules:
       # High Error Rate - Critical
       - alert: HighErrorRate
@@ -29,37 +29,37 @@ groups:
         for: 2m
         labels:
           severity: critical
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "High error rate detected (> 5%)"
           description: "Error rate is {{ "{{" }} $value | humanizePercentage {{ "}}" }} over the last 5 minutes."
-          runbook_url: "https://wiki.example.com/runbooks/{{ project_slug }}/high-error-rate"
+          runbook_url: "https://wiki.example.com/runbooks/fastapi_template/high-error-rate"
 
       # Service Down
       - alert: ServiceDown
-        expr: up{job="{{ project_slug }}"} == 0
+        expr: up{job="fastapi_template"} == 0
         for: 1m
         labels:
           severity: critical
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
-          summary: "{{ project_slug }} service is down"
-          description: "The {{ project_slug }} service has been unreachable for more than 1 minute."
-          runbook_url: "https://wiki.example.com/runbooks/{{ project_slug }}/service-down"
+          summary: "fastapi_template service is down"
+          description: "The fastapi_template service has been unreachable for more than 1 minute."
+          runbook_url: "https://wiki.example.com/runbooks/fastapi_template/service-down"
 
       # Health Check Failing
       - alert: HealthCheckFailing
         expr: |
-          probe_success{job="{{ project_slug }}-health"} == 0
+          probe_success{job="fastapi_template-health"} == 0
         for: 2m
         labels:
           severity: warning
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "Health check failing"
           description: "The /health endpoint is not returning success."
 
-  - name: {{ project_slug }}_latency
+  - name: fastapi_template_latency
     rules:
       # Slow Response Time (P95)
       - alert: SlowResponseTimeP95
@@ -70,11 +70,11 @@ groups:
         for: 5m
         labels:
           severity: warning
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "95th percentile latency above 1 second"
           description: "P95 latency is {{ "{{" }} $value | humanizeDuration {{ "}}" }}."
-          runbook_url: "https://wiki.example.com/runbooks/{{ project_slug }}/slow-response"
+          runbook_url: "https://wiki.example.com/runbooks/fastapi_template/slow-response"
 
       # Very Slow Response Time (P99)
       - alert: SlowResponseTimeP99
@@ -85,7 +85,7 @@ groups:
         for: 5m
         labels:
           severity: critical
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "99th percentile latency above 3 seconds"
           description: "P99 latency is {{ "{{" }} $value | humanizeDuration {{ "}}" }}. Investigate immediately."
@@ -99,12 +99,12 @@ groups:
         for: 5m
         labels:
           severity: warning
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "Endpoint {{ "{{" }} $labels.handler {{ "}}" }} is slow"
           description: "P95 latency for {{ "{{" }} $labels.handler {{ "}}" }} is {{ "{{" }} $value | humanizeDuration {{ "}}" }}."
 
-  - name: {{ project_slug }}_database
+  - name: fastapi_template_database
     rules:
       # Database Connection Failures
       - alert: DatabaseConnectionFailures
@@ -113,11 +113,11 @@ groups:
         for: 2m
         labels:
           severity: critical
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "Database connection errors detected"
           description: "{{ "{{" }} $value {{ "}}" }} connection errors per second in the last 5 minutes."
-          runbook_url: "https://wiki.example.com/runbooks/{{ project_slug }}/db-connection-failure"
+          runbook_url: "https://wiki.example.com/runbooks/fastapi_template/db-connection-failure"
 
       # Connection Pool Exhausted
       - alert: ConnectionPoolExhausted
@@ -127,7 +127,7 @@ groups:
         for: 5m
         labels:
           severity: warning
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "Database connection pool nearly exhausted"
           description: "Connection pool is {{ "{{" }} $value | humanizePercentage {{ "}}" }} utilized."
@@ -141,12 +141,12 @@ groups:
         for: 5m
         labels:
           severity: warning
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "Database queries are slow"
           description: "P95 query time is {{ "{{" }} $value | humanizeDuration {{ "}}" }}."
 
-  - name: {{ project_slug }}_authentication
+  - name: fastapi_template_authentication
     rules:
       # High Authentication Failure Rate
       - alert: HighAuthFailureRate
@@ -159,7 +159,7 @@ groups:
         for: 5m
         labels:
           severity: warning
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "High authentication failure rate (> 10%)"
           description: "{{ "{{" }} $value | humanizePercentage {{ "}}" }} of requests are failing authentication."
@@ -171,7 +171,7 @@ groups:
         for: 5m
         labels:
           severity: warning
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "JWT validation errors increasing"
           description: "{{ "{{" }} $value {{ "}}" }} JWT validation errors per second."
@@ -183,12 +183,12 @@ groups:
         for: 2m
         labels:
           severity: critical
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "JWKS fetch failing"
           description: "Cannot fetch JWKS from auth provider. Authentication may fail."
 
-  - name: {{ project_slug }}_rate_limiting
+  - name: fastapi_template_rate_limiting
     rules:
       # Rate Limit Hit
       - alert: RateLimitExceeded
@@ -197,12 +197,12 @@ groups:
         for: 5m
         labels:
           severity: warning
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "High rate of rate-limited requests"
           description: "{{ "{{" }} $value {{ "}}" }} requests per second are being rate limited."
 
-  - name: {{ project_slug }}_storage
+  - name: fastapi_template_storage
     rules:
       # Storage Operation Failures
       - alert: StorageOperationFailures
@@ -211,7 +211,7 @@ groups:
         for: 5m
         labels:
           severity: warning
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "Storage operations failing"
           description: "{{ "{{" }} $value {{ "}}" }} storage errors per second."
@@ -223,22 +223,22 @@ groups:
         for: 5m
         labels:
           severity: warning
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "High storage retry rate"
           description: "Storage operations are experiencing transient failures."
 
-  - name: {{ project_slug }}_resources
+  - name: fastapi_template_resources
     rules:
       # High Memory Usage
       - alert: HighMemoryUsage
         expr: |
-          (container_memory_usage_bytes{container="{{ project_slug }}"}
-           / container_spec_memory_limit_bytes{container="{{ project_slug }}"}) > 0.9
+          (container_memory_usage_bytes{container="fastapi_template"}
+           / container_spec_memory_limit_bytes{container="fastapi_template"}) > 0.9
         for: 5m
         labels:
           severity: warning
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "High memory usage (> 90%)"
           description: "Memory usage is {{ "{{" }} $value | humanizePercentage {{ "}}" }}."
@@ -246,12 +246,12 @@ groups:
       # High CPU Usage
       - alert: HighCPUUsage
         expr: |
-          rate(container_cpu_usage_seconds_total{container="{{ project_slug }}"}[5m])
-          / container_spec_cpu_quota{container="{{ project_slug }}"} > 0.9
+          rate(container_cpu_usage_seconds_total{container="fastapi_template"}[5m])
+          / container_spec_cpu_quota{container="fastapi_template"} > 0.9
         for: 5m
         labels:
           severity: warning
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "High CPU usage (> 90%)"
           description: "CPU usage is {{ "{{" }} $value | humanizePercentage {{ "}}" }}."
@@ -259,11 +259,11 @@ groups:
       # Pod Restart
       - alert: PodRestarting
         expr: |
-          increase(kube_pod_container_status_restarts_total{container="{{ project_slug }}"}[1h]) > 3
+          increase(kube_pod_container_status_restarts_total{container="fastapi_template"}[1h]) > 3
         for: 5m
         labels:
           severity: warning
-          service: {{ project_slug }}
+          service: fastapi_template
         annotations:
           summary: "Pod restarting frequently"
           description: "{{ "{{" }} $value {{ "}}" }} restarts in the last hour."
@@ -294,8 +294,8 @@ route:
 
     # All alerts also go to Slack
     - match:
-        service: {{ project_slug }}
-      receiver: 'slack-{{ project_slug }}'
+        service: fastapi_template
+      receiver: 'slack-fastapi_template'
 
 receivers:
   - name: 'default'
@@ -306,10 +306,10 @@ receivers:
       - service_key: '<YOUR_PAGERDUTY_SERVICE_KEY>'
         severity: critical
 
-  - name: 'slack-{{ project_slug }}'
+  - name: 'slack-fastapi_template'
     slack_configs:
       - api_url: '<YOUR_SLACK_WEBHOOK_URL>'
-        channel: '#{{ project_slug }}-alerts'
+        channel: '#fastapi_template-alerts'
         title: '{{ "{{" }} .Status | toUpper {{ "}}" }}: {{ "{{" }} .CommonAnnotations.summary {{ "}}" }}'
         text: '{{ "{{" }} .CommonAnnotations.description {{ "}}" }}'
         send_resolved: true
@@ -387,7 +387,7 @@ curl -X POST http://localhost:9093/api/v1/alerts \
     "labels": {
       "alertname": "TestAlert",
       "severity": "warning",
-      "service": "{{ project_slug }}"
+      "service": "fastapi_template"
     },
     "annotations": {
       "summary": "Test alert",
@@ -443,12 +443,12 @@ Then add alerts for these metrics:
 
 Each alert should link to a runbook. Create runbooks for:
 
-- [High Error Rate](https://wiki.example.com/runbooks/{{ project_slug }}/high-error-rate)
-- [Service Down](https://wiki.example.com/runbooks/{{ project_slug }}/service-down)
-- [Database Connection Failure](https://wiki.example.com/runbooks/{{ project_slug }}/db-connection-failure)
-- [Slow Response Time](https://wiki.example.com/runbooks/{{ project_slug }}/slow-response)
+- [High Error Rate](https://wiki.example.com/runbooks/fastapi_template/high-error-rate)
+- [Service Down](https://wiki.example.com/runbooks/fastapi_template/service-down)
+- [Database Connection Failure](https://wiki.example.com/runbooks/fastapi_template/db-connection-failure)
+- [Slow Response Time](https://wiki.example.com/runbooks/fastapi_template/slow-response)
 
 ---
 
 **Last Updated**: 2026-01-15
-**Maintainer**: {{ project_slug }} team
+**Maintainer**: fastapi_template team

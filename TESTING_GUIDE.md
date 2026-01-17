@@ -195,27 +195,27 @@ uv run pytest
 
 ### Run specific file
 ```bash
-uv run pytest {{ project_slug }}/tests/test_users.py
+uv run pytest fastapi_template/tests/test_users.py
 ```
 
 ### Run specific test
 ```bash
-uv run pytest {{ project_slug }}/tests/test_users.py::TestUserCRUD::test_create_user_success
+uv run pytest fastapi_template/tests/test_users.py::TestUserCRUD::test_create_user_success
 ```
 
 ### Run with coverage
 ```bash
-uv run pytest --cov={{ project_slug }} --cov-report=html
+uv run pytest --cov=fastapi_template --cov-report=html
 ```
 
 ### Run specific test class
 ```bash
-uv run pytest {{ project_slug }}/tests/test_users.py::TestUserCRUD
+uv run pytest fastapi_template/tests/test_users.py::TestUserCRUD
 ```
 
 ### Watch mode (requires pytest-watch)
 ```bash
-uv run pytest-watch {{ project_slug }}/tests/
+uv run pytest-watch fastapi_template/tests/
 ```
 
 ## Coverage Expectations
@@ -235,7 +235,7 @@ uv run pytest-watch {{ project_slug }}/tests/
 
 ### Coverage Report
 ```bash
-uv run pytest --cov={{ project_slug }} --cov-report=term-missing
+uv run pytest --cov=fastapi_template --cov-report=term-missing
 # Shows which lines aren't covered
 ```
 
@@ -278,7 +278,7 @@ async def test_endpoint_behavior(client: AsyncClient) -> None:
 
 ### See detailed output
 ```bash
-uv run pytest -vv {{ project_slug }}/tests/test_file.py::test_name
+uv run pytest -vv fastapi_template/tests/test_file.py::test_name
 ```
 
 ### Print debug info
@@ -292,7 +292,7 @@ async def test_something(client: AsyncClient) -> None:
 
 ### Run with database echo
 ```bash
-SQLALCHEMY_ECHO=true uv run pytest {{ project_slug }}/tests/test_users.py
+SQLALCHEMY_ECHO=true uv run pytest fastapi_template/tests/test_users.py
 ```
 
 ### Check database state during test
@@ -386,11 +386,11 @@ When running in CI/CD:
 ```bash
 # Run all checks
 uv run ruff check .
-uv run mypy {{ project_slug }}
-uv run pytest --cov={{ project_slug }}
+uv run mypy fastapi_template
+uv run pytest --cov=fastapi_template
 
 # Generate coverage report
-uv run pytest --cov={{ project_slug }} --cov-report=xml  # For CI upload
+uv run pytest --cov=fastapi_template --cov-report=xml  # For CI upload
 ```
 
 Tests should:

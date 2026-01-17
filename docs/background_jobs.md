@@ -86,7 +86,7 @@ async def shutdown():
 @router.post("/process-file", status_code=202)
 async def process_file_endpoint(file: UploadFile) -> dict:
     """Process file in background with job tracking."""
-    from {{ project_slug }}.main import scheduler
+    from fastapi_template.main import scheduler
 
     # Store file
     file_id = uuid4()
@@ -267,7 +267,7 @@ async def upload_document(
     session: SessionDep,
 ) -> DocumentRead:
     """Upload document with async processing."""
-    from {{ project_slug }}.main import scheduler
+    from fastapi_template.main import scheduler
 
     # Save metadata immediately (user sees response)
     document = Document(
@@ -378,7 +378,7 @@ async def cleanup_old_files_job() -> None:
 @router.post("/batch/process", status_code=202)
 async def submit_batch(batch_data: BatchRequest) -> dict:
     """Submit batch for processing."""
-    from {{ project_slug }}.main import scheduler
+    from fastapi_template.main import scheduler
 
     # Create batch record
     batch = Batch(
@@ -443,7 +443,7 @@ async def process_batch_job(batch_id: UUID, items: list[Any]) -> None:
 @router.get("/health/jobs")
 async def job_health() -> dict:
     """Get health status of job system."""
-    from {{ project_slug }}.main import scheduler
+    from fastapi_template.main import scheduler
 
     return {
         "scheduler": "healthy" if scheduler else "not_running",

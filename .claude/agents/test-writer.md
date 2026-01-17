@@ -15,7 +15,7 @@ Write comprehensive pytest tests for Python FastAPI microservices.
 ```python
 # tests/unit/services/test_user_service.py
 import pytest
-from {{ project_slug }}.services.user_service import UserService
+from fastapi_template.services.user_service import UserService
 
 @pytest.mark.asyncio
 async def test_create_user_success(db_session):
@@ -205,7 +205,7 @@ if coverage_report["overall"] < 80:
 
 ```bash
 # Run tests with coverage
-uv run pytest --cov={{ project_slug }} --cov-report=term-missing
+uv run pytest --cov=fastapi_template --cov-report=term-missing
 
 # Coverage thresholds
 # - Overall: 80%+

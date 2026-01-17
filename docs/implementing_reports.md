@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `generate_activity_report_task()` in `{{ project_slug }}/core/background_tasks.py` is currently a **placeholder** that logs success but doesn't generate reports. This guide shows how to implement real report generation and delivery.
+The `generate_activity_report_task()` in `fastapi_template/core/background_tasks.py` is currently a **placeholder** that logs success but doesn't generate reports. This guide shows how to implement real report generation and delivery.
 
 **Current Placeholder Behavior**:
 ```python
@@ -625,7 +625,7 @@ async def store_report_s3(
     report_format: str = "pdf"
 ) -> str:
     """Store report in S3 and return signed URL."""
-    from {{ project_slug }}.core.config import settings
+    from fastapi_template.core.config import settings
 
     from datetime import datetime, UTC
     key = f"reports/{org_id}/{datetime.now(UTC).date().isoformat()}/activity-report.{report_format}"
@@ -738,7 +738,7 @@ async def send_report_webhook(
     filename: str
 ) -> None:
     """Send report to webhook with retry and signature."""
-    from {{ project_slug }}.core.http_client import http_client
+    from fastapi_template.core.http_client import http_client
 
     webhook_url = await get_org_webhook_url(org_id)
     webhook_secret = settings.webhook_secret
@@ -898,7 +898,7 @@ async def send_report_email_with_template(
 **Schema**:
 ```python
 from sqlalchemy import Column, String, DateTime, Text
-from {{ project_slug }}.models import Base
+from fastapi_template.models import Base
 
 class EmailTemplate(Base):
     __tablename__ = "email_templates"
@@ -1100,7 +1100,7 @@ scheduler.add_job(
 
 async def generate_monthly_reports():
     """Generate reports for all organizations."""
-    from {{ project_slug }}.core.database import AsyncSessionLocal
+    from fastapi_template.core.database import AsyncSessionLocal
 
     async with AsyncSessionLocal() as session:
         orgs_stmt = select(Organization)
@@ -1120,7 +1120,7 @@ from celery import Celery
 from celery.schedules import crontab
 
 celery_app = Celery(
-    "{{ project_slug }}",
+    "fastapi_template",
     broker="redis://localhost:6379/0",
     backend="redis://localhost:6379/1"
 )
@@ -1128,11 +1128,11 @@ celery_app = Celery(
 # Configure celery beat schedule
 celery_app.conf.beat_schedule = {
     "generate-monthly-reports": {
-        "task": "{{ project_slug }}.tasks.generate_monthly_reports",
+        "task": "fastapi_template.tasks.generate_monthly_reports",
         "schedule": crontab(day_of_month=1, hour=2, minute=0),
     },
     "generate-weekly-reports": {
-        "task": "{{ project_slug }}.tasks.generate_weekly_reports",
+        "task": "fastapi_template.tasks.generate_weekly_reports",
         "schedule": crontab(day_of_week=0, hour=8, minute=0),  # Sunday 8 AM
     },
 }
@@ -1140,7 +1140,7 @@ celery_app.conf.beat_schedule = {
 @celery_app.task(name="generate_activity_report")
 def generate_activity_report_celery_task(org_id: str, report_type: str):
     """Sync wrapper for Celery - calls async function."""
-    from {{ project_slug }}.core.database import AsyncSessionLocal
+    from fastapi_template.core.database import AsyncSessionLocal
     from uuid import UUID
 
     async def run():
@@ -1160,7 +1160,7 @@ def generate_activity_report_celery_task(org_id: str, report_type: str):
 ### Option 3: User-Requested Reports
 
 ```python
-from {{ project_slug }}.api.deps import CurrentUserDep
+from fastapi_template.api.deps import CurrentUserDep
 
 @router.post("/reports/generate")
 async def request_report(
@@ -1169,7 +1169,7 @@ async def request_report(
     current_user: CurrentUserDep = None
 ):
     """User-requested report generation."""
-    from {{ project_slug }}.core.database import AsyncSessionLocal
+    from fastapi_template.core.database import AsyncSessionLocal
 
     if format not in ["pdf", "csv", "json"]:
         raise HTTPException(status_code=400, detail="Invalid format")
@@ -1546,7 +1546,7 @@ REPORT_GENERATION_SCHEDULE = {
 
 async def generate_reports_by_timezone() -> None:
     """Generate reports at optimal local times per organization."""
-    from {{ project_slug }}.core.database import AsyncSessionLocal
+    from fastapi_template.core.database import AsyncSessionLocal
     from zoneinfo import ZoneInfo
 
     async with AsyncSessionLocal() as session:
@@ -1584,7 +1584,7 @@ async def validate_aws_credentials() -> bool:
     """Verify AWS credentials are valid before operations."""
     import aioboto3
     from botocore.exceptions import ClientError
-    from {{ project_slug }}.core.config import settings
+    from fastapi_template.core.config import settings
 
     try:
         session = aioboto3.Session(

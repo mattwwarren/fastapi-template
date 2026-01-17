@@ -30,7 +30,7 @@ Extract JWT   Validate user   Extract org_id from:     Require tenant    Filter 
 
 ## Components
 
-### 1. TenantContext Model (`{{ project_slug }}/core/tenants.py`)
+### 1. TenantContext Model (`fastapi_template/core/tenants.py`)
 
 ```python
 class TenantContext(BaseModel):
@@ -65,7 +65,7 @@ class TenantContext(BaseModel):
 ### 3. TenantDep (Dependency)
 
 ```python
-from {{ project_slug }}.core.tenants import TenantDep
+from fastapi_template.core.tenants import TenantDep
 
 @router.get("/documents")
 async def list_documents(tenant: TenantDep) -> list[DocumentRead]:
@@ -83,7 +83,7 @@ Raises 401 if tenant context is not available.
 Automatically adds WHERE clause to filter by organization_id:
 
 ```python
-from {{ project_slug }}.core.tenants import add_tenant_filter
+from fastapi_template.core.tenants import add_tenant_filter
 
 stmt = select(Document)
 stmt = add_tenant_filter(stmt, tenant, Document.organization_id)
@@ -95,7 +95,7 @@ stmt = add_tenant_filter(stmt, tenant, Document.organization_id)
 Validates that a resource belongs to the current tenant (for create operations):
 
 ```python
-from {{ project_slug }}.core.tenants import validate_tenant_ownership
+from fastapi_template.core.tenants import validate_tenant_ownership
 
 @router.post("/documents")
 async def create_document(
@@ -204,14 +204,14 @@ ENFORCE_TENANT_ISOLATION=true
 ### Main Application Setup
 
 ```python
-# {{ project_slug }}/main.py
+# fastapi_template/main.py
 
 # 1. Add AuthMiddleware first
-from {{ project_slug }}.core.auth import AuthMiddleware
+from fastapi_template.core.auth import AuthMiddleware
 app.add_middleware(AuthMiddleware)
 
 # 2. Add TenantIsolationMiddleware AFTER AuthMiddleware
-from {{ project_slug }}.core.tenants import TenantIsolationMiddleware
+from fastapi_template.core.tenants import TenantIsolationMiddleware
 app.add_middleware(TenantIsolationMiddleware)
 ```
 
@@ -222,7 +222,7 @@ app.add_middleware(TenantIsolationMiddleware)
 ### Example 1: List Endpoint with Tenant Filtering
 
 ```python
-from {{ project_slug }}.core.tenants import TenantDep, add_tenant_filter
+from fastapi_template.core.tenants import TenantDep, add_tenant_filter
 
 @router.get("/documents")
 async def list_documents(
@@ -238,7 +238,7 @@ async def list_documents(
 ### Example 2: Create Endpoint with Tenant Scoping
 
 ```python
-from {{ project_slug }}.core.tenants import TenantDep
+from fastapi_template.core.tenants import TenantDep
 
 @router.post("/documents")
 async def create_document(
@@ -259,7 +259,7 @@ async def create_document(
 ### Example 3: Update/Delete with Tenant Verification
 
 ```python
-from {{ project_slug }}.core.tenants import TenantDep, add_tenant_filter
+from fastapi_template.core.tenants import TenantDep, add_tenant_filter
 
 @router.delete("/documents/{document_id}")
 async def delete_document(
@@ -319,7 +319,7 @@ An OWNER can perform all ADMIN operations, and an ADMIN can perform all MEMBER o
 #### 1. MembershipRole Enum
 
 ```python
-from {{ project_slug }}.models.membership import MembershipRole
+from fastapi_template.models.membership import MembershipRole
 
 class MembershipRole(str, enum.Enum):
     OWNER = "owner"
@@ -343,7 +343,7 @@ class Membership(TimestampedTable, MembershipBase, table=True):
 #### 3. Permission Dependencies
 
 ```python
-from {{ project_slug }}.core.permissions import RequireAdmin, RequireOwner
+from fastapi_template.core.permissions import RequireAdmin, RequireOwner
 
 # Require ADMIN role (or higher)
 @router.patch("/organizations/{organization_id}")
@@ -407,8 +407,8 @@ async def delete_org(
 ### Usage Example
 
 ```python
-from {{ project_slug }}.core.permissions import RequireAdmin, RequireOwner
-from {{ project_slug }}.core.tenants import TenantDep
+from fastapi_template.core.permissions import RequireAdmin, RequireOwner
+from fastapi_template.core.tenants import TenantDep
 
 @router.post("/memberships")
 async def add_member(
@@ -513,9 +513,9 @@ async def test_middleware_prevents_cross_tenant_access(client: AsyncClient):
 ### New Projects
 
 Follow the patterns shown in:
-- `{{ project_slug }}/models/document.py` - Model with organization_id
-- `{{ project_slug }}/api/documents.py` - Endpoints using TenantDep
-- `{{ project_slug }}/services/organization_service.py` - Services with user_id filtering
+- `fastapi_template/models/document.py` - Model with organization_id
+- `fastapi_template/api/documents.py` - Endpoints using TenantDep
+- `fastapi_template/services/organization_service.py` - Services with user_id filtering
 
 ## Troubleshooting
 

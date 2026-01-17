@@ -106,7 +106,7 @@ Always test in the persistent test instance first:
 ```bash
 # Modify template source
 cd $HOME/workspace/meta-work/fastapi-template
-vim "{{ project_slug }}/services/user_service.py"
+vim "fastapi_template/services/user_service.py"
 
 # Commit template change
 git commit -m "Fix user email validation"
@@ -304,7 +304,7 @@ def validate_email(email: str) -> bool:
 **Result** in template:
 
 ```python
-# {{ project_slug }}/models/validators.py
+# fastapi_template/models/validators.py
 
 from typing import Annotated
 
@@ -348,7 +348,7 @@ Email = Annotated[str, PlainValidator(validate_email_with_international_support)
 Then use in models:
 
 ```python
-# {{ project_slug }}/models/user.py
+# fastapi_template/models/user.py
 
 from pydantic import BaseModel
 from .validators import Email
@@ -388,30 +388,28 @@ for instance in /projects/users-api /projects/orders-api; do
 done
 ```
 
-### Using Jinja2 for Customizable Patterns
+### Authentication Provider Validators
 
-Some patterns need customization per instance. Use Copier's Jinja2 templating:
-
-**Template**:
+Different authentication providers require different validation. Here are examples for common providers:
 
 ```python
-# {{ project_slug }}/models/validators.py
+# fastapi_template/models/validators.py
 
-{% if auth_provider_type == "ory" %}
+# When using Ory authentication:
 def validate_ory_user_id(user_id: str) -> str:
     """Validate Ory user ID format."""
     if not user_id.startswith("identity/"):
         raise ValueError("Ory user ID must start with 'identity/'")
     return user_id
-{% elif auth_provider_type == "cognito" %}
+
+# When using AWS Cognito authentication:
 def validate_cognito_user_id(user_id: str) -> str:
     """Validate AWS Cognito user ID format."""
     # Different validation for Cognito
     return user_id
-{% endif %}
 ```
 
-Instance-specific code is generated based on answers.
+Choose the appropriate validator based on your authentication provider.
 
 ---
 
@@ -649,7 +647,7 @@ Found 7 file(s) to sync
 File 1/7: fastapi_template_test/core/http_client.py
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Template path: {{ project_slug }}/core/http_client.py
+Template path: fastapi_template/core/http_client.py
 
 Changes:
 -from datetime import datetime
@@ -684,12 +682,12 @@ Syncs all changed files without prompts. Useful for CI or when you're confident 
 
 2. **Interactive Review** (unless `--auto`)
    - Shows each file's diff
-   - Maps instance paths to template paths (`fastapi_template_test/` → `{{ project_slug }}/`)
+   - Maps instance paths to template paths (`fastapi_template_test/` → `fastapi_template/`)
    - Asks for approval
 
 3. **Path Transformation**
    - Converts instance-specific paths to Jinja2 template variables
-   - Example: `fastapi_template_test/models/user.py` → `{{ project_slug }}/models/user.py`
+   - Example: `fastapi_template_test/models/user.py` → `fastapi_template/models/user.py`
 
 4. **Patch Application**
    - Creates git patches from instance changes
@@ -828,7 +826,7 @@ Info: Commit template changes anyway? (y/n)
 If `git apply` fails on a patch:
 
 ```
-Error: Failed to apply patch for: {{ project_slug }}/core/auth.py
+Error: Failed to apply patch for: fastapi_template/core/auth.py
 ```
 
 **Possible causes:**
@@ -846,7 +844,7 @@ If copier update produces diffs:
 
 ```
 Unexpected changes after copier update:
-{{ project_slug }}/models/user.py | 15 ++++++---
+fastapi_template/models/user.py | 15 ++++++---
 ```
 
 **Possible causes:**

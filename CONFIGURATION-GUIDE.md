@@ -38,7 +38,7 @@ For local development without any authentication:
 ```bash
 # .env
 AUTH_PROVIDER_TYPE=none
-# Don't uncomment AuthMiddleware in {{ project_slug }}/main.py
+# Don't uncomment AuthMiddleware in fastapi_template/main.py
 ```
 
 **Behavior**:
@@ -72,7 +72,7 @@ ORY_JWKS_URL=https://your-tenant.ory.sh/.well-known/jwks.json
 ORY_INTROSPECTION_URL=https://your-tenant.ory.sh/admin/oauth2/introspect  # Optional
 ```
 
-**Enable middleware** in `{{ project_slug }}/main.py`:
+**Enable middleware** in `fastapi_template/main.py`:
 
 ```python
 app.add_middleware(AuthMiddleware)
@@ -87,7 +87,7 @@ curl -X POST https://your-tenant.ory.sh/oauth2/token \
   -d "client_id=...&client_secret=...&grant_type=client_credentials"
 
 # Use token to call your API
-curl http://localhost:{{ port }}/users \
+curl http://localhost:8000/users \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -114,7 +114,7 @@ AUTH0_JWKS_URL=https://your-domain.auth0.com/.well-known/jwks.json
 AUTH0_AUDIENCE=your-api-identifier  # Optional: if using audience claims
 ```
 
-**Enable middleware** in `{{ project_slug }}/main.py`:
+**Enable middleware** in `fastapi_template/main.py`:
 
 ```python
 app.add_middleware(AuthMiddleware)
@@ -134,7 +134,7 @@ https://your-domain.auth0.com/.well-known/openid-configuration
 ```bash
 # Get token via Auth0 (requires configured client)
 # Then use token with your API:
-curl http://localhost:{{ port }}/users \
+curl http://localhost:8000/users \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -161,7 +161,7 @@ KEYCLOAK_REALM_URL=https://keycloak.example.com/realms/myrealm
 KEYCLOAK_JWKS_URL=https://keycloak.example.com/realms/myrealm/protocol/openid-connect/certs
 ```
 
-**Enable middleware** in `{{ project_slug }}/main.py`:
+**Enable middleware** in `fastapi_template/main.py`:
 
 ```python
 app.add_middleware(AuthMiddleware)
@@ -203,7 +203,7 @@ COGNITO_USER_POOL_ID=us-east-1_xxxxxxxxx  # From AWS Console
 COGNITO_JWKS_URL=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_xxxxxxxxx/.well-known/jwks.json
 ```
 
-**Enable middleware** in `{{ project_slug }}/main.py`:
+**Enable middleware** in `fastapi_template/main.py`:
 
 ```python
 app.add_middleware(AuthMiddleware)
@@ -231,7 +231,7 @@ For applications with a single organization:
 ```bash
 # .env
 ENFORCE_TENANT_ISOLATION=false
-# Don't uncomment TenantIsolationMiddleware in {{ project_slug }}/main.py
+# Don't uncomment TenantIsolationMiddleware in fastapi_template/main.py
 ```
 
 **When to use**:
@@ -248,7 +248,7 @@ For SaaS with multiple independent organizations:
 ```bash
 # .env
 ENFORCE_TENANT_ISOLATION=true
-# Uncomment TenantIsolationMiddleware in {{ project_slug }}/main.py (AFTER AuthMiddleware!)
+# Uncomment TenantIsolationMiddleware in fastapi_template/main.py (AFTER AuthMiddleware!)
 ```
 
 **What this enables**:
@@ -260,7 +260,7 @@ ENFORCE_TENANT_ISOLATION=true
 **Middleware order** (critical!):
 
 ```python
-# In {{ project_slug }}/main.py, add in this order:
+# In fastapi_template/main.py, add in this order:
 
 # 1. Authentication FIRST
 app.add_middleware(AuthMiddleware)
@@ -472,7 +472,7 @@ STRUCTURED_LOGGING=true                    # Include request context
 
 **Metrics endpoint**:
 ```bash
-curl http://localhost:{{ port }}/metrics
+curl http://localhost:8000/metrics
 ```
 
 **Metrics include**:
@@ -672,7 +672,7 @@ This template includes background task **scaffolding** that must be implemented 
 
 ### HTTP Client Reference Examples
 
-The file `{{ project_slug }}/core/http_client.py` contains commented examples (lines 61-253):
+The file `fastapi_template/core/http_client.py` contains commented examples (lines 61-253):
 - `verify_token_with_auth_service` - Auth service integration pattern
 - `send_notification` - Notification service pattern
 - `report_activity` - Analytics service pattern
@@ -686,7 +686,7 @@ See [service_integration_patterns.md](docs/service_integration_patterns.md) for 
 
 ```bash
 # Check for unimplemented placeholders
-grep -n "asyncio.sleep(0.1)" {{ project_slug }}/core/background_tasks.py
+grep -n "asyncio.sleep(0.1)" fastapi_template/core/background_tasks.py
 
 # If this returns results, implement or remove those functions
 ```

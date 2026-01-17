@@ -46,14 +46,14 @@ The comprehensive code review of `feat/claude-copier → main` (~110 files) foun
 ### Phase 1: RBAC Patterns ✅
 
 **Deliverables Implemented:**
-- `MembershipRole` enum in `{{ project_slug }}/models/membership.py:17-29`
+- `MembershipRole` enum in `fastapi_template/models/membership.py:17-29`
   - Three roles: OWNER, ADMIN, MEMBER with documented hierarchy
 - `role` field in Membership model (line 47-54) with database constraints
-- `{{ project_slug }}/core/permissions.py` (222 lines):
+- `fastapi_template/core/permissions.py` (222 lines):
   - `_role_hierarchy_check()` function enforcing OWNER > ADMIN > MEMBER
   - `require_role()` factory function for FastAPI dependencies
   - Type aliases: `RequireOwner`, `RequireAdmin`, `RequireMember`
-- RBAC tests in `{{ project_slug }}/tests/test_rbac_permissions.py` (673 lines, 20+ tests)
+- RBAC tests in `fastapi_template/tests/test_rbac_permissions.py` (673 lines, 20+ tests)
 - RBAC section in `docs/TENANT_ISOLATION.md:299-439`
 
 **Protected Operations:**
@@ -91,7 +91,7 @@ The comprehensive code review of `feat/claude-copier → main` (~110 files) foun
 ### Phase 3: Placeholder Documentation ✅
 
 **Deliverables Implemented:**
-- `{{ project_slug }}/core/background_tasks.py` updated with inline TODOs:
+- `fastapi_template/core/background_tasks.py` updated with inline TODOs:
   - Lines 50-52: `send_welcome_email_task()` → refs `docs/implementing_email_service.md`
   - Lines 99-101: `archive_old_activity_logs_task()` → refs `docs/implementing_log_archival.md`
   - Lines 149-151: `generate_activity_report_task()` → refs `docs/implementing_reports.md`
@@ -299,10 +299,10 @@ Expected results:
 ### Key Files
 
 **Core:**
-- `{{ project_slug }}/core/auth.py` - Authentication middleware and JWT validation
-- `{{ project_slug }}/core/tenants.py` - Tenant isolation and org filtering
-- `{{ project_slug }}/core/permissions.py` - RBAC role enforcement
-- `{{ project_slug }}/core/storage_providers.py` - Multi-provider storage abstraction
+- `fastapi_template/core/auth.py` - Authentication middleware and JWT validation
+- `fastapi_template/core/tenants.py` - Tenant isolation and org filtering
+- `fastapi_template/core/permissions.py` - RBAC role enforcement
+- `fastapi_template/core/storage_providers.py` - Multi-provider storage abstraction
 
 **Configuration:**
 - `copier.yaml` - Template questions and generation config

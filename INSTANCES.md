@@ -8,7 +8,7 @@ This template uses a **runnable-first** architecture:
 
 - **Main branch** contains runnable Python code (`fastapi_template/`)
 - **`copier` branch** contains the Copier template (auto-generated on release)
-- Template variables (`{{ project_slug }}`) are generated at release time via GitHub Actions
+- Template variables (`fastapi_template`) are generated at release time via GitHub Actions
 
 This approach provides several benefits:
 - Developers can work directly on main branch with full IDE support
@@ -72,7 +72,7 @@ uv run pytest
 ### Old Workflow (Deprecated)
 
 Previously, the template used a "template-first" approach:
-- Main branch contained Copier template with `{{ project_slug }}` variables
+- Main branch contained Copier template with `fastapi_template` variables
 - Development required creating test instances
 - The `manage-test-instance.sh` script managed instance lifecycle
 - Changes required template-instance sync workflows
@@ -142,7 +142,7 @@ If you were using `manage-test-instance.sh` for development:
 When a release is created:
 
 1. GitHub Actions runs the templatization workflow
-2. The workflow generates `{{ project_slug }}` variables from `fastapi_template/`
+2. The workflow generates `fastapi_template` variables from `fastapi_template/`
 3. The templatized version is pushed to the `copier` branch
 4. External users can then generate from `--vcs-ref copier`
 
