@@ -15,8 +15,10 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from pydantic_core import InitErrorDetails, PydanticCustomError
 
+from fastapi_template.core.config import ConfigurationError
 from fastapi_template.main import (
     generic_exception_handler,
+    lifespan,
     pydantic_validation_exception_handler,
     validation_exception_handler,
     value_error_exception_handler,
@@ -130,8 +132,6 @@ class TestLifespanEvents:
     @pytest.mark.asyncio
     async def test_lifespan_startup_validates_config(self) -> None:
         """Should validate configuration on startup."""
-        from fastapi_template.main import lifespan
-
         mock_app = MagicMock()
         mock_app.state = MagicMock()
 
@@ -171,9 +171,6 @@ class TestLifespanEvents:
     @pytest.mark.asyncio
     async def test_lifespan_startup_raises_on_config_error(self) -> None:
         """Should raise ConfigurationError on invalid config."""
-        from fastapi_template.core.config import ConfigurationError
-        from fastapi_template.main import lifespan
-
         mock_app = MagicMock()
 
         with patch("fastapi_template.main.settings") as mock_settings:
@@ -186,8 +183,6 @@ class TestLifespanEvents:
     @pytest.mark.asyncio
     async def test_lifespan_startup_raises_on_db_connection_failure(self) -> None:
         """Should raise RuntimeError on database connection failure."""
-        from fastapi_template.main import lifespan
-
         mock_app = MagicMock()
         mock_app.state = MagicMock()
 

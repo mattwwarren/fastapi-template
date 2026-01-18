@@ -13,6 +13,7 @@ from collections.abc import AsyncGenerator, Generator
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID
 
 import filelock
@@ -745,3 +746,75 @@ async def default_auth_user_in_org(
             )
             session.add(test_membership)
             await session.commit()
+
+
+# =============================================================================
+# HTTP Client Mock Fixtures for Auth Tests
+# =============================================================================
+
+
+@pytest.fixture
+def mock_http_client_factory() -> Generator[Any]:
+    """Factory for creating properly configured mock HTTP clients.
+
+    Creates mock HTTP clients that correctly implement the async context manager
+    protocol to avoid RuntimeWarnings from unawaited coroutines.
+
+    Usage:
+        def test_auth0_success(mock_http_client_factory):
+            mock_client = mock_http_client_factory(
+                get_response={"sub": "user-123", "email": "test@example.com"},
+                get_status=200,
+            )
+            with patch("fastapi_template.core.auth.http_client", return_value=mock_client):
+                # test code
+
+    Args:
+        get_response: JSON response for GET requests
+        post_response: JSON response for POST requests
+        get_status: HTTP status code for GET responses (default: 200)
+        post_status: HTTP status code for POST responses (default: 200)
+        get_side_effect: Exception to raise on GET (for error testing)
+        post_side_effect: Exception to raise on POST (for error testing)
+
+    Returns:
+        Factory function that creates configured mock clients
+    """
+
+    def _create_mock(  # noqa: PLR0913 - factory needs all params for flexibility
+        get_response: dict[str, Any] | None = None,
+        post_response: dict[str, Any] | None = None,
+        get_status: int = 200,
+        post_status: int = 200,
+        get_side_effect: Exception | None = None,
+        post_side_effect: Exception | None = None,
+    ) -> MagicMock:
+        mock_client = AsyncMock()
+
+        # Configure async context manager properly to avoid RuntimeWarnings
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        # Configure GET
+        if get_side_effect:
+            mock_client.get = AsyncMock(side_effect=get_side_effect)
+        else:
+            get_mock_response = MagicMock()
+            get_mock_response.status_code = get_status
+            get_mock_response.json.return_value = get_response or {}
+            get_mock_response.raise_for_status = MagicMock()
+            mock_client.get = AsyncMock(return_value=get_mock_response)
+
+        # Configure POST
+        if post_side_effect:
+            mock_client.post = AsyncMock(side_effect=post_side_effect)
+        else:
+            post_mock_response = MagicMock()
+            post_mock_response.status_code = post_status
+            post_mock_response.json.return_value = post_response or {}
+            post_mock_response.raise_for_status = MagicMock()
+            mock_client.post = AsyncMock(return_value=post_mock_response)
+
+        return mock_client
+
+    return _create_mock  # type: ignore[return-value]
