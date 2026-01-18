@@ -8,7 +8,7 @@ bypassing the API layer to achieve better coverage of:
 - Edge cases
 """
 
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -224,18 +224,18 @@ class TestListOrganizationsForUser:
         # Create user
         user = User(name="Org User", email=f"org-user-{uuid4()}@example.com")
         session.add(user)
-        await session.flush()
+        await session.flush()  # type: ignore[attr-defined]
 
         # Create organizations
         org1 = Organization(name=f"Org 1 {uuid4()}")
         org2 = Organization(name=f"Org 2 {uuid4()}")
-        session.add_all([org1, org2])
-        await session.flush()
+        session.add_all([org1, org2])  # type: ignore[attr-defined]
+        await session.flush()  # type: ignore[attr-defined]
 
         # Create memberships
         m1 = Membership(user_id=user.id, organization_id=org1.id, role=MembershipRole.MEMBER)
         m2 = Membership(user_id=user.id, organization_id=org2.id, role=MembershipRole.ADMIN)
-        session.add_all([m1, m2])
+        session.add_all([m1, m2])  # type: ignore[attr-defined]
         await session.commit()
 
         # List organizations
@@ -283,13 +283,13 @@ class TestListOrganizationsForUsers:
         # Create users
         user1 = User(name="Batch User 1", email=f"batch1-{uuid4()}@example.com")
         user2 = User(name="Batch User 2", email=f"batch2-{uuid4()}@example.com")
-        session.add_all([user1, user2])
-        await session.flush()
+        session.add_all([user1, user2])  # type: ignore[attr-defined]
+        await session.flush()  # type: ignore[attr-defined]
 
         # Create org and membership for only user1
         org = Organization(name=f"Batch Org {uuid4()}")
         session.add(org)
-        await session.flush()
+        await session.flush()  # type: ignore[attr-defined]
 
         membership = Membership(
             user_id=user1.id, organization_id=org.id, role=MembershipRole.MEMBER
@@ -317,12 +317,12 @@ class TestListOrganizationsForUsers:
         # Create user
         user = User(name="Multi Org User", email=f"multi-org-{uuid4()}@example.com")
         session.add(user)
-        await session.flush()
+        await session.flush()  # type: ignore[attr-defined]
 
         # Create multiple organizations
         orgs = [Organization(name=f"Multi Org {i} {uuid4()}") for i in range(3)]
-        session.add_all(orgs)
-        await session.flush()
+        session.add_all(orgs)  # type: ignore[attr-defined]
+        await session.flush()  # type: ignore[attr-defined]
 
         # Create memberships for all orgs
         for org in orgs:

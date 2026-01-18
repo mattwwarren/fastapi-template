@@ -9,7 +9,7 @@ These tests cover:
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import select
@@ -220,7 +220,7 @@ class TestLogActivityDecorator:
         resource_id = uuid4()
 
         @log_activity_decorator(ActivityAction.CREATE, "test_decorated")
-        async def mock_endpoint(session: AsyncSession) -> dict:
+        async def mock_endpoint(session: AsyncSession) -> dict:  # noqa: ARG001
             return {"id": resource_id}
 
         result = await mock_endpoint(session=session)
@@ -247,7 +247,7 @@ class TestLogActivityDecorator:
         resource_id = uuid4()
 
         @log_activity_decorator(ActivityAction.READ, "test_dict")
-        async def mock_endpoint(session: AsyncSession) -> dict:
+        async def mock_endpoint(session: AsyncSession) -> dict:  # noqa: ARG001
             return {"id": resource_id, "name": "test"}
 
         await mock_endpoint(session=session)
@@ -272,7 +272,7 @@ class TestLogActivityDecorator:
         @log_activity_decorator(
             ActivityAction.DELETE, "test_path_param", resource_id_param_name="item_id"
         )
-        async def delete_endpoint(item_id: uuid4, session: AsyncSession) -> None:
+        async def delete_endpoint(item_id: UUID, session: AsyncSession) -> None:
             # DELETE returns None, no response body with id
             pass
 
