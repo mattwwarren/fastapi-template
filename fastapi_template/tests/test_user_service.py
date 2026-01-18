@@ -13,6 +13,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi_template.core.metrics import users_created_total
 from fastapi_template.models.membership import Membership, MembershipRole
 from fastapi_template.models.organization import Organization
 from fastapi_template.models.user import User, UserCreate, UserUpdate
@@ -133,8 +134,6 @@ class TestCreateUser:
     @pytest.mark.asyncio
     async def test_create_user_increments_metric(self, session: AsyncSession) -> None:
         """create_user increments the users_created_total counter."""
-        from fastapi_template.core.metrics import users_created_total
-
         # Get current count (may not have any samples yet for this label)
         try:
             before = users_created_total.labels(environment="test")._value.get()

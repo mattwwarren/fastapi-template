@@ -13,6 +13,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi_template.core.metrics import active_memberships_gauge, organizations_created_total
 from fastapi_template.models.membership import Membership, MembershipRole
 from fastapi_template.models.organization import Organization, OrganizationCreate, OrganizationUpdate
 from fastapi_template.models.user import User
@@ -189,8 +190,6 @@ class TestCreateOrganization:
     @pytest.mark.asyncio
     async def test_create_organization_increments_metric(self, session: AsyncSession) -> None:
         """create_organization increments the organizations_created_total counter."""
-        from fastapi_template.core.metrics import organizations_created_total
-
         # Get current count
         try:
             before = organizations_created_total.labels(environment="test")._value.get()
@@ -265,8 +264,6 @@ class TestDeleteOrganization:
         self, session: AsyncSession
     ) -> None:
         """delete_organization decrements active_memberships_gauge by membership count."""
-        from fastapi_template.core.metrics import active_memberships_gauge
-
         # Create org with memberships
         org = Organization(name=f"Gauge Delete Org {uuid4()}")
         user1 = User(name="Gauge User 1", email=f"gauge1-{uuid4()}@example.com")

@@ -13,6 +13,7 @@ from collections.abc import AsyncGenerator, Generator
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID
 
 import filelock
@@ -779,7 +780,6 @@ def mock_http_client_factory() -> Generator[Any]:
     Returns:
         Factory function that creates configured mock clients
     """
-    from unittest.mock import AsyncMock, MagicMock
 
     def _create_mock(  # noqa: PLR0913 - factory needs all params for flexibility
         get_response: dict[str, Any] | None = None,

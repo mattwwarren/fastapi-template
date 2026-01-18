@@ -2,11 +2,18 @@
 
 from http import HTTPStatus
 from io import BytesIO
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import AsyncClient
 
 from fastapi_template.core.config import settings
+from fastapi_template.core.storage import (
+    StorageError,
+    StorageProvider,
+    get_storage_service,
+)
+from fastapi_template.main import app
 
 # Test file sizes
 TEST_BINARY_FILE_SIZE = 256  # bytes - size of test binary data (0-255)
@@ -296,11 +303,6 @@ class TestDocumentStorageErrors:
         - Error message includes storage failure details
         - Database transaction rolled back (no orphaned metadata)
         """
-        from unittest.mock import AsyncMock
-
-        from fastapi_template.core.storage import StorageError, get_storage_service
-        from fastapi_template.main import app
-
         # Create mock storage service that raises on upload
         mock_storage = AsyncMock()
         mock_storage.upload.side_effect = StorageError("Simulated storage failure")
@@ -331,11 +333,6 @@ class TestDocumentStorageErrors:
         - 503 Service Unavailable returned for local storage errors
         - Error message includes storage failure details
         """
-        from unittest.mock import AsyncMock
-
-        from fastapi_template.core.storage import StorageError, get_storage_service
-        from fastapi_template.main import app
-
         # First upload a document successfully
         file_content = b"Test download content"
         files = {"file": ("download_error_test.txt", BytesIO(file_content), "text/plain")}
@@ -372,11 +369,6 @@ class TestDocumentStorageErrors:
         - 404 Not Found returned (not 503)
         - Error message distinguishes this from "document not found"
         """
-        from unittest.mock import AsyncMock
-
-        from fastapi_template.core.storage import get_storage_service
-        from fastapi_template.main import app
-
         # First upload a document successfully
         file_content = b"Test missing file content"
         files = {"file": ("missing_file_test.txt", BytesIO(file_content), "text/plain")}
@@ -411,11 +403,6 @@ class TestDocumentStorageErrors:
         - 503 Service Unavailable returned
         - Document metadata not deleted (consistency maintained)
         """
-        from unittest.mock import AsyncMock
-
-        from fastapi_template.core.storage import StorageError, get_storage_service
-        from fastapi_template.main import app
-
         # First upload a document successfully
         file_content = b"Test delete error content"
         files = {"file": ("delete_error_test.txt", BytesIO(file_content), "text/plain")}
@@ -456,11 +443,6 @@ class TestDocumentCloudProviderPaths:
         Tests the redirect path when storage_provider is a cloud provider.
         Uses mocking to simulate cloud provider behavior without actual cloud deps.
         """
-        from unittest.mock import AsyncMock, patch
-
-        from fastapi_template.core.storage import StorageProvider, get_storage_service
-        from fastapi_template.main import app
-
         # First upload a document with local storage
         file_content = b"Test cloud redirect content"
         files = {"file": ("cloud_test.txt", BytesIO(file_content), "text/plain")}
@@ -503,15 +485,6 @@ class TestDocumentCloudProviderPaths:
         - 503 Service Unavailable returned
         - Error message includes storage failure details
         """
-        from unittest.mock import AsyncMock, patch
-
-        from fastapi_template.core.storage import (
-            StorageError,
-            StorageProvider,
-            get_storage_service,
-        )
-        from fastapi_template.main import app
-
         # First upload a document with local storage
         file_content = b"Test cloud error content"
         files = {"file": ("cloud_error_test.txt", BytesIO(file_content), "text/plain")}

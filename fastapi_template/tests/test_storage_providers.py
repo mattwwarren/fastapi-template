@@ -15,7 +15,10 @@ import pytest
 
 from fastapi_template.core.storage import StorageError
 from fastapi_template.core.storage_providers import (
+    AzureBlobStorageService,
+    GCSStorageService,
     LocalStorageService,
+    S3StorageService,
     _is_transient_storage_error,
     _log_storage_retry,
     create_storage_retry,
@@ -223,8 +226,6 @@ class TestAzureBlobStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_upload_success(self, mock_azure_modules: dict[str, Any]) -> None:
         """Azure upload should call blob client correctly."""
-        from fastapi_template.core.storage_providers import AzureBlobStorageService
-
         storage = AzureBlobStorageService(
             container_name="test-container",
             connection_string="AccountName=test;AccountKey=key",
@@ -238,8 +239,6 @@ class TestAzureBlobStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_upload_error(self, mock_azure_modules: dict[str, Any]) -> None:
         """Azure upload should wrap errors in StorageError."""
-        from fastapi_template.core.storage_providers import AzureBlobStorageService
-
         mock_azure_modules["blob_client"].upload_blob.side_effect = Exception(
             "Upload failed"
         )
@@ -255,8 +254,6 @@ class TestAzureBlobStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_download_success(self, mock_azure_modules: dict[str, Any]) -> None:
         """Azure download should return blob content."""
-        from fastapi_template.core.storage_providers import AzureBlobStorageService
-
         storage = AzureBlobStorageService(
             container_name="test-container",
             connection_string="AccountName=test;AccountKey=key",
@@ -268,8 +265,6 @@ class TestAzureBlobStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_download_not_found(self, mock_azure_modules: dict[str, Any]) -> None:
         """Azure download should return None for missing blob."""
-        from fastapi_template.core.storage_providers import AzureBlobStorageService
-
         mock_azure_modules["blob_client"].download_blob.side_effect = (
             mock_azure_modules["AzureResourceNotFoundError"]("Not found")
         )
@@ -285,8 +280,6 @@ class TestAzureBlobStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_download_error(self, mock_azure_modules: dict[str, Any]) -> None:
         """Azure download should wrap errors in StorageError."""
-        from fastapi_template.core.storage_providers import AzureBlobStorageService
-
         mock_azure_modules["blob_client"].download_blob.side_effect = Exception(
             "Download failed"
         )
@@ -302,8 +295,6 @@ class TestAzureBlobStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_delete_success(self, mock_azure_modules: dict[str, Any]) -> None:
         """Azure delete should return True on success."""
-        from fastapi_template.core.storage_providers import AzureBlobStorageService
-
         storage = AzureBlobStorageService(
             container_name="test-container",
             connection_string="AccountName=test;AccountKey=key",
@@ -315,8 +306,6 @@ class TestAzureBlobStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_delete_not_found(self, mock_azure_modules: dict[str, Any]) -> None:
         """Azure delete should return False for missing blob."""
-        from fastapi_template.core.storage_providers import AzureBlobStorageService
-
         mock_azure_modules["blob_client"].delete_blob.side_effect = mock_azure_modules[
             "AzureResourceNotFoundError"
         ]("Not found")
@@ -332,8 +321,6 @@ class TestAzureBlobStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_delete_error(self, mock_azure_modules: dict[str, Any]) -> None:
         """Azure delete should wrap errors in StorageError."""
-        from fastapi_template.core.storage_providers import AzureBlobStorageService
-
         mock_azure_modules["blob_client"].delete_blob.side_effect = Exception(
             "Delete failed"
         )
@@ -351,8 +338,6 @@ class TestAzureBlobStorageServiceMocked:
         self, mock_azure_modules: dict[str, Any]
     ) -> None:
         """Azure get_download_url should return signed URL."""
-        from fastapi_template.core.storage_providers import AzureBlobStorageService
-
         storage = AzureBlobStorageService(
             container_name="test-container",
             connection_string="AccountName=testaccount;AccountKey=testkey",
@@ -368,8 +353,6 @@ class TestAzureBlobStorageServiceMocked:
         self, mock_azure_modules: dict[str, Any]
     ) -> None:
         """Azure get_download_url should wrap errors in StorageError."""
-        from fastapi_template.core.storage_providers import AzureBlobStorageService
-
         mock_azure_modules["generate_blob_sas"].side_effect = Exception("SAS failed")
 
         storage = AzureBlobStorageService(
@@ -382,8 +365,6 @@ class TestAzureBlobStorageServiceMocked:
 
     def test_get_blob_name_with_org(self, mock_azure_modules: dict[str, Any]) -> None:
         """Blob name should include org ID when provided."""
-        from fastapi_template.core.storage_providers import AzureBlobStorageService
-
         storage = AzureBlobStorageService(
             container_name="test-container",
             connection_string="AccountName=test;AccountKey=key",
@@ -397,8 +378,6 @@ class TestAzureBlobStorageServiceMocked:
         self, mock_azure_modules: dict[str, Any]
     ) -> None:
         """Blob name should be just doc ID when no org provided."""
-        from fastapi_template.core.storage_providers import AzureBlobStorageService
-
         storage = AzureBlobStorageService(
             container_name="test-container",
             connection_string="AccountName=test;AccountKey=key",
@@ -409,17 +388,17 @@ class TestAzureBlobStorageServiceMocked:
 
     def test_init_without_azure_sdk(self) -> None:
         """Should raise ImportError when Azure SDK is missing."""
-        with patch(
-            "fastapi_template.core.storage_providers.BlobServiceClient",
-            None,
+        with (
+            patch(
+                "fastapi_template.core.storage_providers.BlobServiceClient",
+                None,
+            ),
+            pytest.raises(ImportError, match="azure-storage-blob"),
         ):
-            from fastapi_template.core.storage_providers import AzureBlobStorageService
-
-            with pytest.raises(ImportError, match="azure-storage-blob"):
-                AzureBlobStorageService(
-                    container_name="test",
-                    connection_string="conn",
-                )
+            AzureBlobStorageService(
+                container_name="test",
+                connection_string="conn",
+            )
 
 
 class TestS3StorageServiceMocked:
@@ -475,8 +454,6 @@ class TestS3StorageServiceMocked:
     @pytest.mark.asyncio
     async def test_upload_success(self, mock_s3_modules: dict[str, Any]) -> None:
         """S3 upload should call put_object correctly."""
-        from fastapi_template.core.storage_providers import S3StorageService
-
         storage = S3StorageService(bucket_name="test-bucket", region="us-east-1")
 
         url = await storage.upload(TEST_DOC_ID, b"content", "text/plain", TEST_ORG_ID)
@@ -488,8 +465,6 @@ class TestS3StorageServiceMocked:
     @pytest.mark.asyncio
     async def test_upload_error(self, mock_s3_modules: dict[str, Any]) -> None:
         """S3 upload should wrap errors in StorageError."""
-        from fastapi_template.core.storage_providers import S3StorageService
-
         mock_s3_modules["s3_client"].put_object.side_effect = Exception("Upload failed")
 
         storage = S3StorageService(bucket_name="test-bucket", region="us-east-1")
@@ -500,8 +475,6 @@ class TestS3StorageServiceMocked:
     @pytest.mark.asyncio
     async def test_download_success(self, mock_s3_modules: dict[str, Any]) -> None:
         """S3 download should return object content."""
-        from fastapi_template.core.storage_providers import S3StorageService
-
         storage = S3StorageService(bucket_name="test-bucket", region="us-east-1")
 
         result = await storage.download(TEST_DOC_ID)
@@ -510,8 +483,6 @@ class TestS3StorageServiceMocked:
     @pytest.mark.asyncio
     async def test_download_not_found(self, mock_s3_modules: dict[str, Any]) -> None:
         """S3 download should return None for missing object."""
-        from fastapi_template.core.storage_providers import S3StorageService
-
         mock_s3_modules["s3_client"].get_object.side_effect = mock_s3_modules[
             "ClientError"
         ]({"Error": {"Code": "NoSuchKey"}}, "GetObject")
@@ -524,8 +495,6 @@ class TestS3StorageServiceMocked:
     @pytest.mark.asyncio
     async def test_download_client_error(self, mock_s3_modules: dict[str, Any]) -> None:
         """S3 download should wrap client errors in StorageError."""
-        from fastapi_template.core.storage_providers import S3StorageService
-
         mock_s3_modules["s3_client"].get_object.side_effect = mock_s3_modules[
             "ClientError"
         ]({"Error": {"Code": "AccessDenied"}}, "GetObject")
@@ -540,8 +509,6 @@ class TestS3StorageServiceMocked:
         self, mock_s3_modules: dict[str, Any]
     ) -> None:
         """S3 download should wrap generic errors in StorageError."""
-        from fastapi_template.core.storage_providers import S3StorageService
-
         mock_s3_modules["s3_client"].get_object.side_effect = Exception(
             "Network error"
         )
@@ -554,8 +521,6 @@ class TestS3StorageServiceMocked:
     @pytest.mark.asyncio
     async def test_delete_success(self, mock_s3_modules: dict[str, Any]) -> None:
         """S3 delete should return True on success."""
-        from fastapi_template.core.storage_providers import S3StorageService
-
         storage = S3StorageService(bucket_name="test-bucket", region="us-east-1")
 
         result = await storage.delete(TEST_DOC_ID)
@@ -564,8 +529,6 @@ class TestS3StorageServiceMocked:
     @pytest.mark.asyncio
     async def test_delete_error(self, mock_s3_modules: dict[str, Any]) -> None:
         """S3 delete should wrap errors in StorageError."""
-        from fastapi_template.core.storage_providers import S3StorageService
-
         mock_s3_modules["s3_client"].delete_object.side_effect = Exception(
             "Delete failed"
         )
@@ -580,8 +543,6 @@ class TestS3StorageServiceMocked:
         self, mock_s3_modules: dict[str, Any]
     ) -> None:
         """S3 get_download_url should return presigned URL."""
-        from fastapi_template.core.storage_providers import S3StorageService
-
         storage = S3StorageService(bucket_name="test-bucket", region="us-east-1")
 
         url = await storage.get_download_url(TEST_DOC_ID, expiry_seconds=7200)
@@ -594,8 +555,6 @@ class TestS3StorageServiceMocked:
         self, mock_s3_modules: dict[str, Any]
     ) -> None:
         """S3 get_download_url should wrap errors in StorageError."""
-        from fastapi_template.core.storage_providers import S3StorageService
-
         mock_s3_modules["s3_client"].generate_presigned_url.side_effect = Exception(
             "URL generation failed"
         )
@@ -607,8 +566,6 @@ class TestS3StorageServiceMocked:
 
     def test_get_object_key_with_org(self, mock_s3_modules: dict[str, Any]) -> None:
         """Object key should include org ID when provided."""
-        from fastapi_template.core.storage_providers import S3StorageService
-
         storage = S3StorageService(bucket_name="test-bucket", region="us-east-1")
 
         key = storage._get_object_key(TEST_DOC_ID, TEST_ORG_ID)
@@ -617,8 +574,6 @@ class TestS3StorageServiceMocked:
 
     def test_get_object_key_without_org(self, mock_s3_modules: dict[str, Any]) -> None:
         """Object key should be just doc ID when no org provided."""
-        from fastapi_template.core.storage_providers import S3StorageService
-
         storage = S3StorageService(bucket_name="test-bucket", region="us-east-1")
 
         key = storage._get_object_key(TEST_DOC_ID, None)
@@ -626,11 +581,11 @@ class TestS3StorageServiceMocked:
 
     def test_init_without_aioboto3(self) -> None:
         """Should raise ImportError when aioboto3 is missing."""
-        with patch("fastapi_template.core.storage_providers.aioboto3", None):
-            from fastapi_template.core.storage_providers import S3StorageService
-
-            with pytest.raises(ImportError, match="aioboto3"):
-                S3StorageService(bucket_name="test", region="us-east-1")
+        with (
+            patch("fastapi_template.core.storage_providers.aioboto3", None),
+            pytest.raises(ImportError, match="aioboto3"),
+        ):
+            S3StorageService(bucket_name="test", region="us-east-1")
 
 
 class TestGCSStorageServiceMocked:
@@ -679,8 +634,6 @@ class TestGCSStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_upload_success(self, mock_gcs_modules: dict[str, Any]) -> None:
         """GCS upload should call upload_from_string correctly."""
-        from fastapi_template.core.storage_providers import GCSStorageService
-
         storage = GCSStorageService(bucket_name="test-bucket", project_id="test-project")
 
         url = await storage.upload(TEST_DOC_ID, b"content", "text/plain", TEST_ORG_ID)
@@ -690,8 +643,6 @@ class TestGCSStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_upload_error(self, mock_gcs_modules: dict[str, Any]) -> None:
         """GCS upload should wrap errors in StorageError."""
-        from fastapi_template.core.storage_providers import GCSStorageService
-
         mock_gcs_modules["blob"].upload_from_string.side_effect = Exception(
             "Upload failed"
         )
@@ -704,8 +655,6 @@ class TestGCSStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_download_success(self, mock_gcs_modules: dict[str, Any]) -> None:
         """GCS download should return blob content."""
-        from fastapi_template.core.storage_providers import GCSStorageService
-
         storage = GCSStorageService(bucket_name="test-bucket", project_id="test-project")
 
         result = await storage.download(TEST_DOC_ID)
@@ -714,8 +663,6 @@ class TestGCSStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_download_not_exists(self, mock_gcs_modules: dict[str, Any]) -> None:
         """GCS download should return None when blob doesn't exist."""
-        from fastapi_template.core.storage_providers import GCSStorageService
-
         mock_gcs_modules["blob"].exists.return_value = False
 
         storage = GCSStorageService(bucket_name="test-bucket", project_id="test-project")
@@ -728,8 +675,6 @@ class TestGCSStorageServiceMocked:
         self, mock_gcs_modules: dict[str, Any]
     ) -> None:
         """GCS download should return None on NotFound exception."""
-        from fastapi_template.core.storage_providers import GCSStorageService
-
         mock_gcs_modules["blob"].download_as_bytes.side_effect = mock_gcs_modules[
             "NotFound"
         ]("Not found")
@@ -742,8 +687,6 @@ class TestGCSStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_download_error(self, mock_gcs_modules: dict[str, Any]) -> None:
         """GCS download should wrap errors in StorageError."""
-        from fastapi_template.core.storage_providers import GCSStorageService
-
         mock_gcs_modules["blob"].download_as_bytes.side_effect = Exception(
             "Download failed"
         )
@@ -756,8 +699,6 @@ class TestGCSStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_delete_success(self, mock_gcs_modules: dict[str, Any]) -> None:
         """GCS delete should return True on success."""
-        from fastapi_template.core.storage_providers import GCSStorageService
-
         storage = GCSStorageService(bucket_name="test-bucket", project_id="test-project")
 
         result = await storage.delete(TEST_DOC_ID)
@@ -766,8 +707,6 @@ class TestGCSStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_delete_not_exists(self, mock_gcs_modules: dict[str, Any]) -> None:
         """GCS delete should return False when blob doesn't exist."""
-        from fastapi_template.core.storage_providers import GCSStorageService
-
         mock_gcs_modules["blob"].exists.return_value = False
 
         storage = GCSStorageService(bucket_name="test-bucket", project_id="test-project")
@@ -780,8 +719,6 @@ class TestGCSStorageServiceMocked:
         self, mock_gcs_modules: dict[str, Any]
     ) -> None:
         """GCS delete should return False on NotFound exception."""
-        from fastapi_template.core.storage_providers import GCSStorageService
-
         mock_gcs_modules["blob"].delete.side_effect = mock_gcs_modules["NotFound"](
             "Not found"
         )
@@ -794,8 +731,6 @@ class TestGCSStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_delete_error(self, mock_gcs_modules: dict[str, Any]) -> None:
         """GCS delete should wrap errors in StorageError."""
-        from fastapi_template.core.storage_providers import GCSStorageService
-
         mock_gcs_modules["blob"].delete.side_effect = Exception("Delete failed")
 
         storage = GCSStorageService(bucket_name="test-bucket", project_id="test-project")
@@ -808,8 +743,6 @@ class TestGCSStorageServiceMocked:
         self, mock_gcs_modules: dict[str, Any]
     ) -> None:
         """GCS get_download_url should return signed URL."""
-        from fastapi_template.core.storage_providers import GCSStorageService
-
         storage = GCSStorageService(bucket_name="test-bucket", project_id="test-project")
 
         url = await storage.get_download_url(TEST_DOC_ID, expiry_seconds=7200)
@@ -821,8 +754,6 @@ class TestGCSStorageServiceMocked:
         self, mock_gcs_modules: dict[str, Any]
     ) -> None:
         """GCS get_download_url should wrap errors in StorageError."""
-        from fastapi_template.core.storage_providers import GCSStorageService
-
         mock_gcs_modules["blob"].generate_signed_url.side_effect = Exception(
             "URL generation failed"
         )
@@ -834,8 +765,6 @@ class TestGCSStorageServiceMocked:
 
     def test_get_blob_name_with_org(self, mock_gcs_modules: dict[str, Any]) -> None:
         """Blob name should include org ID when provided."""
-        from fastapi_template.core.storage_providers import GCSStorageService
-
         storage = GCSStorageService(bucket_name="test-bucket", project_id="test-project")
 
         blob_name = storage._get_blob_name(TEST_DOC_ID, TEST_ORG_ID)
@@ -844,8 +773,6 @@ class TestGCSStorageServiceMocked:
 
     def test_get_blob_name_without_org(self, mock_gcs_modules: dict[str, Any]) -> None:
         """Blob name should be just doc ID when no org provided."""
-        from fastapi_template.core.storage_providers import GCSStorageService
-
         storage = GCSStorageService(bucket_name="test-bucket", project_id="test-project")
 
         blob_name = storage._get_blob_name(TEST_DOC_ID, None)
@@ -853,11 +780,11 @@ class TestGCSStorageServiceMocked:
 
     def test_init_without_gcs_sdk(self) -> None:
         """Should raise ImportError when GCS SDK is missing."""
-        with patch("fastapi_template.core.storage_providers.storage", None):
-            from fastapi_template.core.storage_providers import GCSStorageService
-
-            with pytest.raises(ImportError, match="google-cloud-storage"):
-                GCSStorageService(bucket_name="test", project_id="test")
+        with (
+            patch("fastapi_template.core.storage_providers.storage", None),
+            pytest.raises(ImportError, match="google-cloud-storage"),
+        ):
+            GCSStorageService(bucket_name="test", project_id="test")
 
 
 class TestTransientStorageErrorDetection:
@@ -912,11 +839,6 @@ class TestTransientStorageErrorDetection:
         with patch(
             "fastapi_template.core.storage_providers.ClientError", MockClientError
         ):
-            # Re-import to get patched version
-            from fastapi_template.core.storage_providers import (
-                _is_transient_storage_error,
-            )
-
             error = MockClientError()
             assert _is_transient_storage_error(error) is True
 
@@ -930,10 +852,6 @@ class TestTransientStorageErrorDetection:
         with patch(
             "fastapi_template.core.storage_providers.ClientError", MockClientError
         ):
-            from fastapi_template.core.storage_providers import (
-                _is_transient_storage_error,
-            )
-
             error = MockClientError()
             assert _is_transient_storage_error(error) is True
 
@@ -947,10 +865,6 @@ class TestTransientStorageErrorDetection:
         with patch(
             "fastapi_template.core.storage_providers.ClientError", MockClientError
         ):
-            from fastapi_template.core.storage_providers import (
-                _is_transient_storage_error,
-            )
-
             error = MockClientError()
             assert _is_transient_storage_error(error) is True
 
@@ -964,10 +878,6 @@ class TestTransientStorageErrorDetection:
         with patch(
             "fastapi_template.core.storage_providers.ClientError", MockClientError
         ):
-            from fastapi_template.core.storage_providers import (
-                _is_transient_storage_error,
-            )
-
             error = MockClientError()
             assert _is_transient_storage_error(error) is True
 
@@ -981,10 +891,6 @@ class TestTransientStorageErrorDetection:
         with patch(
             "fastapi_template.core.storage_providers.ClientError", MockClientError
         ):
-            from fastapi_template.core.storage_providers import (
-                _is_transient_storage_error,
-            )
-
             error = MockClientError()
             assert _is_transient_storage_error(error) is False
 

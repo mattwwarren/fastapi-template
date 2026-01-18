@@ -13,6 +13,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi_template.core.metrics import active_memberships_gauge, memberships_created_total
 from fastapi_template.models.membership import Membership, MembershipCreate, MembershipRole, MembershipUpdate
 from fastapi_template.models.organization import Organization
 from fastapi_template.models.user import User
@@ -180,8 +181,6 @@ class TestCreateMembership:
     @pytest.mark.asyncio
     async def test_create_membership_increments_counter(self, session: AsyncSession) -> None:
         """create_membership increments the memberships_created_total counter."""
-        from fastapi_template.core.metrics import memberships_created_total
-
         # Get current count
         try:
             before = memberships_created_total.labels(environment="test")._value.get()
@@ -205,8 +204,6 @@ class TestCreateMembership:
     @pytest.mark.asyncio
     async def test_create_membership_increments_gauge(self, session: AsyncSession) -> None:
         """create_membership increments the active_memberships_gauge."""
-        from fastapi_template.core.metrics import active_memberships_gauge
-
         # Get current gauge
         try:
             before = active_memberships_gauge.labels(environment="test")._value.get()
@@ -302,8 +299,6 @@ class TestDeleteMembership:
     @pytest.mark.asyncio
     async def test_delete_membership_decrements_gauge(self, session: AsyncSession) -> None:
         """delete_membership decrements the active_memberships_gauge."""
-        from fastapi_template.core.metrics import active_memberships_gauge
-
         user = User(name="Gauge Del User", email=f"gaugedel-{uuid4()}@example.com")
         org = Organization(name=f"Gauge Del Org {uuid4()}")
         session.add_all([user, org])  # type: ignore[attr-defined]

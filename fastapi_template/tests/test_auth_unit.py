@@ -17,11 +17,13 @@ from uuid import uuid4
 import httpx
 import jwt
 import pytest
+from fastapi import HTTPException
 
 from fastapi_template.core.auth import (
     AuthMiddleware,
     AuthProviderType,
     CurrentUser,
+    TokenValidationError,
     _decode_jwt_with_key,
     _extract_token_kid,
     _extract_user_from_claims,
@@ -668,8 +670,6 @@ class TestExtractUserFromClaims:
 
     def test_rejects_empty_email_string(self) -> None:
         """Should reject empty string email as missing email."""
-        from fastapi_template.core.auth import TokenValidationError
-
         claims: dict[str, Any] = {
             "sub": VALID_USER_ID,
             "email": "",
@@ -749,8 +749,6 @@ class TestGetCurrentUser:
 
     def test_raises_401_when_no_user(self) -> None:
         """Should raise 401 when user is not in request state."""
-        from fastapi import HTTPException
-
         mock_request = MagicMock()
         mock_request.state.user = None
 

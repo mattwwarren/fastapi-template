@@ -31,7 +31,9 @@ from fastapi_template.core.tenants import (
     get_tenant_context,
     validate_tenant_ownership,
 )
-from fastapi_template.models.membership import MembershipRole
+from fastapi_template.models.membership import Membership, MembershipRole
+from fastapi_template.models.organization import Organization
+from fastapi_template.models.user import User
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -87,10 +89,6 @@ class TestValidateUserOrgAccess:
     ) -> None:
         """Should return (True, role) when user is a member."""
         # Create test data
-        from fastapi_template.models.membership import Membership
-        from fastapi_template.models.organization import Organization
-        from fastapi_template.models.user import User
-
         org = Organization(name="Test Org")
         session.add(org)
         await session.flush()  # type: ignore[attr-defined]
@@ -116,9 +114,6 @@ class TestValidateUserOrgAccess:
         self, session: AsyncSession
     ) -> None:
         """Should return (False, None) when user is not a member."""
-        from fastapi_template.models.organization import Organization
-        from fastapi_template.models.user import User
-
         org = Organization(name="Test Org No Member")
         session.add(org)
         await session.flush()  # type: ignore[attr-defined]
@@ -134,8 +129,6 @@ class TestValidateUserOrgAccess:
     @pytest.mark.asyncio
     async def test_nonexistent_user_returns_false(self, session: AsyncSession) -> None:
         """Should return (False, None) for nonexistent user."""
-        from fastapi_template.models.organization import Organization
-
         org = Organization(name="Test Org Nonexistent User")
         session.add(org)
         await session.commit()
@@ -252,10 +245,6 @@ class TestValidateTenantContext:
     @pytest.mark.asyncio
     async def test_validates_with_jwt_org_id(self, session: AsyncSession) -> None:
         """Should validate tenant context from JWT claims."""
-        from fastapi_template.models.membership import Membership
-        from fastapi_template.models.organization import Organization
-        from fastapi_template.models.user import User
-
         # Create test data
         org = Organization(name="Validate JWT Org")
         session.add(org)
@@ -292,10 +281,6 @@ class TestValidateTenantContext:
     @pytest.mark.asyncio
     async def test_validates_with_path_org_id(self, session: AsyncSession) -> None:
         """Should validate tenant context from path parameters."""
-        from fastapi_template.models.membership import Membership
-        from fastapi_template.models.organization import Organization
-        from fastapi_template.models.user import User
-
         org = Organization(name="Path Org")
         session.add(org)
         await session.flush()  # type: ignore[attr-defined]
@@ -329,10 +314,6 @@ class TestValidateTenantContext:
     @pytest.mark.asyncio
     async def test_validates_with_query_org_id(self, session: AsyncSession) -> None:
         """Should validate tenant context from query parameters."""
-        from fastapi_template.models.membership import Membership
-        from fastapi_template.models.organization import Organization
-        from fastapi_template.models.user import User
-
         org = Organization(name="Query Org")
         session.add(org)
         await session.flush()  # type: ignore[attr-defined]
@@ -385,9 +366,6 @@ class TestValidateTenantContext:
         self, session: AsyncSession
     ) -> None:
         """Should return 403 when user is not a member of org."""
-        from fastapi_template.models.organization import Organization
-        from fastapi_template.models.user import User
-
         org = Organization(name="No Access Org")
         session.add(org)
         await session.flush()  # type: ignore[attr-defined]
@@ -432,10 +410,6 @@ class TestValidateTenantContext:
         self, session: AsyncSession
     ) -> None:
         """Should create session from app.state when not provided."""
-        from fastapi_template.models.membership import Membership
-        from fastapi_template.models.organization import Organization
-        from fastapi_template.models.user import User
-
         org = Organization(name="App State Org")
         session.add(org)
         await session.flush()  # type: ignore[attr-defined]
@@ -570,10 +544,6 @@ class TestTenantIsolationMiddleware:
     @pytest.mark.asyncio
     async def test_sets_tenant_context_on_success(self, session: AsyncSession) -> None:
         """Should set tenant context on request.state on success."""
-        from fastapi_template.models.membership import Membership
-        from fastapi_template.models.organization import Organization
-        from fastapi_template.models.user import User
-
         org = Organization(name="Middleware Test Org")
         session.add(org)
         await session.flush()  # type: ignore[attr-defined]
