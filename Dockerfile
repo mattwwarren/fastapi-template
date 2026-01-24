@@ -2,7 +2,8 @@ FROM ghcr.io/astral-sh/uv:alpine
 
 ENV PYTHONUNBUFFERED=1 \
     UV_SYSTEM_PYTHON=1 \
-    UV_NO_DEV=1
+    UV_NO_DEV=1 \
+    UV_PYTHON_INSTALL_DIR=/app/.python
 
 WORKDIR /app
 
