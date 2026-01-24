@@ -13,7 +13,7 @@ COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
 COPY fastapi_template ./fastapi_template/
 
-RUN addgroup -S app && adduser -S app -G app \
+RUN addgroup -g 1000 -S app && adduser -u 1000 -S app -G app \
     && chown -R app:app /app
 
 USER app
