@@ -43,6 +43,8 @@ import jwt
 
 if TYPE_CHECKING:
     from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+    from sqlalchemy.ext.asyncio import AsyncSession
+
 from fastapi import Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -51,6 +53,8 @@ from starlette.responses import JSONResponse, Response
 from fastapi_template.core.config import settings
 from fastapi_template.core.http_client import http_client
 from fastapi_template.core.logging import get_logging_context
+from fastapi_template.db.session import get_session
+from fastapi_template.services.membership_service import is_user_member
 
 LOGGER = logging.getLogger(__name__)
 
@@ -884,30 +888,26 @@ def get_current_user_optional(request: Request) -> CurrentUser | None:
     return getattr(request.state, "user", None)
 
 
-def get_user_from_headers(
+def _parse_user_headers(
     x_user_id: Annotated[str | None, Header()] = None,
     x_email: Annotated[str | None, Header()] = None,
-) -> CurrentUser:
-    """Extract user from Oathkeeper headers.
-
-    Oathkeeper validates authentication and adds these headers:
-    - X-User-ID: User's identity ID from Kratos
-    - X-Email: User's email address
-
-    Backend services trust these headers without validation.
+    x_selected_org: Annotated[str | None, Header()] = None,
+) -> tuple[UUID, str, UUID | None]:
+    """Parse and validate Oathkeeper headers (format only, no DB validation).
 
     Args:
         x_user_id: User ID from X-User-ID header
         x_email: Email from X-Email header
+        x_selected_org: Organization ID from X-Selected-Org header
 
     Returns:
-        CurrentUser instance with id and email
+        Tuple of (user_id, email, organization_id)
 
     Raises:
-        HTTPException: 401 if headers missing, 400 if user ID invalid format
+        HTTPException: 401 if headers missing, 400 if IDs have invalid format
     """
     if not x_user_id or not x_email:
-        msg = "Missing authentication headers from Oathkeeper"
+        msg = "Missing required authentication headers (X-User-ID, X-Email)"
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=msg,
@@ -922,10 +922,78 @@ def get_user_from_headers(
             detail=msg,
         ) from err
 
+    organization_id: UUID | None = None
+    if x_selected_org:
+        try:
+            organization_id = UUID(x_selected_org)
+        except ValueError as err:
+            msg = f"Invalid organization ID format: {x_selected_org}"
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=msg,
+            ) from err
+
+    return user_id, x_email, organization_id
+
+
+async def get_user_from_headers(
+    parsed_headers: Annotated[tuple[UUID, str, UUID | None], Depends(_parse_user_headers)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> CurrentUser:
+    """Extract user from Oathkeeper headers with organization membership validation.
+
+    Phase 4: Validates organization membership in backend.
+
+    CRITICAL SECURITY: Oathkeeper only validates authentication (user is logged in).
+    It does NOT validate organization membership. A malicious user could set
+    X-Selected-Org to any UUID and access other orgs' data without backend validation.
+
+    Security Model:
+    - X-User-ID and X-Email are trusted from Oathkeeper (validated by Kratos)
+    - X-Selected-Org is validated against database (user MUST be organization member)
+
+    Oathkeeper provides these headers:
+    - X-User-ID: User's identity ID from Kratos (trusted)
+    - X-Email: User's email address (trusted)
+    - X-Selected-Org: Organization ID from client (MUST BE VALIDATED)
+
+    Args:
+        parsed_headers: Parsed headers from _parse_user_headers dependency
+        session: Database session for membership validation
+
+    Returns:
+        CurrentUser instance with id, email, and organization_id
+
+    Raises:
+        HTTPException: 403 if user is not a member of selected organization
+    """
+    user_id, email, organization_id = parsed_headers
+
+    # Validate organization membership if org is selected
+    if organization_id is not None:
+        # CRITICAL: Validate user is actually a member of this organization
+        is_member = await is_user_member(session, user_id, organization_id)
+        if not is_member:
+            msg = "User is not a member of the selected organization"
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=msg,
+            )
+
+        # Log organization selection for audit trail (debug level to reduce noise)
+        LOGGER.debug(
+            "organization_selected",
+            extra={
+                "user_id": str(user_id),
+                "organization_id": str(organization_id),
+                "source": "X-Selected-Org",
+            },
+        )
+
     return CurrentUser(
         id=user_id,
-        email=x_email,
-        organization_id=None,  # TODO: Add organization selection later
+        email=email,
+        organization_id=organization_id,
     )
 
 

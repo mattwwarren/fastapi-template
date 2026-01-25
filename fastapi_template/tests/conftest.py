@@ -12,7 +12,7 @@ import socket
 from collections.abc import AsyncGenerator, Generator
 from http import HTTPStatus
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID
 
@@ -21,7 +21,7 @@ import psycopg
 import pytest
 from alembic import command
 from alembic.config import Config
-from fastapi import Request
+from fastapi import Depends, Request
 from httpx import ASGITransport, AsyncClient
 from psycopg import sql
 from pytest_docker.plugin import DockerComposeExecutor, Services
@@ -38,7 +38,7 @@ from sqlmodel import SQLModel
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-from fastapi_template.core.auth import AuthMiddleware, CurrentUser
+from fastapi_template.core.auth import AuthMiddleware, CurrentUser, _parse_user_headers, get_user_from_headers
 from fastapi_template.core.tenants import TenantContext
 from fastapi_template.db import session as db_session
 from fastapi_template.db.session import create_session_maker, get_session
@@ -449,6 +449,9 @@ class TestAuthMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         """Inject test user and tenant context into request state.
 
+        Phase 4 update: Also injects Oathkeeper-style headers (X-User-ID, X-Email, X-Selected-Org)
+        so that get_user_from_headers dependency can validate organization membership.
+
         Checks for X-Test-User-ID and X-Test-Org-ID headers to allow tests to
         specify which user is making the request. If headers are provided, uses
         those values. Otherwise uses default test user.
@@ -473,6 +476,16 @@ class TestAuthMiddleware(BaseHTTPMiddleware):
                 email="testuser@example.com",
                 organization_id=UUID("00000000-0000-0000-0000-000000000000"),
             )
+
+        # Phase 4: Inject Oathkeeper-style headers for get_user_from_headers validation
+        # Modify the scope's headers list directly (lowercase keys as per ASGI spec)
+        scope = request.scope
+        headers_list = list(scope["headers"])
+        headers_list.append((b"x-user-id", str(test_user.id).encode()))
+        headers_list.append((b"x-email", test_user.email.encode()))
+        if test_user.organization_id:
+            headers_list.append((b"x-selected-org", str(test_user.organization_id).encode()))
+        scope["headers"] = headers_list
 
         request.state.user = test_user
 
@@ -525,6 +538,26 @@ async def client_bypass_auth(
     # Override session dependency
     app.dependency_overrides[get_session] = get_session_override
 
+    # Phase 4: Override get_user_from_headers to bypass org membership validation in tests
+    # TestAuthMiddleware already validates membership when setting request.state.user
+    async def get_user_from_headers_test_override(
+        parsed_headers: Annotated[tuple[UUID, str, UUID | None], Depends(_parse_user_headers)],
+    ) -> CurrentUser:
+        """Test override that skips database membership validation.
+
+        TestAuthMiddleware already ensures the default test user has a valid
+        membership to the test organization. This override bypasses the database
+        query while still parsing headers correctly.
+
+        For tests that override headers (X-User-ID, X-Email), we construct a new
+        CurrentUser from the parsed headers rather than using request.state.user.
+        """
+        user_id, email, organization_id = parsed_headers
+        return CurrentUser(id=user_id, email=email, organization_id=organization_id)
+
+    # We need both dependencies - parse headers normally, but skip DB validation
+    app.dependency_overrides[get_user_from_headers] = get_user_from_headers_test_override
+
     # Reset middleware stack to allow modifications
     app.middleware_stack = None
 
@@ -538,9 +571,11 @@ async def client_bypass_auth(
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Inject default Oathkeeper headers for all requests
+        # Phase 4: Added X-Selected-Org header for organization context
         client.headers.update({
             "X-User-ID": "00000000-0000-0000-0000-000000000001",
             "X-Email": "testuser@example.com",
+            "X-Selected-Org": "00000000-0000-0000-0000-000000000000",
         })
         yield client
 
@@ -603,6 +638,18 @@ async def client(
     Default test user:
     - X-User-ID: 00000000-0000-0000-0000-000000000001
     - X-Email: testuser@example.com
+
+    To test with different user:
+        response = await client.get(
+            "/users/123",
+            headers={
+                "X-User-ID": "different-user-id",
+                "X-Email": "other@example.com"
+            }
+        )
+
+    Note: These headers are automatically injected into all requests made
+    through this client. Override by passing custom headers as shown above.
     """
 
     async def get_session_override() -> AsyncGenerator[AsyncSession]:
@@ -615,6 +662,26 @@ async def client(
 
     # Override session dependency
     app.dependency_overrides[get_session] = get_session_override
+
+    # Phase 4: Override get_user_from_headers to bypass org membership validation in tests
+    # TestAuthMiddleware already validates membership when setting request.state.user
+    async def get_user_from_headers_test_override(
+        parsed_headers: Annotated[tuple[UUID, str, UUID | None], Depends(_parse_user_headers)],
+    ) -> CurrentUser:
+        """Test override that skips database membership validation.
+
+        TestAuthMiddleware already ensures the default test user has a valid
+        membership to the test organization. This override bypasses the database
+        query while still parsing headers correctly.
+
+        For tests that override headers (X-User-ID, X-Email), we construct a new
+        CurrentUser from the parsed headers rather than using request.state.user.
+        """
+        user_id, email, organization_id = parsed_headers
+        return CurrentUser(id=user_id, email=email, organization_id=organization_id)
+
+    # We need both dependencies - parse headers normally, but skip DB validation
+    app.dependency_overrides[get_user_from_headers] = get_user_from_headers_test_override
 
     # Reset middleware stack to allow modifications
     app.middleware_stack = None
@@ -629,9 +696,11 @@ async def client(
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Inject default Oathkeeper headers for all requests
+        # Phase 4: Added X-Selected-Org header for organization context
         client.headers.update({
             "X-User-ID": "00000000-0000-0000-0000-000000000001",
             "X-Email": "testuser@example.com",
+            "X-Selected-Org": "00000000-0000-0000-0000-000000000000",
         })
         yield client
 

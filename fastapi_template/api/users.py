@@ -117,8 +117,15 @@ async def update_user_endpoint(
     user_id: UUID,
     payload: UserUpdate,
     session: SessionDep,
-    current_user: CurrentUserFromHeaders,  # noqa: ARG001
+    current_user: CurrentUserFromHeaders,
 ) -> UserRead:
+    # Check ownership - users can only modify their own profile
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot modify other users",
+        )
+
     user = await get_user(session, user_id)
     if not user:
         raise HTTPException(
@@ -137,8 +144,15 @@ async def update_user_endpoint(
 async def delete_user_endpoint(
     user_id: UUID,
     session: SessionDep,
-    current_user: CurrentUserFromHeaders,  # noqa: ARG001
+    current_user: CurrentUserFromHeaders,
 ) -> None:
+    # Check ownership - users can only delete their own profile
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot delete other users",
+        )
+
     user = await get_user(session, user_id)
     if not user:
         raise HTTPException(

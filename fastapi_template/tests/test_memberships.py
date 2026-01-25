@@ -275,8 +275,11 @@ class TestMembershipCascadeDelete:
             json={"user_id": user_id, "organization_id": organization_id},
         )
 
-        # Delete user Jane
-        delete_user = await client.delete(f"/users/{user_id}")
+        # Delete user Jane (pass X-User-ID header matching the user being deleted)
+        delete_user = await client.delete(
+            f"/users/{user_id}",
+            headers={"X-User-ID": str(user_id), "X-Email": "jane@example.com"},
+        )
         assert delete_user.status_code == HTTPStatus.NO_CONTENT
 
         # Verify Jane's membership is cascade deleted

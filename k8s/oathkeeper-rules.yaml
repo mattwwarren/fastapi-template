@@ -80,3 +80,8 @@ data:
         handler: allow
       mutators:
         - handler: header
+          config:
+            headers:
+              X-User-ID: "{{ print .Subject }}"
+              X-Email: "{{ print .Extra.identity.traits.email }}"
+              X-Selected-Org: "{{ print .MatchContext.Header.Get \"X-Selected-Org\" }}"

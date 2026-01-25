@@ -64,6 +64,25 @@ async def update_membership(session: AsyncSession, membership: Membership, paylo
     return membership
 
 
+async def is_user_member(session: AsyncSession, user_id: UUID, organization_id: UUID) -> bool:
+    """Check if user is a member of the specified organization.
+
+    Args:
+        session: Database session
+        user_id: User UUID to check
+        organization_id: Organization UUID to check
+
+    Returns:
+        True if user is a member of the organization, False otherwise
+    """
+    result = await session.execute(
+        select(Membership).where(
+            col(Membership.user_id) == user_id, col(Membership.organization_id) == organization_id
+        )
+    )
+    return result.scalar_one_or_none() is not None
+
+
 async def delete_membership(session: AsyncSession, membership: Membership) -> int:
     """Delete a membership.
 

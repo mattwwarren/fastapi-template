@@ -87,11 +87,12 @@ class TestSQLInjectionUsers:
         assert create_response.status_code == HTTPStatus.CREATED
         user_id = create_response.json()["id"]
 
-        # Try to inject via update
+        # Try to inject via update (pass X-User-ID header to pass authorization)
         for payload in SQL_INJECTION_PAYLOADS[:5]:  # Test subset for performance
             response = await client.patch(
                 f"/users/{user_id}",
                 json={"name": payload},
+                headers={"X-User-ID": str(user_id), "X-Email": "sqli@example.com"},
             )
             # Update should either accept as literal or reject
             if response.status_code == HTTPStatus.OK:

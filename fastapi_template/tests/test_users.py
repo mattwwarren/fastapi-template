@@ -92,10 +92,11 @@ class TestUserCRUD:
         )
         user_id = create_response.json()["id"]
 
-        # Update user
+        # Update user (pass X-User-ID header matching the user being updated)
         update_response = await client.patch(
             f"/users/{user_id}",
             json={"name": "Updated Name"},
+            headers={"X-User-ID": str(user_id), "X-Email": "original@example.com"},
         )
         assert update_response.status_code == HTTPStatus.OK
         updated_user = update_response.json()
@@ -115,8 +116,11 @@ class TestUserCRUD:
         )
         user_id = create_response.json()["id"]
 
-        # Delete user
-        delete_response = await client.delete(f"/users/{user_id}")
+        # Delete user (pass X-User-ID header matching the user being deleted)
+        delete_response = await client.delete(
+            f"/users/{user_id}",
+            headers={"X-User-ID": str(user_id), "X-Email": "delete@example.com"},
+        )
         assert delete_response.status_code == HTTPStatus.NO_CONTENT
 
         # Verify deleted
@@ -341,8 +345,11 @@ class TestUserOrganizationRelationship:
         )
         membership_id = membership_response.json()["id"]
 
-        # Delete user
-        delete_response = await client.delete(f"/users/{user_id}")
+        # Delete user (pass X-User-ID header matching the user being deleted)
+        delete_response = await client.delete(
+            f"/users/{user_id}",
+            headers={"X-User-ID": str(user_id), "X-Email": "cascade@example.com"},
+        )
         assert delete_response.status_code == HTTPStatus.NO_CONTENT
 
         # Verify membership is deleted (cascade)
@@ -366,13 +373,17 @@ class TestUserErrorHandling:
         response = await client.patch(
             f"/users/{NONEXISTENT_UUID}",
             json={"name": "Updated"},
+            headers={"X-User-ID": str(NONEXISTENT_UUID), "X-Email": "nonexistent@example.com"},
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
 
     @pytest.mark.asyncio
     async def test_delete_nonexistent_user(self, client: AsyncClient) -> None:
         """Deleting nonexistent user should return 404."""
-        response = await client.delete(f"/users/{NONEXISTENT_UUID}")
+        response = await client.delete(
+            f"/users/{NONEXISTENT_UUID}",
+            headers={"X-User-ID": str(NONEXISTENT_UUID), "X-Email": "nonexistent@example.com"},
+        )
         assert response.status_code == HTTPStatus.NOT_FOUND
 
     @pytest.mark.asyncio
