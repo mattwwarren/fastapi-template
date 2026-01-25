@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oathkeeper-config
+  namespace: warren-enterprises-ltd
+data:
+  config.yaml: |
+    serve:
+      proxy:
+        port: 4455
+      api:
+        port: 4456
+
+    access_rules:
+      matching_strategy: glob
+      repositories:
+        - file:///etc/config/access-rules.yaml
+
+    authenticators:
+      cookie_session:
+        enabled: true
+        config:
+          check_session_url: http://kratos-public.warren-enterprises-ltd.svc.cluster.local/sessions/whoami
+          preserve_path: true
+          extra_from: "@this"
+          subject_from: "identity.id"
+          only:
+            - ory_kratos_session
+
+      noop:
+        enabled: true
+
+    authorizers:
+      allow:
+        enabled: true
+
+    mutators:
+      header:
+        enabled: true
+        config:
+          headers:
+            X-User-ID: "{{ print .Subject }}"
+            X-Email: "{{ print .Extra.identity.traits.email }}"
+            X-Name-First: "{{ print .Extra.identity.traits.name.first }}"
+            X-Name-Last: "{{ print .Extra.identity.traits.name.last }}"
+
+      noop:
+        enabled: true
+
+    errors:
+      fallback:
+        - json
+      handlers:
+        json:
+          enabled: true
+          config:
+            verbose: true

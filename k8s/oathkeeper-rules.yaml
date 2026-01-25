@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oathkeeper-rules
+  namespace: warren-enterprises-ltd
+data:
+  access-rules.yaml: |
+    # Public endpoints (no auth required)
+    - id: "public:health"
+      upstream:
+        url: "http://fastapi-template.warren-enterprises-ltd.svc.cluster.local"
+      match:
+        url: "http://<**>/health"
+        methods:
+          - GET
+      authenticators:
+        - handler: noop
+      authorizer:
+        handler: allow
+      mutators:
+        - handler: noop
+
+    - id: "public:ping"
+      upstream:
+        url: "http://fastapi-template.warren-enterprises-ltd.svc.cluster.local"
+      match:
+        url: "http://<**>/ping"
+        methods:
+          - GET
+      authenticators:
+        - handler: noop
+      authorizer:
+        handler: allow
+      mutators:
+        - handler: noop
+
+    - id: "public:docs"
+      upstream:
+        url: "http://fastapi-template.warren-enterprises-ltd.svc.cluster.local"
+      match:
+        url: "http://<**>/docs<**>"
+        methods:
+          - GET
+      authenticators:
+        - handler: noop
+      authorizer:
+        handler: allow
+      mutators:
+        - handler: noop
+
+    - id: "public:openapi"
+      upstream:
+        url: "http://fastapi-template.warren-enterprises-ltd.svc.cluster.local"
+      match:
+        url: "http://<**>/openapi.json"
+        methods:
+          - GET
+      authenticators:
+        - handler: noop
+      authorizer:
+        handler: allow
+      mutators:
+        - handler: noop
+
+    # Protected endpoints (require authentication)
+    - id: "authenticated:api"
+      upstream:
+        url: "http://fastapi-template.warren-enterprises-ltd.svc.cluster.local"
+      match:
+        url: "http://<**>/<**>"
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+      authenticators:
+        - handler: cookie_session
+      authorizer:
+        handler: allow
+      mutators:
+        - handler: header
