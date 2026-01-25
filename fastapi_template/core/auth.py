@@ -43,7 +43,7 @@ import jwt
 
 if TYPE_CHECKING:
     from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
@@ -884,5 +884,51 @@ def get_current_user_optional(request: Request) -> CurrentUser | None:
     return getattr(request.state, "user", None)
 
 
+def get_user_from_headers(
+    x_user_id: Annotated[str | None, Header()] = None,
+    x_email: Annotated[str | None, Header()] = None,
+) -> CurrentUser:
+    """Extract user from Oathkeeper headers.
+
+    Oathkeeper validates authentication and adds these headers:
+    - X-User-ID: User's identity ID from Kratos
+    - X-Email: User's email address
+
+    Backend services trust these headers without validation.
+
+    Args:
+        x_user_id: User ID from X-User-ID header
+        x_email: Email from X-Email header
+
+    Returns:
+        CurrentUser instance with id and email
+
+    Raises:
+        HTTPException: 401 if headers missing, 400 if user ID invalid format
+    """
+    if not x_user_id or not x_email:
+        msg = "Missing authentication headers from Oathkeeper"
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=msg,
+        )
+
+    try:
+        user_id = UUID(x_user_id)
+    except ValueError as err:
+        msg = f"Invalid user ID format: {x_user_id}"
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        ) from err
+
+    return CurrentUser(
+        id=user_id,
+        email=x_email,
+        organization_id=None,  # TODO: Add organization selection later
+    )
+
+
 # Type alias for dependency injection
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
+CurrentUserFromHeaders = Annotated[CurrentUser, Depends(get_user_from_headers)]

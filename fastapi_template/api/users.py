@@ -1,21 +1,20 @@
 """User CRUD endpoints and membership expansion."""
 
 import asyncio
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Header, HTTPException, status
 from fastapi_pagination import Page, create_page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from fastapi_template.core.activity_logging import ActivityAction, log_activity_decorator
+from fastapi_template.core.auth import CurrentUserFromHeaders
 from fastapi_template.core.background_tasks import send_welcome_email_task
 from fastapi_template.core.pagination import ParamsDep
-from fastapi_template.core.permissions import RequireAdmin, RequireMember
-from fastapi_template.core.tenants import TenantDep
 from fastapi_template.db.session import SessionDep
-from fastapi_template.models.membership import Membership, MembershipRole
 from fastapi_template.models.shared import OrganizationInfo
 from fastapi_template.models.user import User, UserCreate, UserRead, UserUpdate
 from fastapi_template.services.user_service import (
@@ -35,8 +34,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 async def create_user_endpoint(
     payload: UserCreate,
     session: SessionDep,
-    tenant: TenantDep,
-    role_check: RequireAdmin,  # noqa: ARG001
+    current_user: CurrentUserFromHeaders,  # noqa: ARG001
 ) -> UserRead:
     """Create a new user and send welcome email asynchronously.
 
@@ -47,19 +45,10 @@ async def create_user_endpoint(
     The API response is returned immediately without waiting for email delivery.
     Email failures are logged but do not affect user creation.
 
-    Note: Automatically adds user to the tenant's organization with MEMBER role.
+    Note: Organization membership will be added in Phase 4.
     """
     try:
         user = await create_user(session, payload)
-
-        # Create MEMBER membership for the new user in tenant's organization
-        membership = Membership(
-            user_id=user.id,
-            organization_id=tenant.organization_id,
-            role=MembershipRole.MEMBER,
-        )
-        session.add(membership)
-
         await session.commit()
     except IntegrityError as e:
         error_str = str(e).lower()
@@ -87,6 +76,7 @@ async def create_user_endpoint(
 async def list_users_endpoint(
     session: SessionDep,
     params: ParamsDep,
+    current_user: CurrentUserFromHeaders,  # noqa: ARG001
 ) -> Page[UserRead]:
     page = await apaginate(session, select(User).order_by(User.created_at), params)
     users = page.items
@@ -107,22 +97,8 @@ async def list_users_endpoint(
 async def get_user_endpoint(
     user_id: UUID,
     session: SessionDep,
-    tenant: TenantDep,
-    role_check: RequireMember,  # noqa: ARG001
+    current_user: CurrentUserFromHeaders,  # noqa: ARG001
 ) -> UserRead:
-    # Verify user belongs to tenant's organization
-    result = await session.execute(
-        select(Membership)
-        .where(Membership.user_id == user_id)
-        .where(Membership.organization_id == tenant.organization_id)
-    )
-    membership = result.scalar_one_or_none()
-    if not membership:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-
     user = await get_user(session, user_id)
     if not user:
         raise HTTPException(
@@ -141,22 +117,8 @@ async def update_user_endpoint(
     user_id: UUID,
     payload: UserUpdate,
     session: SessionDep,
-    tenant: TenantDep,
-    role_check: RequireAdmin,  # noqa: ARG001
+    current_user: CurrentUserFromHeaders,  # noqa: ARG001
 ) -> UserRead:
-    # Verify user belongs to tenant's organization
-    result = await session.execute(
-        select(Membership)
-        .where(Membership.user_id == user_id)
-        .where(Membership.organization_id == tenant.organization_id)
-    )
-    membership = result.scalar_one_or_none()
-    if not membership:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-
     user = await get_user(session, user_id)
     if not user:
         raise HTTPException(
@@ -175,22 +137,8 @@ async def update_user_endpoint(
 async def delete_user_endpoint(
     user_id: UUID,
     session: SessionDep,
-    tenant: TenantDep,
-    role_check: RequireAdmin,  # noqa: ARG001
+    current_user: CurrentUserFromHeaders,  # noqa: ARG001
 ) -> None:
-    # Verify user belongs to tenant's organization
-    result = await session.execute(
-        select(Membership)
-        .where(Membership.user_id == user_id)
-        .where(Membership.organization_id == tenant.organization_id)
-    )
-    membership = result.scalar_one_or_none()
-    if not membership:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-
     user = await get_user(session, user_id)
     if not user:
         raise HTTPException(
@@ -199,3 +147,15 @@ async def delete_user_endpoint(
         )
     await delete_user(session, user)
     await session.commit()
+
+
+@router.get("/debug/headers")
+async def debug_headers(
+    x_user_id: Annotated[str | None, Header()] = None,
+    x_email: Annotated[str | None, Header()] = None,
+) -> dict[str, str | None]:
+    """Debug endpoint to verify Oathkeeper headers."""
+    return {
+        "x_user_id": x_user_id,
+        "x_email": x_email,
+    }
