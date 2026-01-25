@@ -504,13 +504,14 @@ async def client_bypass_auth(
     engine: AsyncEngine,
     session_maker: async_sessionmaker[AsyncSession],
 ) -> AsyncGenerator[AsyncClient]:
-    """Test client that bypasses AuthMiddleware and injects test user directly.
+    """Test client that injects Oathkeeper-style auth headers.
 
-    WARNING: This fixture is for migration purposes only. Use `authenticated_client`
-    for new tests to ensure auth middleware is properly tested.
+    Simulates Oathkeeper API gateway by injecting X-User-ID and X-Email headers
+    that the backend expects from the header-based authentication.
 
-    This client removes AuthMiddleware and replaces it with TestAuthMiddleware that
-    directly injects user/tenant into request state without JWT validation.
+    Default test user:
+    - X-User-ID: 00000000-0000-0000-0000-000000000001
+    - X-Email: testuser@example.com
     """
 
     async def get_session_override() -> AsyncGenerator[AsyncSession]:
@@ -536,6 +537,11 @@ async def client_bypass_auth(
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Inject default Oathkeeper headers for all requests
+        client.headers.update({
+            "X-User-ID": "00000000-0000-0000-0000-000000000001",
+            "X-Email": "testuser@example.com",
+        })
         yield client
 
     app.dependency_overrides.clear()
@@ -589,13 +595,14 @@ async def client(
     engine: AsyncEngine,
     session_maker: async_sessionmaker[AsyncSession],
 ) -> AsyncGenerator[AsyncClient]:
-    """HTTP client that bypasses authentication (alias for client_bypass_auth).
+    """HTTP client that injects Oathkeeper-style auth headers.
 
-    WARNING: This fixture is for migration purposes only. Use `authenticated_client`
-    for new tests to ensure auth middleware is properly tested.
+    Simulates Oathkeeper API gateway by injecting X-User-ID and X-Email headers
+    that the backend expects from the header-based authentication.
 
-    This client removes AuthMiddleware and replaces it with TestAuthMiddleware that
-    directly injects user/tenant into request state without JWT validation.
+    Default test user:
+    - X-User-ID: 00000000-0000-0000-0000-000000000001
+    - X-Email: testuser@example.com
     """
 
     async def get_session_override() -> AsyncGenerator[AsyncSession]:
@@ -621,6 +628,11 @@ async def client(
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Inject default Oathkeeper headers for all requests
+        client.headers.update({
+            "X-User-ID": "00000000-0000-0000-0000-000000000001",
+            "X-Email": "testuser@example.com",
+        })
         yield client
 
     app.dependency_overrides.clear()
