@@ -348,10 +348,7 @@ class TestDeleteMembership:
         # Second delete returns 0 (already deleted)
         # Create a new membership object pointing to same ID but already deleted
         ghost_membership = Membership(
-            id=membership.id,
-            user_id=user.id,
-            organization_id=org.id,
-            role=MembershipRole.MEMBER
+            id=membership.id, user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER
         )
         rows_deleted_2 = await delete_membership(session, ghost_membership)
         await session.commit()

@@ -476,9 +476,7 @@ class TestDocumentCloudProviderPaths:
                 app.dependency_overrides.pop(get_storage_service, None)
 
     @pytest.mark.asyncio
-    async def test_download_cloud_provider_url_generation_error(
-        self, client: AsyncClient
-    ) -> None:
+    async def test_download_cloud_provider_url_generation_error(self, client: AsyncClient) -> None:
         """Cloud provider download fails gracefully when URL generation fails.
 
         Verifies:
@@ -494,9 +492,7 @@ class TestDocumentCloudProviderPaths:
 
         # Mock storage to fail on URL generation
         mock_storage = AsyncMock()
-        mock_storage.get_download_url.side_effect = StorageError(
-            "Simulated URL generation failure"
-        )
+        mock_storage.get_download_url.side_effect = StorageError("Simulated URL generation failure")
 
         original_override = app.dependency_overrides.get(get_storage_service)
         app.dependency_overrides[get_storage_service] = lambda: mock_storage

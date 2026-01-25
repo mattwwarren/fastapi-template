@@ -116,12 +116,11 @@ This template uses a **runnable-first** architecture:
 - Template variables (`{{ project_slug }}`) are generated at release time via GitHub Actions
 
 ```bash
-# Development happens directly on the template
-cd /path/to/fastapi-template
-uv sync
-uv run pytest          # Tests run immediately
-uv run ruff check .    # Linting works directly
-uv run mypy .          # Type checking works directly
+# Development happens directly on the template (use --directory flag, no cd needed)
+uv --directory /path/to/fastapi-template sync
+uv --directory /path/to/fastapi-template run pytest
+uv --directory /path/to/fastapi-template run ruff check .
+uv --directory /path/to/fastapi-template run mypy .
 ```
 
 **Key benefits:**

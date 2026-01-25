@@ -216,9 +216,7 @@ class TestListOrganizationsForUser:
     """Test list_organizations_for_user service function."""
 
     @pytest.mark.asyncio
-    async def test_list_organizations_for_user_with_memberships(
-        self, session: AsyncSession
-    ) -> None:
+    async def test_list_organizations_for_user_with_memberships(self, session: AsyncSession) -> None:
         """list_organizations_for_user returns user's organizations."""
         # Create user
         user = User(name="Org User", email=f"org-user-{uuid4()}@example.com")
@@ -246,9 +244,7 @@ class TestListOrganizationsForUser:
         assert org2.id in org_ids
 
     @pytest.mark.asyncio
-    async def test_list_organizations_for_user_no_memberships(
-        self, session: AsyncSession
-    ) -> None:
+    async def test_list_organizations_for_user_no_memberships(self, session: AsyncSession) -> None:
         """list_organizations_for_user returns empty list for user with no orgs."""
         # Create user with no memberships
         user = User(name="No Org User", email=f"no-org-{uuid4()}@example.com")
@@ -266,18 +262,14 @@ class TestListOrganizationsForUsers:
     """Test list_organizations_for_users batch service function."""
 
     @pytest.mark.asyncio
-    async def test_list_organizations_for_users_empty_input(
-        self, session: AsyncSession
-    ) -> None:
+    async def test_list_organizations_for_users_empty_input(self, session: AsyncSession) -> None:
         """list_organizations_for_users returns empty dict for empty input."""
         result = await list_organizations_for_users(session, [])
 
         assert result == {}
 
     @pytest.mark.asyncio
-    async def test_list_organizations_for_users_returns_dict_for_all_ids(
-        self, session: AsyncSession
-    ) -> None:
+    async def test_list_organizations_for_users_returns_dict_for_all_ids(self, session: AsyncSession) -> None:
         """list_organizations_for_users returns dict with all requested user IDs."""
         # Create users
         user1 = User(name="Batch User 1", email=f"batch1-{uuid4()}@example.com")
@@ -290,9 +282,7 @@ class TestListOrganizationsForUsers:
         session.add(org)
         await session.flush()  # type: ignore[attr-defined]
 
-        membership = Membership(
-            user_id=user1.id, organization_id=org.id, role=MembershipRole.MEMBER
-        )
+        membership = Membership(user_id=user1.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add(membership)
         await session.commit()
 
@@ -309,9 +299,7 @@ class TestListOrganizationsForUsers:
         assert len(result[user2.id]) == 0
 
     @pytest.mark.asyncio
-    async def test_list_organizations_for_users_multiple_orgs_per_user(
-        self, session: AsyncSession
-    ) -> None:
+    async def test_list_organizations_for_users_multiple_orgs_per_user(self, session: AsyncSession) -> None:
         """list_organizations_for_users handles multiple orgs per user."""
         # Create user
         user = User(name="Multi Org User", email=f"multi-org-{uuid4()}@example.com")
@@ -336,9 +324,7 @@ class TestListOrganizationsForUsers:
         assert len(result[user.id]) == 3
 
     @pytest.mark.asyncio
-    async def test_list_organizations_for_users_nonexistent_users(
-        self, session: AsyncSession
-    ) -> None:
+    async def test_list_organizations_for_users_nonexistent_users(self, session: AsyncSession) -> None:
         """list_organizations_for_users returns empty lists for nonexistent users."""
         fake_ids = [uuid4(), uuid4()]
 

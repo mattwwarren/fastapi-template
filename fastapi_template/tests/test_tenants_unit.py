@@ -84,9 +84,7 @@ class TestValidateUserOrgAccess:
     """Tests for _validate_user_org_access helper."""
 
     @pytest.mark.asyncio
-    async def test_user_with_membership_returns_true_and_role(
-        self, session: AsyncSession
-    ) -> None:
+    async def test_user_with_membership_returns_true_and_role(self, session: AsyncSession) -> None:
         """Should return (True, role) when user is a member."""
         # Create test data
         org = Organization(name="Test Org")
@@ -110,9 +108,7 @@ class TestValidateUserOrgAccess:
         assert role == MembershipRole.ADMIN
 
     @pytest.mark.asyncio
-    async def test_user_without_membership_returns_false_and_none(
-        self, session: AsyncSession
-    ) -> None:
+    async def test_user_without_membership_returns_false_and_none(self, session: AsyncSession) -> None:
         """Should return (False, None) when user is not a member."""
         org = Organization(name="Test Org No Member")
         session.add(org)
@@ -362,9 +358,7 @@ class TestValidateTenantContext:
         assert error.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_returns_error_when_user_not_member(
-        self, session: AsyncSession
-    ) -> None:
+    async def test_returns_error_when_user_not_member(self, session: AsyncSession) -> None:
         """Should return 403 when user is not a member of org."""
         org = Organization(name="No Access Org")
         session.add(org)
@@ -406,9 +400,7 @@ class TestValidateTenantContext:
         assert error.status_code == 400
 
     @pytest.mark.asyncio
-    async def test_creates_session_when_not_provided(
-        self, session: AsyncSession
-    ) -> None:
+    async def test_creates_session_when_not_provided(self, session: AsyncSession) -> None:
         """Should create session from app.state when not provided."""
         org = Organization(name="App State Org")
         session.add(org)
@@ -486,9 +478,7 @@ class TestTenantIsolationMiddleware:
         mock_response = MagicMock()
         mock_call_next = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "fastapi_template.core.tenants.settings.enforce_tenant_isolation", False
-        ):
+        with patch("fastapi_template.core.tenants.settings.enforce_tenant_isolation", False):
             response = await middleware.dispatch(mock_request, mock_call_next)
 
         assert response == mock_response
@@ -508,9 +498,7 @@ class TestTenantIsolationMiddleware:
 
         mock_call_next = AsyncMock()
 
-        with patch(
-            "fastapi_template.core.tenants.settings.enforce_tenant_isolation", True
-        ):
+        with patch("fastapi_template.core.tenants.settings.enforce_tenant_isolation", True):
             response = await middleware.dispatch(mock_request, mock_call_next)
 
         assert isinstance(response, JSONResponse)
@@ -533,9 +521,7 @@ class TestTenantIsolationMiddleware:
 
         mock_call_next = AsyncMock()
 
-        with patch(
-            "fastapi_template.core.tenants.settings.enforce_tenant_isolation", True
-        ):
+        with patch("fastapi_template.core.tenants.settings.enforce_tenant_isolation", True):
             response = await middleware.dispatch(mock_request, mock_call_next)
 
         assert isinstance(response, JSONResponse)
@@ -587,9 +573,7 @@ class TestTenantIsolationMiddleware:
         mock_response = MagicMock()
         mock_call_next = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "fastapi_template.core.tenants.settings.enforce_tenant_isolation", True
-        ):
+        with patch("fastapi_template.core.tenants.settings.enforce_tenant_isolation", True):
             response = await middleware.dispatch(mock_request, mock_call_next)
 
         assert response == mock_response
@@ -654,9 +638,7 @@ class TestValidateTenantOwnership:
         await validate_tenant_ownership(session, tenant, TEST_ORG_ID)
 
     @pytest.mark.asyncio
-    async def test_raises_403_when_org_id_mismatch(
-        self, session: AsyncSession
-    ) -> None:
+    async def test_raises_403_when_org_id_mismatch(self, session: AsyncSession) -> None:
         """Should raise 403 when organization_id doesn't match tenant."""
         tenant = TenantContext(
             organization_id=TEST_ORG_ID,

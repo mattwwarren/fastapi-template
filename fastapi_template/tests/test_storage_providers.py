@@ -138,9 +138,7 @@ class TestLocalStorageService:
         assert str(TEST_DOC_ID) in url
 
     @pytest.mark.asyncio
-    async def test_get_download_url_with_organization(
-        self, storage: LocalStorageService
-    ) -> None:
+    async def test_get_download_url_with_organization(self, storage: LocalStorageService) -> None:
         """Get download URL with org_id should include org in path."""
         await storage.upload(TEST_DOC_ID, b"content", "text/plain", TEST_ORG_ID)
 
@@ -239,9 +237,7 @@ class TestAzureBlobStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_upload_error(self, mock_azure_modules: dict[str, Any]) -> None:
         """Azure upload should wrap errors in StorageError."""
-        mock_azure_modules["blob_client"].upload_blob.side_effect = Exception(
-            "Upload failed"
-        )
+        mock_azure_modules["blob_client"].upload_blob.side_effect = Exception("Upload failed")
 
         storage = AzureBlobStorageService(
             container_name="test-container",
@@ -265,8 +261,8 @@ class TestAzureBlobStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_download_not_found(self, mock_azure_modules: dict[str, Any]) -> None:
         """Azure download should return None for missing blob."""
-        mock_azure_modules["blob_client"].download_blob.side_effect = (
-            mock_azure_modules["AzureResourceNotFoundError"]("Not found")
+        mock_azure_modules["blob_client"].download_blob.side_effect = mock_azure_modules["AzureResourceNotFoundError"](
+            "Not found"
         )
 
         storage = AzureBlobStorageService(
@@ -280,9 +276,7 @@ class TestAzureBlobStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_download_error(self, mock_azure_modules: dict[str, Any]) -> None:
         """Azure download should wrap errors in StorageError."""
-        mock_azure_modules["blob_client"].download_blob.side_effect = Exception(
-            "Download failed"
-        )
+        mock_azure_modules["blob_client"].download_blob.side_effect = Exception("Download failed")
 
         storage = AzureBlobStorageService(
             container_name="test-container",
@@ -306,9 +300,9 @@ class TestAzureBlobStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_delete_not_found(self, mock_azure_modules: dict[str, Any]) -> None:
         """Azure delete should return False for missing blob."""
-        mock_azure_modules["blob_client"].delete_blob.side_effect = mock_azure_modules[
-            "AzureResourceNotFoundError"
-        ]("Not found")
+        mock_azure_modules["blob_client"].delete_blob.side_effect = mock_azure_modules["AzureResourceNotFoundError"](
+            "Not found"
+        )
 
         storage = AzureBlobStorageService(
             container_name="test-container",
@@ -321,9 +315,7 @@ class TestAzureBlobStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_delete_error(self, mock_azure_modules: dict[str, Any]) -> None:
         """Azure delete should wrap errors in StorageError."""
-        mock_azure_modules["blob_client"].delete_blob.side_effect = Exception(
-            "Delete failed"
-        )
+        mock_azure_modules["blob_client"].delete_blob.side_effect = Exception("Delete failed")
 
         storage = AzureBlobStorageService(
             container_name="test-container",
@@ -334,9 +326,7 @@ class TestAzureBlobStorageServiceMocked:
             await storage.delete(TEST_DOC_ID)
 
     @pytest.mark.asyncio
-    async def test_get_download_url_success(
-        self, mock_azure_modules: dict[str, Any]
-    ) -> None:
+    async def test_get_download_url_success(self, mock_azure_modules: dict[str, Any]) -> None:
         """Azure get_download_url should return signed URL."""
         storage = AzureBlobStorageService(
             container_name="test-container",
@@ -349,9 +339,7 @@ class TestAzureBlobStorageServiceMocked:
         mock_azure_modules["generate_blob_sas"].assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_download_url_error(
-        self, mock_azure_modules: dict[str, Any]
-    ) -> None:
+    async def test_get_download_url_error(self, mock_azure_modules: dict[str, Any]) -> None:
         """Azure get_download_url should wrap errors in StorageError."""
         mock_azure_modules["generate_blob_sas"].side_effect = Exception("SAS failed")
 
@@ -374,9 +362,7 @@ class TestAzureBlobStorageServiceMocked:
         assert str(TEST_ORG_ID) in blob_name
         assert str(TEST_DOC_ID) in blob_name
 
-    def test_get_blob_name_without_org(
-        self, mock_azure_modules: dict[str, Any]
-    ) -> None:
+    def test_get_blob_name_without_org(self, mock_azure_modules: dict[str, Any]) -> None:
         """Blob name should be just doc ID when no org provided."""
         storage = AzureBlobStorageService(
             container_name="test-container",
@@ -411,9 +397,7 @@ class TestS3StorageServiceMocked:
         mock_s3_client.put_object = AsyncMock()
         mock_s3_client.get_object = AsyncMock()
         mock_s3_client.delete_object = AsyncMock()
-        mock_s3_client.generate_presigned_url = AsyncMock(
-            return_value="https://s3.presigned.url"
-        )
+        mock_s3_client.generate_presigned_url = AsyncMock(return_value="https://s3.presigned.url")
 
         mock_body = AsyncMock()
         mock_body.read = AsyncMock(return_value=b"s3 content")
@@ -483,9 +467,9 @@ class TestS3StorageServiceMocked:
     @pytest.mark.asyncio
     async def test_download_not_found(self, mock_s3_modules: dict[str, Any]) -> None:
         """S3 download should return None for missing object."""
-        mock_s3_modules["s3_client"].get_object.side_effect = mock_s3_modules[
-            "ClientError"
-        ]({"Error": {"Code": "NoSuchKey"}}, "GetObject")
+        mock_s3_modules["s3_client"].get_object.side_effect = mock_s3_modules["ClientError"](
+            {"Error": {"Code": "NoSuchKey"}}, "GetObject"
+        )
 
         storage = S3StorageService(bucket_name="test-bucket", region="us-east-1")
 
@@ -495,9 +479,9 @@ class TestS3StorageServiceMocked:
     @pytest.mark.asyncio
     async def test_download_client_error(self, mock_s3_modules: dict[str, Any]) -> None:
         """S3 download should wrap client errors in StorageError."""
-        mock_s3_modules["s3_client"].get_object.side_effect = mock_s3_modules[
-            "ClientError"
-        ]({"Error": {"Code": "AccessDenied"}}, "GetObject")
+        mock_s3_modules["s3_client"].get_object.side_effect = mock_s3_modules["ClientError"](
+            {"Error": {"Code": "AccessDenied"}}, "GetObject"
+        )
 
         storage = S3StorageService(bucket_name="test-bucket", region="us-east-1")
 
@@ -505,13 +489,9 @@ class TestS3StorageServiceMocked:
             await storage.download(TEST_DOC_ID)
 
     @pytest.mark.asyncio
-    async def test_download_generic_error(
-        self, mock_s3_modules: dict[str, Any]
-    ) -> None:
+    async def test_download_generic_error(self, mock_s3_modules: dict[str, Any]) -> None:
         """S3 download should wrap generic errors in StorageError."""
-        mock_s3_modules["s3_client"].get_object.side_effect = Exception(
-            "Network error"
-        )
+        mock_s3_modules["s3_client"].get_object.side_effect = Exception("Network error")
 
         storage = S3StorageService(bucket_name="test-bucket", region="us-east-1")
 
@@ -529,9 +509,7 @@ class TestS3StorageServiceMocked:
     @pytest.mark.asyncio
     async def test_delete_error(self, mock_s3_modules: dict[str, Any]) -> None:
         """S3 delete should wrap errors in StorageError."""
-        mock_s3_modules["s3_client"].delete_object.side_effect = Exception(
-            "Delete failed"
-        )
+        mock_s3_modules["s3_client"].delete_object.side_effect = Exception("Delete failed")
 
         storage = S3StorageService(bucket_name="test-bucket", region="us-east-1")
 
@@ -539,9 +517,7 @@ class TestS3StorageServiceMocked:
             await storage.delete(TEST_DOC_ID)
 
     @pytest.mark.asyncio
-    async def test_get_download_url_success(
-        self, mock_s3_modules: dict[str, Any]
-    ) -> None:
+    async def test_get_download_url_success(self, mock_s3_modules: dict[str, Any]) -> None:
         """S3 get_download_url should return presigned URL."""
         storage = S3StorageService(bucket_name="test-bucket", region="us-east-1")
 
@@ -551,13 +527,9 @@ class TestS3StorageServiceMocked:
         mock_s3_modules["s3_client"].generate_presigned_url.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_download_url_error(
-        self, mock_s3_modules: dict[str, Any]
-    ) -> None:
+    async def test_get_download_url_error(self, mock_s3_modules: dict[str, Any]) -> None:
         """S3 get_download_url should wrap errors in StorageError."""
-        mock_s3_modules["s3_client"].generate_presigned_url.side_effect = Exception(
-            "URL generation failed"
-        )
+        mock_s3_modules["s3_client"].generate_presigned_url.side_effect = Exception("URL generation failed")
 
         storage = S3StorageService(bucket_name="test-bucket", region="us-east-1")
 
@@ -600,9 +572,7 @@ class TestGCSStorageServiceMocked:
         mock_blob.download_as_bytes = MagicMock(return_value=b"gcs content")
         mock_blob.exists = MagicMock(return_value=True)
         mock_blob.delete = MagicMock()
-        mock_blob.generate_signed_url = MagicMock(
-            return_value="https://storage.googleapis.com/signed"
-        )
+        mock_blob.generate_signed_url = MagicMock(return_value="https://storage.googleapis.com/signed")
 
         mock_bucket = MagicMock()
         mock_bucket.blob.return_value = mock_blob
@@ -643,9 +613,7 @@ class TestGCSStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_upload_error(self, mock_gcs_modules: dict[str, Any]) -> None:
         """GCS upload should wrap errors in StorageError."""
-        mock_gcs_modules["blob"].upload_from_string.side_effect = Exception(
-            "Upload failed"
-        )
+        mock_gcs_modules["blob"].upload_from_string.side_effect = Exception("Upload failed")
 
         storage = GCSStorageService(bucket_name="test-bucket", project_id="test-project")
 
@@ -671,13 +639,9 @@ class TestGCSStorageServiceMocked:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_download_not_found_exception(
-        self, mock_gcs_modules: dict[str, Any]
-    ) -> None:
+    async def test_download_not_found_exception(self, mock_gcs_modules: dict[str, Any]) -> None:
         """GCS download should return None on NotFound exception."""
-        mock_gcs_modules["blob"].download_as_bytes.side_effect = mock_gcs_modules[
-            "NotFound"
-        ]("Not found")
+        mock_gcs_modules["blob"].download_as_bytes.side_effect = mock_gcs_modules["NotFound"]("Not found")
 
         storage = GCSStorageService(bucket_name="test-bucket", project_id="test-project")
 
@@ -687,9 +651,7 @@ class TestGCSStorageServiceMocked:
     @pytest.mark.asyncio
     async def test_download_error(self, mock_gcs_modules: dict[str, Any]) -> None:
         """GCS download should wrap errors in StorageError."""
-        mock_gcs_modules["blob"].download_as_bytes.side_effect = Exception(
-            "Download failed"
-        )
+        mock_gcs_modules["blob"].download_as_bytes.side_effect = Exception("Download failed")
 
         storage = GCSStorageService(bucket_name="test-bucket", project_id="test-project")
 
@@ -715,13 +677,9 @@ class TestGCSStorageServiceMocked:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_delete_not_found_exception(
-        self, mock_gcs_modules: dict[str, Any]
-    ) -> None:
+    async def test_delete_not_found_exception(self, mock_gcs_modules: dict[str, Any]) -> None:
         """GCS delete should return False on NotFound exception."""
-        mock_gcs_modules["blob"].delete.side_effect = mock_gcs_modules["NotFound"](
-            "Not found"
-        )
+        mock_gcs_modules["blob"].delete.side_effect = mock_gcs_modules["NotFound"]("Not found")
 
         storage = GCSStorageService(bucket_name="test-bucket", project_id="test-project")
 
@@ -739,9 +697,7 @@ class TestGCSStorageServiceMocked:
             await storage.delete(TEST_DOC_ID)
 
     @pytest.mark.asyncio
-    async def test_get_download_url_success(
-        self, mock_gcs_modules: dict[str, Any]
-    ) -> None:
+    async def test_get_download_url_success(self, mock_gcs_modules: dict[str, Any]) -> None:
         """GCS get_download_url should return signed URL."""
         storage = GCSStorageService(bucket_name="test-bucket", project_id="test-project")
 
@@ -750,13 +706,9 @@ class TestGCSStorageServiceMocked:
         assert url == "https://storage.googleapis.com/signed"
 
     @pytest.mark.asyncio
-    async def test_get_download_url_error(
-        self, mock_gcs_modules: dict[str, Any]
-    ) -> None:
+    async def test_get_download_url_error(self, mock_gcs_modules: dict[str, Any]) -> None:
         """GCS get_download_url should wrap errors in StorageError."""
-        mock_gcs_modules["blob"].generate_signed_url.side_effect = Exception(
-            "URL generation failed"
-        )
+        mock_gcs_modules["blob"].generate_signed_url.side_effect = Exception("URL generation failed")
 
         storage = GCSStorageService(bucket_name="test-bucket", project_id="test-project")
 
@@ -836,9 +788,7 @@ class TestTransientStorageErrorDetection:
             def __init__(self) -> None:
                 self.response = {"Error": {"Code": "Throttling"}}
 
-        with patch(
-            "fastapi_template.core.storage_providers.ClientError", MockClientError
-        ):
+        with patch("fastapi_template.core.storage_providers.ClientError", MockClientError):
             error = MockClientError()
             assert _is_transient_storage_error(error) is True
 
@@ -849,9 +799,7 @@ class TestTransientStorageErrorDetection:
             def __init__(self) -> None:
                 self.response = {"Error": {"Code": "ServiceUnavailable"}}
 
-        with patch(
-            "fastapi_template.core.storage_providers.ClientError", MockClientError
-        ):
+        with patch("fastapi_template.core.storage_providers.ClientError", MockClientError):
             error = MockClientError()
             assert _is_transient_storage_error(error) is True
 
@@ -862,9 +810,7 @@ class TestTransientStorageErrorDetection:
             def __init__(self) -> None:
                 self.response = {"Error": {"Code": "SlowDown"}}
 
-        with patch(
-            "fastapi_template.core.storage_providers.ClientError", MockClientError
-        ):
+        with patch("fastapi_template.core.storage_providers.ClientError", MockClientError):
             error = MockClientError()
             assert _is_transient_storage_error(error) is True
 
@@ -875,9 +821,7 @@ class TestTransientStorageErrorDetection:
             def __init__(self) -> None:
                 self.response = {"Error": {"Code": "RequestTimeout"}}
 
-        with patch(
-            "fastapi_template.core.storage_providers.ClientError", MockClientError
-        ):
+        with patch("fastapi_template.core.storage_providers.ClientError", MockClientError):
             error = MockClientError()
             assert _is_transient_storage_error(error) is True
 
@@ -888,9 +832,7 @@ class TestTransientStorageErrorDetection:
             def __init__(self) -> None:
                 self.response = {"Error": {"Code": "AccessDenied"}}
 
-        with patch(
-            "fastapi_template.core.storage_providers.ClientError", MockClientError
-        ):
+        with patch("fastapi_template.core.storage_providers.ClientError", MockClientError):
             error = MockClientError()
             assert _is_transient_storage_error(error) is False
 
