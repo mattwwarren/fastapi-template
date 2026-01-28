@@ -62,7 +62,26 @@ data:
       mutators:
         - handler: noop
 
-    # Protected endpoints (require authentication)
+    # Block external access to /_admin (internal-only endpoints)
+    # These endpoints are only accessible from within the cluster
+    # External requests are blocked with 403 Forbidden
+    - id: "admin:block-external"
+      match:
+        url: "http://<**>/_admin/<**>"
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+      authenticators:
+        - handler: noop
+      authorizer:
+        handler: deny
+      errors:
+        - handler: json
+
+    # Protected endpoints (require authentication + JWT with org validation)
     - id: "authenticated:api"
       upstream:
         url: "http://fastapi-template.warren-enterprises-ltd.svc.cluster.local"
@@ -77,11 +96,8 @@ data:
       authenticators:
         - handler: cookie_session
       authorizer:
-        handler: allow
+        handler: remote_json  # Validate org membership via backend
       mutators:
-        - handler: header
-          config:
-            headers:
-              X-User-ID: "{{ print .Subject }}"
-              X-Email: "{{ print .Extra.identity.traits.email }}"
-              X-Selected-Org: "{{ print .MatchContext.Header.Get \"X-Selected-Org\" }}"
+        - handler: jwt  # Generate JWT with org_id claim
+      errors:
+        - handler: json

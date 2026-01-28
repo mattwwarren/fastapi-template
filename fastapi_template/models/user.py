@@ -20,6 +20,12 @@ MAX_NAME_LENGTH = 100
 class UserBase(SQLModel):
     email: EmailStr = Field(description="User email address")
     name: str = Field(min_length=1, description="User full name")
+    kratos_identity_id: UUID | None = Field(
+        default=None,
+        description="Ory Kratos identity UUID (one-to-one mapping)",
+        unique=True,
+        index=True,
+    )
 
 
 class User(TimestampedTable, UserBase, table=True):

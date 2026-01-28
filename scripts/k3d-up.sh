@@ -10,7 +10,7 @@ if ! command -v k3d >/dev/null 2>&1; then
 fi
 
 if ! k3d cluster list | grep -q "^${cluster_name}\\b"; then
-  k3d cluster create "${cluster_name}" --agents 1 --servers 1 --port "8080:80@loadbalancer"
+  k3d cluster create "${cluster_name}" --agents 1 --servers 1
 fi
 
 for _ in $(seq 1 30); do

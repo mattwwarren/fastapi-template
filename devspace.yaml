@@ -1,21 +1,21 @@
 version: v2beta1
-name: "fastapi_template"
+name: "fastapi-template"
 
 vars:
   CLUSTER_NAME:
-    default: "fastapi_template"
+    default: "fastapi-template"
     source: env
   NAMESPACE:
     default: warren-enterprises-ltd
     source: env
   IMAGE_NAME:
-    default: "fastapi_template"
+    default: "fastapi-template"
     source: env
   IMAGE_TAG:
     default: dev
     source: env
   APP_NAME:
-    default: "fastapi_template"
+    default: "fastapi-template"
     source: env
   ENVIRONMENT:
     default: dev
@@ -36,6 +36,9 @@ vars:
     default: app
     source: env
 
+localRegistry:
+  enabled: false
+
 images:
   app:
     image: ${IMAGE_NAME}
@@ -43,33 +46,50 @@ images:
       - ${IMAGE_TAG}
     dockerfile: ./Dockerfile
     skipPush: true
+    injectRestartHelper: false
 
 pipelines:
   deploy:
     run: |-
-      bash scripts/k3d-up.sh
-      export KUBECONFIG="$(k3d kubeconfig write ${CLUSTER_NAME})"
-      kubectl config use-context "k3d-${CLUSTER_NAME}"
-      for _ in $(seq 1 30); do
-        if kubectl get namespaces >/dev/null 2>&1; then
-          break
-        fi
-        sleep 1
-      done
-      create_deployments --all
+      if is_dependency; then
+        echo "Running as dependency - deploying backend only"
+        create_deployments backend
+      else
+        echo "Running standalone - full setup"
+        bash scripts/k3d-up.sh
+        export KUBECONFIG="$(k3d kubeconfig write ${CLUSTER_NAME})"
+        kubectl config use-context "k3d-${CLUSTER_NAME}"
+        for _ in $(seq 1 30); do
+          if kubectl get namespaces >/dev/null 2>&1; then
+            break
+          fi
+          sleep 1
+        done
+        kubectl create namespace "${NAMESPACE}" 2>/dev/null || true
+        bash scripts/ensure-db-secret.sh
+        create_deployments --all
+      fi
   dev:
     run: |-
-      bash scripts/k3d-up.sh
-      export KUBECONFIG="$(k3d kubeconfig write ${CLUSTER_NAME})"
-      kubectl config use-context "k3d-${CLUSTER_NAME}"
-      for _ in $(seq 1 30); do
-        if kubectl get namespaces >/dev/null 2>&1; then
-          break
-        fi
-        sleep 1
-      done
-      create_deployments --all
-      start_dev --all
+      if is_dependency; then
+        echo "Running as dependency - starting app dev mode"
+        start_dev api
+      else
+        echo "Running standalone - full dev setup"
+        bash scripts/k3d-up.sh
+        export KUBECONFIG="$(k3d kubeconfig write ${CLUSTER_NAME})"
+        kubectl config use-context "k3d-${CLUSTER_NAME}"
+        for _ in $(seq 1 30); do
+          if kubectl get namespaces >/dev/null 2>&1; then
+            break
+          fi
+          sleep 1
+        done
+        kubectl create namespace "${NAMESPACE}" 2>/dev/null || true
+        bash scripts/ensure-db-secret.sh
+        create_deployments --all
+        start_dev --all
+      fi
 
 dev:
   api:
@@ -81,9 +101,28 @@ dev:
       - path: ./:/app
         excludeFile: .gitignore
 
-hooks: []
+hooks:
+  - events: ["after:build"]
+    command: |-
+      if k3d cluster list | grep -q "^${CLUSTER_NAME} "; then
+        k3d image import ${runtime.images.app.image}:${runtime.images.app.tag} -c ${CLUSTER_NAME}
+      else
+        echo "Skipping image import - cluster ${CLUSTER_NAME} not found (running as dependency)"
+      fi
 
 commands:
+  init:
+    description: "Initialize standalone cluster and context"
+    command: bash
+    args:
+      - -c
+      - |
+        bash scripts/k3d-up.sh
+        export KUBECONFIG="$(k3d kubeconfig write ${CLUSTER_NAME})"
+        kubectl config use-context "k3d-${CLUSTER_NAME}"
+        kubectl create namespace "${NAMESPACE}" 2>/dev/null || true
+        bash scripts/ensure-db-secret.sh
+        echo "Cluster ${CLUSTER_NAME} ready. Run 'devspace dev' to start."
   alembic-revision:
     description: "Generate an Alembic migration (requires --message)"
     command: bash
@@ -112,12 +151,14 @@ commands:
           --label-selector "app.kubernetes.io/name=devspace-app" \
           -- sh -lc 'uv run alembic upgrade head'
   k3d-down:
-    description: "Delete the local k3d cluster"
+    description: "Delete the local k3d cluster and clear cache"
     command: bash
     args:
       - -c
       - |
         bash scripts/k3d-down.sh
+        rm -f .devspace/cache.yaml
+        echo "Cache cleared"
 
 
 # Deployment definitions
@@ -127,11 +168,11 @@ deployments:
     namespace: ${NAMESPACE}
     kubectl:
       manifests:
-        - k8s/postgres-secret.yaml
+        - k8s/postgres-init-configmap.yaml
         - k8s/postgres-service.yaml
         - k8s/postgres-statefulset.yaml
 
-  app:
+  backend:
     namespace: ${NAMESPACE}
     helm:
       chart:
@@ -143,20 +184,8 @@ deployments:
             image: ${runtime.images.app.image}:${runtime.images.app.tag}
             imagePullPolicy: IfNotPresent
             ports:
-              - containerPort: "8000"
+              - containerPort: 8000
             env:
-              - name: APP_NAME
-                value: ${APP_NAME}
-              - name: ENVIRONMENT
-                value: ${ENVIRONMENT}
-              - name: LOG_LEVEL
-                value: ${LOG_LEVEL}
-              - name: SQLALCHEMY_ECHO
-                value: "false"
-              - name: ENABLE_METRICS
-                value: "true"
-              - name: DATABASE_URL
-                value: postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres.${NAMESPACE}.svc.cluster.local:5432/$(POSTGRES_DB)
               - name: POSTGRES_USER
                 valueFrom:
                   secretKeyRef:
@@ -172,16 +201,28 @@ deployments:
                   secretKeyRef:
                     name: postgres-secret
                     key: POSTGRES_DB
+              - name: APP_NAME
+                value: ${APP_NAME}
+              - name: ENVIRONMENT
+                value: ${ENVIRONMENT}
+              - name: LOG_LEVEL
+                value: ${LOG_LEVEL}
+              - name: SQLALCHEMY_ECHO
+                value: "false"
+              - name: ENABLE_METRICS
+                value: "true"
+              - name: DATABASE_URL
+                value: postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres.${NAMESPACE}.svc.cluster.local:5432/$(POSTGRES_DB)
             readinessProbe:
               httpGet:
                 path: /health
-                port: "8000"
+                port: 8000
               initialDelaySeconds: 5
               periodSeconds: 10
             livenessProbe:
               httpGet:
                 path: /health
-                port: "8000"
+                port: 8000
               initialDelaySeconds: 10
               periodSeconds: 20
             resources:

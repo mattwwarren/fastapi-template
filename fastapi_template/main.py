@@ -43,6 +43,8 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from sqlalchemy import text
 
+from fastapi_template.api.admin import router as admin_internal_router
+from fastapi_template.api.admin import webhooks_router as admin_webhooks_router
 from fastapi_template.api.routes import router as api_router
 from fastapi_template.core.config import ConfigurationError, settings
 from fastapi_template.core.logging import LoggingMiddleware
@@ -115,6 +117,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.include_router(api_router)
+# Internal/admin endpoints (/_admin namespace)
+# SECURITY: Must be blocked from external access via Traefik
+app.include_router(admin_internal_router)
+app.include_router(admin_webhooks_router)
 configure_pagination()
 add_pagination(app)
 

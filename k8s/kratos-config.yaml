@@ -66,6 +66,13 @@ data:
             password:
               hooks:
                 - hook: session
+                - hook: web_hook
+                  config:
+                    url: http://fastapi-template.warren-enterprises-ltd.svc.cluster.local/_admin/webhooks/kratos/registration
+                    method: POST
+                    body: base64://ewogICJpZGVudGl0eSI6IHt7IC50b0pTT04gfX0KfQ==
+                    response:
+                      ignore: false
 
     log:
       level: info
@@ -97,3 +104,9 @@ data:
         domain: .mwarren.dev
         path: /
         same_site: Lax
+
+    courier:
+      smtp:
+        connection_uri: smtp://mailhog:1025  # Development only - no auth
+        from_address: noreply@mwarren.dev
+        from_name: Warren Enterprises

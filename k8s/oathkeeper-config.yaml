@@ -34,7 +34,38 @@ data:
       allow:
         enabled: true
 
+      deny:
+        enabled: true
+
+      remote_json:
+        enabled: true
+        config:
+          remote: http://fastapi-template.warren-enterprises-ltd.svc.cluster.local/_admin/internal/check-org-membership
+          headers:
+            X-User-ID: "{{ print .Subject }}"
+            X-Selected-Org: "{{ print .MatchContext.Header.Get \"X-Selected-Org\" }}"
+          retry:
+            max_delay: 100ms
+            give_up_after: 500ms
+
     mutators:
+      jwt:
+        enabled: true
+        config:
+          signing_algorithm: RS256
+          jwks_url: file:///etc/secrets/jwks.json
+          ttl: 300s  # 5 minute JWT expiry (request-scoped)
+          claims: |
+            {
+              "iss": "oathkeeper",
+              "sub": "{{ print .Subject }}",
+              "email": "{{ print .Extra.identity.traits.email }}",
+              "org_id": "{{ print .MatchContext.Header.Get \"X-Selected-Org\" }}",
+              "name": "{{ print .Extra.identity.traits.name.first }} {{ print .Extra.identity.traits.name.last }}",
+              "iat": {{ now.Unix }},
+              "exp": {{ (now.Add (parseDuration "5m")).Unix }}
+            }
+
       header:
         enabled: true
         config:
