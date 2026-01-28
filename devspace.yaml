@@ -52,10 +52,10 @@ pipelines:
   deploy:
     run: |-
       if is_dependency; then
-        echo "Running as dependency - deploying backend only"
+        bash scripts/devspace-banner.sh DEPENDENCY meta-workspace "Deploying: backend"
         create_deployments backend
       else
-        echo "Running standalone - full setup"
+        bash scripts/devspace-banner.sh STANDALONE fastapi-template "Deploying: backend + postgres"
         bash scripts/k3d-up.sh
         export KUBECONFIG="$(k3d kubeconfig write ${CLUSTER_NAME})"
         kubectl config use-context "k3d-${CLUSTER_NAME}"
@@ -72,10 +72,10 @@ pipelines:
   dev:
     run: |-
       if is_dependency; then
-        echo "Running as dependency - starting app dev mode"
+        bash scripts/devspace-banner.sh DEPENDENCY meta-workspace "Dev service: api"
         start_dev api
       else
-        echo "Running standalone - full dev setup"
+        bash scripts/devspace-banner.sh STANDALONE fastapi-template "Dev services: all"
         bash scripts/k3d-up.sh
         export KUBECONFIG="$(k3d kubeconfig write ${CLUSTER_NAME})"
         kubectl config use-context "k3d-${CLUSTER_NAME}"
