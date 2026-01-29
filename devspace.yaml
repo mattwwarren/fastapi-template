@@ -90,6 +90,39 @@ pipelines:
         create_deployments --all
         start_dev --all
       fi
+  integration-tests:
+    run: |-
+      if is_dependency; then
+        bash scripts/devspace-banner.sh DEPENDENCY meta-workspace "Running: integration tests"
+        kubectl wait --for=condition=ready pod \
+          -l app.kubernetes.io/name=devspace-app \
+          -n "${NAMESPACE}" --timeout=120s
+        devspace enter --container api --namespace "${NAMESPACE}" \
+          --label-selector "app.kubernetes.io/name=devspace-app" \
+          -- sh -lc 'uv run pytest fastapi_template/tests/integration/ -v --tb=short'
+      else
+        bash scripts/devspace-banner.sh STANDALONE fastapi-template "Running: integration tests"
+        bash scripts/k3d-up.sh
+        export KUBECONFIG="$(k3d kubeconfig write ${CLUSTER_NAME})"
+        kubectl config use-context "k3d-${CLUSTER_NAME}"
+        for _ in $(seq 1 30); do
+          if kubectl get namespaces >/dev/null 2>&1; then
+            break
+          fi
+          sleep 1
+        done
+        kubectl create namespace "${NAMESPACE}" 2>/dev/null || true
+        bash scripts/ensure-db-secret.sh
+        create_deployments --all
+        kubectl wait --for=condition=ready pod -l app=postgres \
+          -n "${NAMESPACE}" --timeout=120s
+        kubectl wait --for=condition=ready pod \
+          -l app.kubernetes.io/name=devspace-app \
+          -n "${NAMESPACE}" --timeout=120s
+        devspace enter --container api --namespace "${NAMESPACE}" \
+          --label-selector "app.kubernetes.io/name=devspace-app" \
+          -- sh -lc 'uv run pytest fastapi_template/tests/integration/ -v --tb=short'
+      fi
 
 dev:
   api:
