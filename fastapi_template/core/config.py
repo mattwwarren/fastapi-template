@@ -324,7 +324,7 @@ class Settings(BaseSettings):
             # In main.py lifespan
             warnings = settings.validate_config()
             for warning in warnings:
-                logger.warning("config_warning", extra={"message": warning})
+                logger.warning("config_warning", extra={"detail": warning})
         """
         errors: list[str] = []
         warnings: list[str] = []

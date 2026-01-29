@@ -164,7 +164,7 @@ async def _verify_token_local(token: str) -> dict[str, Any] | None:
             "jwt_public_key_not_configured",
             extra={
                 **context,
-                "message": "Cannot validate tokens locally without JWT_PUBLIC_KEY",
+                "detail": "Cannot validate tokens locally without JWT_PUBLIC_KEY",
             },
         )
         return None
