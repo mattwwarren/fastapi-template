@@ -14,6 +14,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, EmailStr
+from sqlalchemy import select
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -145,8 +146,6 @@ async def handle_registration(
     full_name = f"{first_name} {last_name}".strip() or email.split("@")[0]
 
     # Check if user already exists (idempotency)
-    from sqlalchemy import select
-
     result = await session.execute(
         select(User).where(User.kratos_identity_id == identity_id)
     )
@@ -176,12 +175,12 @@ async def handle_registration(
         kratos_identity_id=identity_id,
     )
     session.add(user)
-    await session.flush()  # Get user.id
+    await session.flush()  # type: ignore[attr-defined]  # Get user.id
 
     # Create default organization
     org = Organization(name=f"{full_name}'s Organization")
     session.add(org)
-    await session.flush()  # Get org.id
+    await session.flush()  # type: ignore[attr-defined]  # Get org.id
 
     # Create OWNER membership
     membership = Membership(
