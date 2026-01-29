@@ -65,7 +65,11 @@ jobs:
         run: cd /tmp/test-project && uv sync
 
       - name: Lint (ruff check)
-        run: cd /tmp/test-project && uv run ruff check .
+        run: |
+          cd /tmp/test-project
+          # Auto-fix import ordering (changes when project_slug differs from fastapi_template)
+          uv run ruff check --fix .
+          uv run ruff check .
 
       - name: Type check (mypy)
         run: cd /tmp/test-project && uv run mypy .
