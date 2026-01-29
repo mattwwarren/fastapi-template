@@ -53,12 +53,13 @@ fi
 mkdir -p "${OUTPUT_DIR}"
 
 # Step 1: Copy project excluding dev artifacts
-echo -e "${GREEN}[1/5] Copying project (excluding dev artifacts)...${NC}"
+echo -e "${GREEN}[1/6] Copying project (excluding dev artifacts)...${NC}"
 
 # Files and directories to exclude
 EXCLUDE_PATTERNS=(
     ".git"
     ".venv"
+    ".python"
     "__pycache__"
     "*.pyc"
     "*.pyo"
@@ -67,6 +68,7 @@ EXCLUDE_PATTERNS=(
     ".mypy_cache"
     ".ruff_cache"
     ".coverage"
+    "coverage.json"
     "htmlcov"
     ".env"
     ".env.*"
@@ -104,7 +106,7 @@ SED_REPLACEMENT='\x7B\x7B project_slug \x7D\x7D'
 
 # Step 2: Replace fastapi_template references in Python files FIRST (before rename)
 # This avoids dealing with curly braces in paths
-echo -e "${GREEN}[2/5] Replacing references in Python files...${NC}"
+echo -e "${GREEN}[2/6] Replacing references in Python files...${NC}"
 
 # Find all .py files in fastapi_template directory
 if [[ ! -d "${OUTPUT_DIR}/fastapi_template" ]]; then
@@ -124,13 +126,13 @@ done < <(find "${OUTPUT_DIR}/fastapi_template" -name "*.py" -print0 2>/dev/null)
 echo "  Updated ${PY_COUNT} Python files in package"
 
 # Step 3: Rename fastapi_template/ to {{ project_slug }}/
-echo -e "${GREEN}[3/5] Renaming package directory...${NC}"
+echo -e "${GREEN}[3/6] Renaming package directory...${NC}"
 
 mv "${OUTPUT_DIR}/fastapi_template" "${OUTPUT_DIR}/${TEMPLATE_VAR}"
 echo "  Renamed: fastapi_template/ -> ${TEMPLATE_VAR}/"
 
 # Step 4: Update configuration files at project root
-echo -e "${GREEN}[4/5] Updating configuration files...${NC}"
+echo -e "${GREEN}[4/6] Updating configuration files...${NC}"
 
 # pyproject.toml - replace package references
 if [[ -f "${OUTPUT_DIR}/pyproject.toml" ]]; then
@@ -242,8 +244,24 @@ if [[ -f "${OUTPUT_DIR}/dotenv.example" ]]; then
     fi
 fi
 
+# k8s/ directory - wrap Go template syntax in Jinja2 raw blocks
+# Go templates use {{ }} which conflicts with Jinja2
+if [[ -d "${OUTPUT_DIR}/k8s" ]]; then
+    K8S_COUNT=0
+    while IFS= read -r -d '' file; do
+        if grep -qE '\{\{.*\}\}' "$file" 2>/dev/null; then
+            # Prepend {% raw %} and append {% endraw %}
+            # This tells Jinja2 to not process the content as templates
+            sed -i '1s/^/{% raw %}\n/' "$file"
+            echo '{% endraw %}' >> "$file"
+            ((K8S_COUNT++)) || true
+        fi
+    done < <(find "${OUTPUT_DIR}/k8s" -type f \( -name "*.yaml" -o -name "*.yml" \) -print0 2>/dev/null)
+    echo "  Wrapped ${K8S_COUNT} k8s files with Jinja2 raw blocks"
+fi
+
 # Step 5: Verify Jinja2 templated files are preserved
-echo -e "${GREEN}[5/5] Verifying Jinja2 templated files...${NC}"
+echo -e "${GREEN}[5/6] Verifying Jinja2 templated files...${NC}"
 
 JINJA_FILES=(
     "QUICKSTART.md"
@@ -263,6 +281,32 @@ for file in "${JINJA_FILES[@]}"; do
         echo -e "${YELLOW}  Warning: ${file} not found${NC}"
     fi
 done
+
+# Step 6: Verify no remaining hardcoded references
+echo -e "${GREEN}[6/6] Checking for remaining fastapi_template references...${NC}"
+
+# Search for remaining references (excluding expected files)
+REMAINING_REFS=$(find "${OUTPUT_DIR}" -type f \
+    \( -name "*.py" -o -name "*.yaml" -o -name "*.yml" -o -name "*.md" \
+       -o -name "*.toml" -o -name "*.sh" -o -name "*.example" -o -name "*.json" \
+       -o -name "*.rst" -o -name "*.txt" -o -name "Dockerfile" \) \
+    -not -path "*/.git/*" \
+    -not -path "*/__pycache__/*" \
+    -exec grep -l "fastapi_template" {} \; 2>/dev/null || true)
+
+if [[ -n "${REMAINING_REFS}" ]]; then
+    echo -e "${RED}ERROR: Found remaining fastapi_template references in:${NC}"
+    echo "${REMAINING_REFS}" | while read -r file; do
+        echo "  - ${file}"
+        # Show the lines with references
+        grep -n "fastapi_template" "$file" 2>/dev/null | head -3 | sed 's/^/      /'
+    done
+    echo ""
+    echo -e "${YELLOW}These files may need to be added to templatize.sh${NC}"
+    exit 1
+else
+    echo "  No remaining hardcoded references found"
+fi
 
 # Summary
 echo ""
