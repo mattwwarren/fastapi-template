@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kratos-identity-schema
-  namespace: warren-enterprises-ltd
+  # namespace managed by DevSpace
 data:
   identity.schema.json: |
     {

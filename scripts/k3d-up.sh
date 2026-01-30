@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Source .env if it exists (for CLUSTER_NAME, NAMESPACE overrides)
+if [ -f .env ]; then
+  set -a; source .env; set +a
+fi
+
 cluster_name="${CLUSTER_NAME:-fastapi_template}"
 namespace="${NAMESPACE:-dev}"
 

@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: oathkeeper-config
-  namespace: warren-enterprises-ltd
+  # namespace managed by DevSpace
 data:
   config.yaml: |
     serve:
@@ -20,7 +20,7 @@ data:
       cookie_session:
         enabled: true
         config:
-          check_session_url: http://kratos-public.warren-enterprises-ltd.svc.cluster.local/sessions/whoami
+          check_session_url: http://kratos-public/sessions/whoami
           preserve_path: true
           extra_from: "@this"
           subject_from: "identity.id"
@@ -40,7 +40,7 @@ data:
       remote_json:
         enabled: true
         config:
-          remote: http://fastapi-template.warren-enterprises-ltd.svc.cluster.local/_admin/internal/check-org-membership
+          remote: http://fastapi-template/_admin/internal/check-org-membership
           headers:
             X-User-ID: "{{ print .Subject }}"
             X-Selected-Org: "{{ print .MatchContext.Header.Get \"X-Selected-Org\" }}"

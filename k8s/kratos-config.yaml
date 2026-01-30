@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kratos-config
-  namespace: warren-enterprises-ltd
+  # namespace managed by DevSpace
 data:
   kratos.yaml: |
     version: v1.1.0
@@ -30,7 +30,7 @@ data:
             - Set-Cookie
           allow_credentials: true
       admin:
-        base_url: http://kratos-admin.warren-enterprises-ltd.svc.cluster.local:4434
+        base_url: http://kratos-admin:4434
 
     selfservice:
       default_browser_return_url: https://app.mwarren.dev/
@@ -68,7 +68,7 @@ data:
                 - hook: session
                 - hook: web_hook
                   config:
-                    url: http://fastapi-template.warren-enterprises-ltd.svc.cluster.local/_admin/webhooks/kratos/registration
+                    url: http://fastapi-template:8000/_admin/webhooks/kratos/registration
                     method: POST
                     body: base64://ewogICJpZGVudGl0eSI6IHt7IC50b0pTT04gfX0KfQ==
                     response:
