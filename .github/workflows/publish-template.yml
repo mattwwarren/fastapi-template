@@ -31,8 +31,13 @@ permissions:
   contents: write
 
 jobs:
+  # Run validation first to ensure template generates working projects
+  validate:
+    uses: ./.github/workflows/validate-template.yml
+
   publish-template:
     name: Templatize and Publish
+    needs: validate  # Only publish after validation passes
     runs-on: ubuntu-latest
 
     steps:

@@ -10,6 +10,7 @@
 name: Validate Template
 
 on:
+  workflow_call:  # Allow reuse from publish-template.yml
   workflow_dispatch:
   push:
     branches: [main]

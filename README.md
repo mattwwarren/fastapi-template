@@ -21,6 +21,55 @@ A production-ready FastAPI microservice template with async database access, mul
 - Docker
 - k3d, kubectl, and DevSpace (for the default local dev flow)
 
+## Create New Project from Template
+
+Use [Copier](https://copier.readthedocs.io/) to generate a new project:
+
+### Quick Start
+
+```bash
+# Install Copier
+pipx install copier
+
+# Generate project with defaults
+copier copy gh:mattwwarren/fastapi-template --vcs-ref copier my-project
+
+# Generate with custom options
+copier copy gh:mattwwarren/fastapi-template --vcs-ref copier my-project \
+  --data project_name="My API Service" \
+  --data auth_enabled=true \
+  --data auth_provider=ory
+```
+
+### Available Variables
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `project_name` | string | required | Project name (e.g., "User Auth Service") |
+| `project_slug` | string | auto | Python package name (lowercase with underscores) |
+| `description` | string | "A FastAPI microservice" | Brief project description |
+| `port` | int | 8000 | Development server port |
+| `auth_enabled` | bool | false | Enable authentication middleware |
+| `auth_provider` | choice | none | Auth provider: none, ory, auth0, keycloak, cognito |
+| `multi_tenant` | bool | true | Enable multi-tenant isolation |
+| `storage_provider` | choice | local | Storage: local, s3, azure, gcs |
+| `cors_origins` | string | "http://localhost:3000" | CORS allowed origins |
+| `enable_metrics` | bool | true | Enable Prometheus /metrics endpoint |
+| `enable_activity_logging` | bool | true | Enable audit trail logging |
+
+### Troubleshooting Template Generation
+
+**"Invalid template" error:**
+- Ensure you're using `--vcs-ref copier` to pull from the template branch
+
+**Generated code has syntax errors:**
+- Report issue at https://github.com/mattwwarren/fastapi-template/issues
+
+**Missing template variables:**
+- Run `copier copy` without `--defaults` to see all prompts
+
+---
+
 ## Quickstart (local)
 
 ```bash
