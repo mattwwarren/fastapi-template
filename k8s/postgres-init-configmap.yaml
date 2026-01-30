@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: postgres-init
-  namespace: warren-enterprises-ltd
+  # namespace managed by DevSpace
 data:
   init.sql: |
     -- Create kratos database if it doesn't exist
