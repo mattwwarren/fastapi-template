@@ -7,3 +7,5 @@ data:
   init.sql: |
     -- Create kratos database if it doesn't exist
     SELECT 'CREATE DATABASE kratos' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'kratos')\gexec
+    -- Create map_api database if it doesn't exist
+    SELECT 'CREATE DATABASE map_api' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'map_api')\gexec

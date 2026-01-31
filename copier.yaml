@@ -11,6 +11,8 @@ _exclude:
   - ".templatized/**"
   - "REMEDIATION-STATUS.md"
   - "REVERSE-SYNC-QUICK-START.md"
+  - ".github/workflows/*.yml"
+  - "k8s/**"
 
 project_name:
   type: str
