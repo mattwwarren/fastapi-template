@@ -39,7 +39,6 @@ jobs:
     name: Templatize and Publish
     permissions:
       contents: write
-      workflows: write
     needs: validate  # Only publish after validation passes
     runs-on: ubuntu-latest
 
@@ -172,7 +171,8 @@ jobs:
           Source commit: ${{ github.sha }}"
 
           # Force push to copier branch
-          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          # Uses PAT with workflow scope (GITHUB_TOKEN cannot push workflow files)
+          git remote add origin "https://x-access-token:${{ secrets.TEMPLATE_PUBLISH_PAT }}@github.com/${{ github.repository }}.git"
           git push --force origin HEAD:copier
 
           echo ""
