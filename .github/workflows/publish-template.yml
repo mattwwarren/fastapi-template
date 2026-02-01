@@ -39,7 +39,7 @@ jobs:
     name: Templatize and Publish
     permissions:
       contents: write
-      workflows: write  # Required to push .github/workflows/ files to copier branch
+      workflows: write
     needs: validate  # Only publish after validation passes
     runs-on: ubuntu-latest
 
