@@ -7,17 +7,13 @@ These endpoints are called by internal services (Ory Oathkeeper, Kratos) and sho
 never be accessible from the public internet.
 """
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastapi_template.db.session import get_session
 from fastapi_template.models.membership import Membership, MembershipRole

@@ -43,8 +43,6 @@ Usage:
         return list(result.scalars().all())
 """
 
-from __future__ import annotations
-
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Annotated

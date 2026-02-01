@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Role-Based Access Control (RBAC) dependencies for organization permissions.
 
 This module provides FastAPI dependencies to enforce role-based permissions within

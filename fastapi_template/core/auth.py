@@ -29,8 +29,6 @@ Usage:
         return {"message": "Hello anonymous user"}
 """
 
-from __future__ import annotations
-
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
@@ -41,9 +39,10 @@ from uuid import UUID
 import httpx
 import jwt
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 if TYPE_CHECKING:
     from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
-    from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastapi import Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
@@ -518,7 +517,7 @@ def _extract_token_kid(token: str) -> TokenHeaderResult:
         return TokenHeaderResult(success=False, error_type="decode_error")
 
 
-def _find_public_key_in_jwks(jwks: dict[str, Any], kid: str) -> RSAPublicKey | None:
+def _find_public_key_in_jwks(jwks: dict[str, Any], kid: str) -> "RSAPublicKey | None":
     """Find and parse public key from JWKS by key ID.
 
     Args:
@@ -551,7 +550,7 @@ def _find_public_key_in_jwks(jwks: dict[str, Any], kid: str) -> RSAPublicKey | N
     return None
 
 
-def _decode_jwt_with_key(token: str, public_key: RSAPublicKey) -> dict[str, Any] | None:
+def _decode_jwt_with_key(token: str, public_key: "RSAPublicKey") -> dict[str, Any] | None:
     """Decode and verify JWT token with public key.
 
     Args:
