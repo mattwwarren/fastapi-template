@@ -106,8 +106,8 @@ jobs:
           # Create a temporary directory for the copier branch content
           mkdir -p /tmp/copier-content
 
-          # Copy templatized content
-          cp -r .templatized/* /tmp/copier-content/
+          # Copy templatized content (including hidden files like .github/)
+          cp -a .templatized/. /tmp/copier-content/
 
           # Add a README for the copier branch
           cat > /tmp/copier-content/README.md << 'EOF'
