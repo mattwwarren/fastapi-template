@@ -196,19 +196,20 @@ fi
 
 # .github/workflows/ci.yml - references package paths AND contains GitHub Actions expressions
 # GitHub Actions uses ${{ }} which conflicts with Jinja2.
-# Solution: Convert ${{ to {{ "${{" }} and }} (in GHA context) stays as-is.
-# This only escapes the opening ${{ since }} is valid Jinja end-of-statement
+# Solution: Wrap ${{ ... }} in {% raw %}...{% endraw %} blocks.
+# This keeps the file valid as GitHub Actions syntax while telling Jinja2 to pass it through.
 if [[ -f "${OUTPUT_DIR}/.github/workflows/ci.yml" ]]; then
     # First replace package references
     if grep -q "fastapi_template" "${OUTPUT_DIR}/.github/workflows/ci.yml" 2>/dev/null; then
         sed -i "s/fastapi_template/${SED_REPLACEMENT}/g" "${OUTPUT_DIR}/.github/workflows/ci.yml"
     fi
-    # Escape GitHub Actions ${{ expressions for Jinja2 compatibility
-    # Convert ${{ to {{ "${{" }} which Jinja2 renders as ${{
+    # Wrap GitHub Actions ${{ ... }} expressions in Jinja2 raw blocks
+    # This preserves valid GHA syntax while preventing Jinja2 interpretation
+    # Pattern: ${{ anything }} -> {% raw %}${{ anything }}{% endraw %}
     if grep -qE '\$\{\{' "${OUTPUT_DIR}/.github/workflows/ci.yml" 2>/dev/null; then
-        sed -i 's/\${{/{{ "\${{" }}/g' "${OUTPUT_DIR}/.github/workflows/ci.yml"
+        sed -i 's/\${{[^}]*}}/{% raw %}\0{% endraw %}/g' "${OUTPUT_DIR}/.github/workflows/ci.yml"
     fi
-    echo "  Updated: .github/workflows/ci.yml (escaped GHA expressions)"
+    echo "  Updated: .github/workflows/ci.yml (wrapped GHA expressions in raw blocks)"
 fi
 
 # Shell scripts in scripts/ - may reference the project name
