@@ -7,17 +7,13 @@ These endpoints are called by internal services (Ory Oathkeeper, Kratos) and sho
 never be accessible from the public internet.
 """
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastapi_template.db.session import get_session
 from fastapi_template.models.membership import Membership, MembershipRole
@@ -146,9 +142,7 @@ async def handle_registration(
     full_name = f"{first_name} {last_name}".strip() or email.split("@")[0]
 
     # Check if user already exists (idempotency)
-    result = await session.execute(
-        select(User).where(User.kratos_identity_id == identity_id)
-    )
+    result = await session.execute(select(User).where(User.kratos_identity_id == identity_id))
     existing_user = result.scalar_one_or_none()
 
     if existing_user:

@@ -572,11 +572,13 @@ async def client_bypass_auth(
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Inject default Oathkeeper headers for all requests
         # Phase 4: Added X-Selected-Org header for organization context
-        client.headers.update({
-            "X-User-ID": "00000000-0000-0000-0000-000000000001",
-            "X-Email": "testuser@example.com",
-            "X-Selected-Org": "00000000-0000-0000-0000-000000000000",
-        })
+        client.headers.update(
+            {
+                "X-User-ID": "00000000-0000-0000-0000-000000000001",
+                "X-Email": "testuser@example.com",
+                "X-Selected-Org": "00000000-0000-0000-0000-000000000000",
+            }
+        )
         yield client
 
     app.dependency_overrides.clear()
@@ -697,11 +699,13 @@ async def client(
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Inject default Oathkeeper headers for all requests
         # Phase 4: Added X-Selected-Org header for organization context
-        client.headers.update({
-            "X-User-ID": "00000000-0000-0000-0000-000000000001",
-            "X-Email": "testuser@example.com",
-            "X-Selected-Org": "00000000-0000-0000-0000-000000000000",
-        })
+        client.headers.update(
+            {
+                "X-User-ID": "00000000-0000-0000-0000-000000000001",
+                "X-Email": "testuser@example.com",
+                "X-Selected-Org": "00000000-0000-0000-0000-000000000000",
+            }
+        )
         yield client
 
     app.dependency_overrides.clear()
