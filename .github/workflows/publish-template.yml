@@ -29,6 +29,7 @@ concurrency:
 
 permissions:
   contents: write
+  workflows: write  # Required to push .github/workflows/ files to copier branch
 
 jobs:
   # Run validation first to ensure template generates working projects
