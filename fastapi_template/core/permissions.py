@@ -42,7 +42,6 @@ Usage:
         ...
 """
 
-# ruff: noqa: E402 - Imports after long docstring with usage examples
 import logging
 from typing import Annotated
 from uuid import UUID

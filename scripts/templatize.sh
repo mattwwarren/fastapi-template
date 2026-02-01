@@ -194,6 +194,23 @@ if [[ -f "${OUTPUT_DIR}/.pre-commit-config.yaml" ]]; then
     fi
 fi
 
+# .github/workflows/ci.yml - references package paths AND contains GitHub Actions expressions
+# GitHub Actions uses ${{ }} which conflicts with Jinja2.
+# Solution: Convert ${{ to {{ "${{" }} and }} (in GHA context) stays as-is.
+# This only escapes the opening ${{ since }} is valid Jinja end-of-statement
+if [[ -f "${OUTPUT_DIR}/.github/workflows/ci.yml" ]]; then
+    # First replace package references
+    if grep -q "fastapi_template" "${OUTPUT_DIR}/.github/workflows/ci.yml" 2>/dev/null; then
+        sed -i "s/fastapi_template/${SED_REPLACEMENT}/g" "${OUTPUT_DIR}/.github/workflows/ci.yml"
+    fi
+    # Escape GitHub Actions ${{ expressions for Jinja2 compatibility
+    # Convert ${{ to {{ "${{" }} which Jinja2 renders as ${{
+    if grep -qE '\$\{\{' "${OUTPUT_DIR}/.github/workflows/ci.yml" 2>/dev/null; then
+        sed -i 's/\${{/{{ "\${{" }}/g' "${OUTPUT_DIR}/.github/workflows/ci.yml"
+    fi
+    echo "  Updated: .github/workflows/ci.yml (escaped GHA expressions)"
+fi
+
 # Shell scripts in scripts/ - may reference the project name
 for script in "${OUTPUT_DIR}"/scripts/*.sh; do
     if [[ -f "$script" ]] && grep -q "fastapi_template" "$script" 2>/dev/null; then

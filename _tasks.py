@@ -39,7 +39,7 @@ ERROR_COPY_DOTENV_FAILED = "Failed to copy dotenv.example to .env"
 
 def copy_env_file() -> None:
     """Copy dotenv.example to .env if .env doesn't exist."""
-    log_step("Step 1/3: Environment Configuration")
+    log_step("Step 1/4: Environment Configuration")
 
     env_example = Path("dotenv.example")
     env_file = Path(".env")
@@ -63,7 +63,7 @@ def copy_env_file() -> None:
 
 def run_uv_sync() -> None:
     """Install dependencies using uv sync --dev."""
-    log_step("Step 2/3: Install Dependencies")
+    log_step("Step 2/4: Install Dependencies")
 
     # Check if uv is available
     uv_path = shutil.which("uv")
@@ -90,6 +90,30 @@ def run_uv_sync() -> None:
         log_error(f"Unexpected error during uv sync: {exc}")
 
 
+def install_precommit() -> None:
+    """Install pre-commit hooks."""
+    log_step("Step 3/4: Install Pre-commit Hooks")
+
+    precommit_path = shutil.which("pre-commit")
+    if not precommit_path:
+        log_warning("pre-commit not found - skipping hook installation")
+        log_warning("Install with: uv tool install pre-commit")
+        log_warning("Then run: pre-commit install")
+        return
+
+    try:
+        subprocess.run(  # noqa: S603 - precommit_path from shutil.which(), trusted
+            [precommit_path, "install"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        log_success("Pre-commit hooks installed")
+    except subprocess.CalledProcessError as exc:
+        log_error(f"Failed to install pre-commit hooks: {exc}")
+        log_warning("You can manually install later with: pre-commit install")
+
+
 def main() -> int:
     """Run all post-generation tasks.
 
@@ -106,10 +130,12 @@ def main() -> int:
     # Step 2: Install dependencies
     run_uv_sync()
 
-    # Final summary
-    print("\n" + "=" * 60)
-    print("  Post-generation setup complete!")
-    print("=" * 60)
+    # Step 3: Install pre-commit hooks
+    install_precommit()
+
+    # Final summary (Step 4/4)
+    log_step("Step 4/4: Setup Complete")
+    print("Your project is ready for development!")
 
     # Always return 0 - failures are expected (no database, etc.)
     # and should not prevent copier from completing successfully

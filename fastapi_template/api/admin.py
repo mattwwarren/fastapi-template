@@ -142,9 +142,7 @@ async def handle_registration(
     full_name = f"{first_name} {last_name}".strip() or email.split("@")[0]
 
     # Check if user already exists (idempotency)
-    result = await session.execute(
-        select(User).where(User.kratos_identity_id == identity_id)
-    )
+    result = await session.execute(select(User).where(User.kratos_identity_id == identity_id))
     existing_user = result.scalar_one_or_none()
 
     if existing_user:

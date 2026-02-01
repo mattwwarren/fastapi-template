@@ -38,7 +38,6 @@ from uuid import UUID
 
 import httpx
 import jwt
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 if TYPE_CHECKING:
