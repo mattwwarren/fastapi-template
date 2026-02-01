@@ -29,7 +29,6 @@ concurrency:
 
 permissions:
   contents: write
-  workflows: write  # Required to push .github/workflows/ files to copier branch
 
 jobs:
   # Run validation first to ensure template generates working projects
@@ -38,6 +37,9 @@ jobs:
 
   publish-template:
     name: Templatize and Publish
+    permissions:
+      contents: write
+      workflows: write  # Required to push .github/workflows/ files to copier branch
     needs: validate  # Only publish after validation passes
     runs-on: ubuntu-latest
 
