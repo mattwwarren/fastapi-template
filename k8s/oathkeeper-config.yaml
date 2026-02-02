@@ -41,29 +41,29 @@ data:
         enabled: true
         config:
           remote: http://fastapi-template/_admin/internal/check-org-membership
-          headers:
-            X-User-ID: "{{ print .Subject }}"
-            X-Selected-Org: "{{ print .MatchContext.Header.Get \"X-Selected-Org\" }}"
+          forward_response_headers_to_upstream: []
+          payload: |
+            {
+              "subject": "{{ print .Subject }}",
+              "org_id": "{{ print .MatchContext.Header.Get \"X-Selected-Org\" }}"
+            }
           retry:
             max_delay: 100ms
             give_up_after: 500ms
 
     mutators:
-      jwt:
+      id_token:
         enabled: true
         config:
-          signing_algorithm: RS256
+          issuer_url: http://oathkeeper:4456/
           jwks_url: file:///etc/secrets/jwks.json
-          ttl: 300s  # 5 minute JWT expiry (request-scoped)
+          ttl: 300s
           claims: |
             {
-              "iss": "oathkeeper",
               "sub": "{{ print .Subject }}",
               "email": "{{ print .Extra.identity.traits.email }}",
               "org_id": "{{ print .MatchContext.Header.Get \"X-Selected-Org\" }}",
-              "name": "{{ print .Extra.identity.traits.name.first }} {{ print .Extra.identity.traits.name.last }}",
-              "iat": {{ now.Unix }},
-              "exp": {{ (now.Add (parseDuration "5m")).Unix }}
+              "name": "{{ print .Extra.identity.traits.name.first }} {{ print .Extra.identity.traits.name.last }}"
             }
 
       header:

@@ -78,6 +78,8 @@ data:
         - handler: noop
       authorizer:
         handler: deny
+      mutators:
+        - handler: noop
       errors:
         - handler: json
 
@@ -98,6 +100,6 @@ data:
       authorizer:
         handler: remote_json  # Validate org membership via backend
       mutators:
-        - handler: jwt  # Generate JWT with org_id claim
+        - handler: id_token  # Generate JWT with org_id claim
       errors:
         - handler: json
