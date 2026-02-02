@@ -58,6 +58,20 @@ jobs:
           chmod +x ./scripts/templatize.sh
           ./scripts/templatize.sh .templatized
 
+      - name: Install uv
+        if: github.event_name == 'release'
+        uses: astral-sh/setup-uv@v5
+
+      - name: Update version in templatized content
+        if: github.event_name == 'release'
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"  # Strip 'v' prefix if present
+
+          cd .templatized
+          uv version "$VERSION"
+          echo "Updated version to $VERSION"
+
       - name: Verify templatization output
         run: |
           echo "=== Verifying templatization output ==="
@@ -181,16 +195,39 @@ jobs:
           echo "Users can now create projects with:"
           echo "  copier copy gh:${{ github.repository }} --vcs-ref copier <project-name>"
 
+      - name: Tag copier branch with release version
+        if: github.event_name == 'release'
+        run: |
+          cd /tmp/copier-content
+
+          # Tag with the release version
+          git tag "${{ github.ref_name }}"
+          git push origin "${{ github.ref_name }}"
+
+          echo ""
+          echo "=== Tagged copier branch with ${{ github.ref_name }} ==="
+          echo ""
+          echo "Users can now use versioned templates:"
+          echo "  copier copy gh:${{ github.repository }} --vcs-ref ${{ github.ref_name }} <project-name>"
+
       - name: Summary
         run: |
           echo "## Copier Template Published" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "The template has been published to the \`copier\` branch." >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Version tag:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Usage" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "copier copy gh:${{ github.repository }} --vcs-ref copier my-project" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "copier copy gh:${{ github.repository }} --vcs-ref ${{ github.ref_name }} my-project" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "copier copy gh:${{ github.repository }} --vcs-ref copier my-project" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Source commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
