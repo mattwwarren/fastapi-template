@@ -29,3 +29,12 @@ uv.lock
 .env
 .venv/
 venv/
+
+# Infrastructure k8s configs (managed at workspace level, not per-service)
+k8s/kratos-config.yaml
+k8s/kratos-identity-schema.yaml
+k8s/oathkeeper-config.yaml
+k8s/oathkeeper-rules.yaml
+k8s/postgres-init-configmap.yaml
+k8s/postgres-service.yaml
+k8s/postgres-statefulset.yaml
