@@ -72,6 +72,56 @@ class Settings(BaseSettings):
         alias="DB_POOL_PRE_PING",
         description="Test connections for liveness before using them",
     )
+
+    # Redis caching configuration
+    redis_enabled: bool = Field(
+        default=True,
+        alias="REDIS_ENABLED",
+        description="Enable Redis caching (graceful degradation if false)",
+    )
+    redis_url: str = Field(
+        default="redis://localhost:6379/0",
+        alias="REDIS_URL",
+        description="Redis connection URL (redis://host:port/db)",
+    )
+    redis_pool_size: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        alias="REDIS_POOL_SIZE",
+        description="Maximum number of connections in Redis pool",
+    )
+    redis_pool_timeout: int = Field(
+        default=5,
+        ge=1,
+        alias="REDIS_POOL_TIMEOUT",
+        description="Timeout in seconds for acquiring connection from pool",
+    )
+    redis_socket_connect_timeout: int = Field(
+        default=5,
+        ge=1,
+        alias="REDIS_SOCKET_CONNECT_TIMEOUT",
+        description="Timeout in seconds for Redis socket connection",
+    )
+    redis_socket_timeout: int = Field(
+        default=5,
+        ge=1,
+        alias="REDIS_SOCKET_TIMEOUT",
+        description="Timeout in seconds for Redis socket operations",
+    )
+    redis_default_ttl: int = Field(
+        default=3600,
+        ge=60,
+        le=86400,
+        alias="REDIS_DEFAULT_TTL",
+        description="Default cache TTL in seconds (1 hour default, max 24 hours)",
+    )
+    cache_key_prefix: str = Field(
+        default="",
+        alias="CACHE_KEY_PREFIX",
+        description="Cache key prefix for namespace isolation (defaults to app_name)",
+    )
+
     pagination_page_size: int = 50
     pagination_page_size_max: int = 200
     pagination_page_class: str | None = None
@@ -293,6 +343,14 @@ class Settings(BaseSettings):
             if not self.storage_gcs_project_id:
                 errors.append("STORAGE_GCS_PROJECT_ID required for GCS storage")
 
+    def _validate_redis_config(self, errors: list[str]) -> None:
+        """Validate Redis caching configuration."""
+        if not self.redis_enabled:
+            return
+
+        if not self.redis_url:
+            errors.append("REDIS_URL required when REDIS_ENABLED=true")
+
     def _validate_production_config(self, warnings: list[str]) -> None:
         """Validate production environment configuration."""
         if self.environment != "production":
@@ -335,6 +393,7 @@ class Settings(BaseSettings):
 
         self._validate_auth_config(errors, warnings)
         self._validate_storage_config(errors)
+        self._validate_redis_config(errors)
         self._validate_production_config(warnings)
 
         if errors:

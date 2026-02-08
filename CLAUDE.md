@@ -269,6 +269,17 @@ For production instance creation:
 - Proper async context manager usage
 - Session lifecycle management
 
+### Caching Patterns
+- Use Redis for read-heavy endpoints (cache-aside pattern)
+- Cache keys include tenant isolation (`{app}:{tenant}:{resource}:{id}:{version}`)
+- JSON serialization for cross-service compatibility
+- Graceful degradation if Redis unavailable (no app crashes)
+- Cache invalidation on writes (delete on update/delete operations)
+- TTL-based expiration with configurable defaults (max 24 hours)
+- Metrics tracking for observability (hit rate, latency)
+- Hybrid approach: `@cached` decorator or explicit `cache_get/set/delete`
+- Tenant isolation enforced when `ENFORCE_TENANT_ISOLATION=true`
+
 ## Test Instance Workflow (Deprecated)
 
 > **Note**: This workflow is **deprecated** with the runnable-first architecture.
