@@ -11,9 +11,6 @@ vars:
   IMAGE_NAME:
     default: "fastapi-template"
     source: env
-  IMAGE_TAG:
-    default: dev
-    source: env
   APP_NAME:
     default: "fastapi-template"
     source: env
@@ -42,8 +39,6 @@ localRegistry:
 images:
   app:
     image: ${IMAGE_NAME}
-    tags:
-      - ${IMAGE_TAG}
     dockerfile: ./Dockerfile
     skipPush: true
     injectRestartHelper: false
