@@ -150,6 +150,24 @@ if [[ -f "${OUTPUT_DIR}/alembic/env.py" ]]; then
     echo "  Updated: alembic/env.py"
 fi
 
+# alembic/CLAUDE.md - contains code examples with imports
+if [[ -f "${OUTPUT_DIR}/alembic/CLAUDE.md" ]]; then
+    sed -i "s/fastapi_template/${SED_REPLACEMENT}/g" "${OUTPUT_DIR}/alembic/CLAUDE.md"
+    echo "  Updated: alembic/CLAUDE.md"
+fi
+
+# CLAUDE.md files in package subdirectories (api/, core/, db/, models/, services/)
+CLAUDE_MD_COUNT=0
+while IFS= read -r -d '' file; do
+    if grep -q "fastapi_template" "$file" 2>/dev/null; then
+        sed -i "s/fastapi_template/${SED_REPLACEMENT}/g" "$file"
+        ((CLAUDE_MD_COUNT++)) || true
+    fi
+done < <(find "${OUTPUT_DIR}/{{ project_slug }}" -name "CLAUDE.md" -print0 2>/dev/null)
+if [[ $CLAUDE_MD_COUNT -gt 0 ]]; then
+    echo "  Updated ${CLAUDE_MD_COUNT} CLAUDE.md files in package subdirectories"
+fi
+
 # tests/ directory - replace references in test files
 if [[ -d "${OUTPUT_DIR}/tests" ]]; then
     TEST_COUNT=0
