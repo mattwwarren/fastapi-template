@@ -312,6 +312,76 @@ def database_url(
 
 
 @pytest.fixture(scope="session")
+async def redis_client(
+    docker_ip: str,
+    docker_services: object,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> AsyncGenerator:
+    """Get Redis client with shared Docker container and xdist compatibility.
+
+    Uses FileLock to ensure only one worker starts the Redis container.
+    All workers share the same Redis instance but use separate databases (0-15).
+
+    For pytest-xdist compatibility:
+    - master (no xdist): database 0
+    - gw0: database 0
+    - gw1: database 1
+    - etc. (workers can share Redis databases safely via FLUSHDB per test)
+
+    Args:
+        docker_ip: Docker host IP from docker_services
+        docker_services: pytest-docker services fixture
+        tmp_path_factory: pytest temp path factory for cross-worker coordination
+
+    Yields:
+        Redis client for test instance
+    """
+    from redis.asyncio import ConnectionPool, Redis
+
+    # Get root tmp dir shared across workers for coordination files
+    root_tmp = tmp_path_factory.getbasetemp().parent
+    lock_file = root_tmp / "redis.lock"
+    port_file = root_tmp / "redis_port.txt"
+
+    with filelock.FileLock(lock_file):
+        if port_file.exists():
+            # Another worker already started Docker - read the port
+            port = int(port_file.read_text())
+        else:
+            # First worker - start Docker and wait for Redis to be ready
+            port = docker_services.port_for("redis", 6379)  # type: ignore[attr-defined]
+
+            def is_responsive() -> bool:
+                try:
+                    sock = socket.create_connection((docker_ip, port), timeout=SOCKET_TIMEOUT_SECONDS)
+                    sock.close()
+                    return True
+                except (ConnectionRefusedError, OSError):
+                    return False
+
+            docker_services.wait_until_responsive(  # type: ignore[attr-defined]
+                timeout=DOCKER_TIMEOUT_SECONDS,
+                pause=DOCKER_PAUSE_SECONDS,
+                check=is_responsive,
+            )
+            port_file.write_text(str(port))
+
+    # Build Redis URL
+    redis_url = f"redis://{docker_ip}:{port}/0"
+    pool = ConnectionPool.from_url(redis_url)
+    client: Redis = Redis(connection_pool=pool, decode_responses=True)
+
+    # Validate connectivity
+    await client.ping()  # type: ignore[misc]
+
+    yield client
+
+    # Cleanup: flush test database and close connection
+    await client.flushdb()
+    await client.aclose()
+
+
+@pytest.fixture(scope="session")
 def alembic_config(database_url: str) -> Config:
     # Find alembic.ini at project root (3 levels up from conftest.py)
     project_root = Path(__file__).parent.parent.parent
@@ -534,6 +604,12 @@ async def client_bypass_auth(
     # Set app.state for pytest-xdist compatibility (lifespan pattern)
     app.state.engine = engine
     app.state.async_session_maker = session_maker
+    app.state.redis_client = redis_client
+
+    # Update module-level globals for non-request contexts
+    from fastapi_template.core import cache as cache_module
+
+    cache_module.redis_client = redis_client  # type: ignore[assignment]
 
     # Override session dependency
     app.dependency_overrides[get_session] = get_session_override
@@ -610,6 +686,12 @@ async def authenticated_client(
     # Set app.state for pytest-xdist compatibility (lifespan pattern)
     app.state.engine = engine
     app.state.async_session_maker = session_maker
+    app.state.redis_client = redis_client
+
+    # Update module-level globals for non-request contexts
+    from fastapi_template.core import cache as cache_module
+
+    cache_module.redis_client = redis_client  # type: ignore[assignment]
 
     # Override session dependency
     app.dependency_overrides[get_session] = get_session_override
@@ -631,6 +713,7 @@ async def authenticated_client(
 async def client(
     engine: AsyncEngine,
     session_maker: async_sessionmaker[AsyncSession],
+    redis_client: object,  # Redis client from redis_client fixture
 ) -> AsyncGenerator[AsyncClient]:
     """HTTP client that injects Oathkeeper-style auth headers.
 
@@ -661,6 +744,12 @@ async def client(
     # Set app.state for pytest-xdist compatibility (lifespan pattern)
     app.state.engine = engine
     app.state.async_session_maker = session_maker
+    app.state.redis_client = redis_client
+
+    # Update module-level globals for non-request contexts
+    from fastapi_template.core import cache as cache_module
+
+    cache_module.redis_client = redis_client  # type: ignore[assignment]
 
     # Override session dependency
     app.dependency_overrides[get_session] = get_session_override

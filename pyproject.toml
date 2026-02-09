@@ -19,6 +19,7 @@ dependencies = [
   "python-multipart>=0.0.9",
   "slowapi>=0.1.9",
   "tenacity>=9.0.0",
+  "redis>=5.0.0",
 ]
 
 [build-system]
@@ -81,7 +82,9 @@ max-complexity = 10
 # where we intentionally create insecure test data (hardcoded passwords, etc.)
 # PT009 allows raw assert statements which are appropriate for pytest
 # PLR2004 allows magic numbers in test assertions (expected counts, etc.)
-"fastapi_template/tests/**" = ["S", "PT009", "PLR2004", "ARG002", "TRY002"]
+# PLC0415 allows late imports (circular dependency avoidance in fixtures)
+# TRY300 allows early returns in exception handlers (intentional test patterns)
+"fastapi_template/tests/**" = ["S", "PT009", "PLR2004", "ARG002", "TRY002", "PLC0415", "TRY300"]
 # PLC0415 allows late imports for optional dependencies (azure, aws, gcs)
 "fastapi_template/core/storage.py" = ["PLC0415"]
 

@@ -274,6 +274,100 @@ app.add_middleware(TenantIsolationMiddleware)
 
 ---
 
+## Redis Caching Configuration
+
+Redis provides optional caching for read-heavy endpoints to reduce database load. If Redis is unavailable, the application gracefully degrades to database-only queries.
+
+### Environment Variables
+
+| Variable | Type | Default | Required | Purpose |
+|----------|------|---------|----------|---------|
+| `REDIS_ENABLED` | bool | true | ❌ | Enable Redis caching (graceful degradation if false) |
+| `REDIS_URL` | str | redis://localhost:6379/0 | ✅ (if enabled) | Redis connection URL |
+| `REDIS_POOL_SIZE` | int | 10 | ❌ | Maximum connections in pool (1-100) |
+| `REDIS_POOL_TIMEOUT` | int | 5 | ❌ | Pool connection timeout in seconds |
+| `REDIS_SOCKET_CONNECT_TIMEOUT` | int | 5 | ❌ | Socket connection timeout in seconds |
+| `REDIS_SOCKET_TIMEOUT` | int | 5 | ❌ | Socket operation timeout in seconds |
+| `REDIS_DEFAULT_TTL` | int | 3600 | ❌ | Default cache TTL in seconds (1 hour, max 24 hours) |
+| `CACHE_KEY_PREFIX` | str | (app_name) | ❌ | Cache key namespace prefix for isolation |
+
+### Example Configurations
+
+**Development (local Redis):**
+```bash
+REDIS_ENABLED=true
+REDIS_URL=redis://localhost:6379/0
+```
+
+**Production (with authentication):**
+```bash
+REDIS_ENABLED=true
+REDIS_URL=redis://:SecurePassword123@redis.prod.internal:6379/0
+REDIS_POOL_SIZE=20
+REDIS_DEFAULT_TTL=1800
+CACHE_KEY_PREFIX=myapp
+```
+
+**Production (Redis Sentinel for high availability):**
+```bash
+REDIS_ENABLED=true
+REDIS_URL=redis-sentinel://sentinel1:26379,sentinel2:26379/mymaster/0
+REDIS_POOL_SIZE=25
+```
+
+**Disable caching (development/testing):**
+```bash
+REDIS_ENABLED=false
+```
+
+### Cache Key Format
+
+Cache keys follow a hierarchical namespace format for multi-tenancy and cross-service compatibility:
+
+```
+{prefix}:{tenant_id}:{resource_type}:{identifier}:{version}
+```
+
+**Examples:**
+- User cache: `myapp:tenant-org-123:user:uuid-456:v1`
+- Global cache: `myapp:tenant-global:health:status:v1`
+- With suffix: `myapp:tenant-org-789:user:uuid-012:v1:with_memberships`
+
+### Performance Tuning
+
+**Connection Pool Sizing:**
+- **Low traffic** (<100 req/s): `REDIS_POOL_SIZE=10`
+- **Medium traffic** (100-500 req/s): `REDIS_POOL_SIZE=20`
+- **High traffic** (>500 req/s): `REDIS_POOL_SIZE=50+`
+
+**TTL Recommendations:**
+- **Frequently changing data**: 300-900 seconds (5-15 minutes)
+- **Moderately stable data**: 1800-3600 seconds (30-60 minutes)
+- **Rarely changing data**: 7200-14400 seconds (2-4 hours)
+- **Static/reference data**: 21600-86400 seconds (6-24 hours)
+
+### Monitoring
+
+Cache performance metrics are exposed at `/metrics`:
+
+```promql
+# Cache hit rate
+sum(rate(cache_hits_total[5m])) /
+sum(rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
+
+# P95 cache latency
+histogram_quantile(0.95, cache_operation_duration_seconds_bucket{operation="get"})
+```
+
+**Alert on:**
+- Hit rate < 50% (cache not effective)
+- P95 latency > 10ms (Redis performance issues)
+- Connection pool exhaustion
+
+For detailed usage patterns and best practices, see [docs/caching.md](docs/caching.md).
+
+---
+
 ## Storage Configuration
 
 Choose where to store uploaded files.

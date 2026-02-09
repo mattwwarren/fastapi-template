@@ -11,7 +11,10 @@ Metrics Usage Examples:
     Labels are used consistently (environment from settings.environment).
 """
 
+from __future__ import annotations
+
 import time
+from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -19,6 +22,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from fastapi_template.core.config import settings
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
 from fastapi_template.core.metrics import (
     database_query_duration_seconds,
     users_created_total,
@@ -26,6 +32,14 @@ from fastapi_template.core.metrics import (
 from fastapi_template.models.membership import Membership
 from fastapi_template.models.organization import Organization
 from fastapi_template.models.user import User, UserCreate, UserUpdate
+
+# Optional: Import cache utilities for cached variant
+try:
+    from fastapi_template.cache import cache_delete, cache_get, cache_set
+
+    CACHE_AVAILABLE = True
+except ImportError:
+    CACHE_AVAILABLE = False
 
 
 async def get_user(session: AsyncSession, user_id: UUID) -> User | None:
@@ -46,6 +60,71 @@ async def get_user(session: AsyncSession, user_id: UUID) -> User | None:
     database_query_duration_seconds.labels(query_type="select").observe(duration)
 
     return result.scalar_one_or_none()
+
+
+async def get_user_cached(session: AsyncSession, user_id: UUID, redis: Redis | None = None) -> User | None:
+    """Fetch a single user by ID with Redis caching (cache-aside pattern).
+
+    This is an example of explicit caching for read-heavy operations.
+    Use this variant for endpoints with high traffic to reduce database load.
+
+    Cache behavior:
+    - Cache hit: Returns user from Redis (1-3ms)
+    - Cache miss: Queries database and populates cache (10-50ms)
+    - Redis unavailable: Falls back to database (graceful degradation)
+
+    Args:
+        session: Database session
+        user_id: User UUID
+        redis: Optional Redis client (None if caching disabled)
+
+    Returns:
+        User if found, None otherwise
+
+    Example usage in endpoint:
+        from fastapi_template.core.cache import RedisDep
+
+        @router.get("/{user_id}")
+        async def get_user_endpoint(
+            user_id: UUID,
+            session: SessionDep,
+            redis: RedisDep,
+        ) -> UserRead:
+            user = await get_user_cached(session, user_id, redis)
+            if not user:
+                raise HTTPException(status_code=404)
+            return UserRead.model_validate(user)
+
+    Metrics:
+        - cache_hits_total{resource_type="user"}: Cache hits
+        - cache_misses_total{resource_type="user"}: Cache misses
+        - database_query_duration_seconds{query_type="select"}: DB query time
+    """
+    if not CACHE_AVAILABLE or redis is None:
+        # Cache not available - fall back to database
+        return await get_user(session, user_id)
+
+    # Try cache first (cache-aside pattern)
+    cached = await cache_get(redis, "user", str(user_id), User)
+    if cached:
+        # Type cast: cache_get with User model class returns User
+        return cast(User, cached)
+
+    # Cache miss - query database with timing
+    start = time.perf_counter()
+    result = await session.execute(select(User).where(col(User.id) == user_id))
+    duration = time.perf_counter() - start
+
+    # Record database query duration
+    database_query_duration_seconds.labels(query_type="select").observe(duration)
+
+    user = result.scalar_one_or_none()
+
+    # Populate cache for next request (30 minute TTL)
+    if user:
+        await cache_set(redis, "user", str(user_id), user, ttl=1800)
+
+    return user
 
 
 async def list_users(session: AsyncSession, offset: int = 0, limit: int = 100) -> list[User]:
@@ -79,19 +158,50 @@ async def create_user(session: AsyncSession, payload: UserCreate) -> User:
     return user
 
 
-async def update_user(session: AsyncSession, user: User, payload: UserUpdate) -> User:
+async def update_user(session: AsyncSession, user: User, payload: UserUpdate, redis: Redis | None = None) -> User:
+    """Update user and invalidate cache.
+
+    Demonstrates cache invalidation pattern to prevent stale reads.
+    Always invalidate cache when updating data to maintain consistency.
+
+    Args:
+        session: Database session
+        user: User instance to update
+        payload: Update payload
+        redis: Optional Redis client for cache invalidation
+
+    Returns:
+        Updated user instance
+    """
     updates = payload.model_dump(exclude_unset=True)
     for field, value in updates.items():
         setattr(user, field, value)
     session.add(user)
     await session.flush()  # type: ignore[attr-defined]
     await session.refresh(user)
+
+    # Invalidate cache to prevent stale reads
+    if CACHE_AVAILABLE and redis:
+        await cache_delete(redis, "user", str(user.id))
+
     return user
 
 
-async def delete_user(session: AsyncSession, user: User) -> None:
+async def delete_user(session: AsyncSession, user: User, redis: Redis | None = None) -> None:
+    """Delete user and invalidate cache.
+
+    Args:
+        session: Database session
+        user: User instance to delete
+        redis: Optional Redis client for cache invalidation
+    """
+    user_id = user.id  # Capture before delete
     await session.delete(user)
     await session.flush()  # type: ignore[attr-defined]
+
+    # Invalidate cache after deletion
+    if CACHE_AVAILABLE and redis:
+        await cache_delete(redis, "user", str(user_id))
 
 
 async def list_organizations_for_user(session: AsyncSession, user_id: UUID) -> list[Organization]:

@@ -46,6 +46,8 @@ from sqlalchemy import text
 from fastapi_template.api.admin import router as admin_internal_router
 from fastapi_template.api.admin import webhooks_router as admin_webhooks_router
 from fastapi_template.api.routes import router as api_router
+from fastapi_template.core import cache as cache_module
+from fastapi_template.core.cache import create_redis_client
 from fastapi_template.core.config import ConfigurationError, settings
 from fastapi_template.core.logging import LoggingMiddleware
 from fastapi_template.core.metrics import metrics_app
@@ -107,12 +109,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         error_msg = f"Failed to connect to database on startup: {exc}. Check DATABASE_URL={db_url}"
         raise RuntimeError(error_msg) from exc
 
+    # Startup: Initialize Redis client (optional, graceful degradation if unavailable)
+    redis = await create_redis_client()
+    app.state.redis_client = redis
+    cache_module.redis_client = redis  # Update module-level global for non-request contexts
+    if redis:
+        logger.info("Redis caching enabled")
+    else:
+        logger.warning("Redis caching disabled - cache operations will be no-ops")
+
     yield
 
     # Shutdown: Clean up resources
     logger.info("Shutting down: draining database connection pool")
     await app.state.engine.dispose()
     logger.info("Shutdown complete: all database connections closed")
+
+    # Shutdown: Clean up Redis connection pool
+    if app.state.redis_client:
+        logger.info("Shutting down: closing Redis connection pool")
+        await app.state.redis_client.aclose()
+        logger.info("Redis connection pool closed")
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)

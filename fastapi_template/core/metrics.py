@@ -140,4 +140,24 @@ activity_log_entries_created = Counter(
     ["resource_type", "action"],
 )
 
+# Cache metrics
+cache_hits_total = Counter(
+    "cache_hits_total",
+    "Total number of cache hits",
+    ["resource_type"],
+)
+
+cache_misses_total = Counter(
+    "cache_misses_total",
+    "Total number of cache misses",
+    ["resource_type"],
+)
+
+cache_operation_duration_seconds = Histogram(
+    "cache_operation_duration_seconds",
+    "Cache operation duration in seconds",
+    ["operation"],  # get, set, delete
+    buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5],
+)
+
 metrics_app = make_asgi_app()
