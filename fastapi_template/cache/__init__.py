@@ -34,18 +34,18 @@ from fastapi_template.cache.keys import build_cache_key
 from fastapi_template.cache.serialization import deserialize, serialize
 
 __all__ = [
-    # High-level operations
-    "cache_get",
-    "cache_set",
-    "cache_delete",
-    # Decorator
-    "cached",
-    # Utilities
-    "build_cache_key",
-    "serialize",
-    "deserialize",
+    "CacheConnectionError",
     # Exceptions
     "CacheError",
     "CacheSerializationError",
-    "CacheConnectionError",
+    # Utilities
+    "build_cache_key",
+    "cache_delete",
+    # High-level operations
+    "cache_get",
+    "cache_set",
+    # Decorator
+    "cached",
+    "deserialize",
+    "serialize",
 ]

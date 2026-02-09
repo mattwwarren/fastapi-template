@@ -3,7 +3,6 @@
 from uuid import uuid4
 
 import pytest
-
 from fastapi_template.cache.keys import build_cache_key
 
 
@@ -46,7 +45,7 @@ class TestBuildCacheKey:
 
     def test_custom_prefix_from_settings(self, test_settings_factory):
         """Custom cache key prefix from settings is used."""
-        settings = test_settings_factory(cache_key_prefix="myapp")
+        test_settings_factory(cache_key_prefix="myapp")
         user_id = uuid4()
 
         key = build_cache_key("user", user_id)

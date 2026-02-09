@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from fastapi_template.core.config import settings
+from fastapi_template.core.logging import get_org_id
 
 if TYPE_CHECKING:
     pass
@@ -48,9 +49,6 @@ def build_cache_key(
 
     # Auto-detect tenant from request context if enabled and not provided
     if tenant_id is None and settings.enforce_tenant_isolation:
-        # Import here to avoid circular dependency
-        from fastapi_template.core.logging import get_org_id
-
         tenant_id = get_org_id()
         if tenant_id is None:
             # Tenant isolation is enforced but no tenant context found

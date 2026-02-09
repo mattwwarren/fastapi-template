@@ -11,7 +11,10 @@ Metrics Usage Examples:
     Labels are used consistently (environment from settings.environment).
 """
 
+from __future__ import annotations
+
 import time
+from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -19,6 +22,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from fastapi_template.core.config import settings
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
 from fastapi_template.core.metrics import (
     database_query_duration_seconds,
     users_created_total,
@@ -56,7 +62,7 @@ async def get_user(session: AsyncSession, user_id: UUID) -> User | None:
     return result.scalar_one_or_none()
 
 
-async def get_user_cached(session: AsyncSession, user_id: UUID, redis: object = None) -> User | None:
+async def get_user_cached(session: AsyncSession, user_id: UUID, redis: Redis | None = None) -> User | None:
     """Fetch a single user by ID with Redis caching (cache-aside pattern).
 
     This is an example of explicit caching for read-heavy operations.
@@ -101,7 +107,8 @@ async def get_user_cached(session: AsyncSession, user_id: UUID, redis: object = 
     # Try cache first (cache-aside pattern)
     cached = await cache_get(redis, "user", str(user_id), User)
     if cached:
-        return cached
+        # Type cast: cache_get with User model class returns User
+        return cast(User, cached)
 
     # Cache miss - query database with timing
     start = time.perf_counter()
@@ -151,7 +158,7 @@ async def create_user(session: AsyncSession, payload: UserCreate) -> User:
     return user
 
 
-async def update_user(session: AsyncSession, user: User, payload: UserUpdate, redis: object = None) -> User:
+async def update_user(session: AsyncSession, user: User, payload: UserUpdate, redis: Redis | None = None) -> User:
     """Update user and invalidate cache.
 
     Demonstrates cache invalidation pattern to prevent stale reads.
@@ -180,7 +187,7 @@ async def update_user(session: AsyncSession, user: User, payload: UserUpdate, re
     return user
 
 
-async def delete_user(session: AsyncSession, user: User, redis: object = None) -> None:
+async def delete_user(session: AsyncSession, user: User, redis: Redis | None = None) -> None:
     """Delete user and invalidate cache.
 
     Args:

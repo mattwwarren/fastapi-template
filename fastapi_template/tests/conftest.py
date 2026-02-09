@@ -372,7 +372,7 @@ async def redis_client(
     client: Redis = Redis(connection_pool=pool, decode_responses=True)
 
     # Validate connectivity
-    await client.ping()
+    await client.ping()  # type: ignore[misc]
 
     yield client
 
@@ -608,7 +608,8 @@ async def client_bypass_auth(
 
     # Update module-level globals for non-request contexts
     from fastapi_template.core import cache as cache_module
-    cache_module.redis_client = redis_client
+
+    cache_module.redis_client = redis_client  # type: ignore[assignment]
 
     # Override session dependency
     app.dependency_overrides[get_session] = get_session_override
@@ -689,7 +690,8 @@ async def authenticated_client(
 
     # Update module-level globals for non-request contexts
     from fastapi_template.core import cache as cache_module
-    cache_module.redis_client = redis_client
+
+    cache_module.redis_client = redis_client  # type: ignore[assignment]
 
     # Override session dependency
     app.dependency_overrides[get_session] = get_session_override
@@ -746,7 +748,8 @@ async def client(
 
     # Update module-level globals for non-request contexts
     from fastapi_template.core import cache as cache_module
-    cache_module.redis_client = redis_client
+
+    cache_module.redis_client = redis_client  # type: ignore[assignment]
 
     # Override session dependency
     app.dependency_overrides[get_session] = get_session_override

@@ -5,7 +5,7 @@ from __future__ import annotations
 import functools
 import logging
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar
+from typing import TYPE_CHECKING, ParamSpec, TypeVar
 
 from fastapi_template.cache.client import cache_get, cache_set
 
@@ -87,7 +87,7 @@ def cached(
                 return await func(*args, **kwargs)
 
             # Attempt cache hit
-            cached_value = await cache_get(redis, resource_type, str(identifier), model_class)
+            cached_value = await cache_get(redis, resource_type, str(identifier), model_class)  # type: ignore[arg-type]
             if cached_value is not None:
                 return cached_value  # type: ignore[return-value]
 
@@ -96,7 +96,7 @@ def cached(
 
             # Cache the result (fire-and-forget, don't block on cache failure)
             if result is not None:
-                await cache_set(redis, resource_type, str(identifier), result, ttl)
+                await cache_set(redis, resource_type, str(identifier), result, ttl)  # type: ignore[arg-type]
 
             return result
 

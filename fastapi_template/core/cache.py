@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Annotated, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends
+from redis.asyncio import ConnectionPool, Redis
 
 from fastapi_template.core.config import settings
 
 if TYPE_CHECKING:
-    from redis.asyncio import Redis
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +43,6 @@ async def create_redis_client() -> Redis | None:
         return None
 
     try:
-        from redis.asyncio import ConnectionPool, Redis
-
         pool = ConnectionPool.from_url(
             settings.redis_url,
             max_connections=settings.redis_pool_size,
@@ -52,18 +52,18 @@ async def create_redis_client() -> Redis | None:
         client: Redis = Redis(connection_pool=pool, decode_responses=True)
 
         # Validate connectivity
-        await client.ping()
-        # Redact password from URL for logging
-        safe_url = settings.redis_url.split("@")[-1] if "@" in settings.redis_url else settings.redis_url
-        logger.info("Redis connection successful: %s", safe_url)
-        return client
-
-    except Exception as exc:
-        logger.error("Failed to connect to Redis: %s. Caching disabled.", exc)
+        await client.ping()  # type: ignore[misc]
+    except Exception:
+        logger.exception("Failed to connect to Redis. Caching disabled.")
         return None
 
+    # Redact password from URL for logging
+    safe_url = settings.redis_url.split("@")[-1] if "@" in settings.redis_url else settings.redis_url
+    logger.info("Redis connection successful: %s", safe_url)
+    return client
 
-async def get_redis() -> AsyncGenerator[Redis | None, None]:
+
+async def get_redis() -> AsyncGenerator[Redis | None]:
     """Dependency injection for Redis client.
 
     Yields the module-level redis_client set during lifespan.
