@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit alembic/versions/**",
+      "Write alembic/versions/**",
+      "Edit .templatized/alembic/versions/**",
+      "Write .templatized/alembic/versions/**"
+    ]
+  }
+}

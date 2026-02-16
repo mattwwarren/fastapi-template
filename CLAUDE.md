@@ -10,6 +10,7 @@ Backend-specific review and implementation agents:
 **Implementation Agents:**
 - **api-designer.md** - Design REST API endpoints following best practices
 - **backend-implementer.md** - Implement backend features with proper patterns
+- **migration-creator.md** - Create Alembic migrations via autogenerate (never hand-written)
 - **test-writer.md** - Write comprehensive tests for backend code
 
 **Review Agents:**
@@ -268,6 +269,22 @@ For production instance creation:
 - Avoid N+1 database queries
 - Proper async context manager usage
 - Session lifecycle management
+
+### ORM-Exclusive Database Policy
+
+All database schema management goes through the ORM. No exceptions without explicit user approval.
+
+- All schema changes **MUST** go through SQLModel/SQLAlchemy model definitions
+- Migrations **MUST** be generated via `alembic revision --autogenerate`, never hand-written
+- Migration files in `alembic/versions/` are **generated artifacts** — agents must never Edit or Write them (enforced by `.claude/settings.json` deny rules)
+- Use the **migration-creator** agent to generate migrations (handles DB availability, model registration, and validation)
+
+**Escalation ladder** when autogenerate can't express a change:
+1. Model change → autogenerate
+2. Research SQLAlchemy extension packages (`sqlalchemy-utils`, `alembic-utils`, etc.)
+3. Ask user for approval before any raw SQL
+
+Raw `op.execute()` SQL is a **last resort** — only after exhausting ORM/extension approaches AND getting explicit user approval.
 
 ## Test Instance Workflow (Deprecated)
 
