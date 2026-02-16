@@ -1,0 +1,14 @@
+{
+  "servers": {
+    "devspace": {
+      "command": "bash",
+      "args": [
+        "${workspaceFolder}/../mcp-servers/devspace-mcp/server.sh"
+      ],
+      "env": {
+        "NAMESPACE": "warren-enterprises-ltd",
+        "CLUSTER_NAME": "fastapi-template"
+      }
+    }
+  }
+}

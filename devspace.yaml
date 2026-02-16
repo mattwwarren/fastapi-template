@@ -172,6 +172,54 @@ commands:
         bash scripts/k3d-down.sh
         rm -f .devspace/cache.yaml
         echo "Cache cleared"
+  status:
+    description: "Show pods, services, and deployments overview"
+    command: bash
+    args:
+      - -c
+      - |
+        echo "=== Pods ==="
+        kubectl get pods -n "${NAMESPACE}" -o wide 2>/dev/null || echo "No pods found (is the cluster running?)"
+        echo ""
+        echo "=== Services ==="
+        kubectl get svc -n "${NAMESPACE}" 2>/dev/null || echo "No services found"
+        echo ""
+        echo "=== Deployments ==="
+        kubectl get deployments -n "${NAMESPACE}" 2>/dev/null || echo "No deployments found"
+  health:
+    description: "Check backend /health endpoint"
+    command: bash
+    args:
+      - -c
+      - |
+        POD=$(kubectl get pod -n "${NAMESPACE}" \
+          -l app.kubernetes.io/name=devspace-app \
+          -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+        if [ -z "$POD" ]; then
+          echo "No backend pod found. Is the app deployed?"
+          echo "  Fix: devspace deploy"
+          exit 1
+        fi
+        echo "Checking health on pod ${POD}..."
+        kubectl exec -n "${NAMESPACE}" "$POD" -c api -- \
+          sh -c 'wget -qO- http://localhost:8000/health 2>/dev/null || curl -sf http://localhost:8000/health 2>/dev/null' \
+          && echo "" && echo "Backend is healthy." \
+          || { echo "Health check failed."; exit 1; }
+  db-shell:
+    description: "Open psql shell in postgres pod"
+    command: bash
+    args:
+      - -c
+      - |
+        kubectl exec -it -n "${NAMESPACE}" postgres-0 -- \
+          psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}"
+  troubleshoot:
+    description: "Run full environment diagnostics"
+    command: bash
+    args:
+      - -c
+      - |
+        bash scripts/troubleshoot.sh
 
 
 # Deployment definitions

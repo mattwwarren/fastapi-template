@@ -3,7 +3,6 @@ _templates_suffix: ""
 _envops:
   keep_trailing_newline: true
 _exclude:
-  - "scripts/manage-test-instance.sh"
   - "scripts/templatize.sh"
   - ".git"
   - ".git/**"

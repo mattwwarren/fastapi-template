@@ -20,10 +20,10 @@ Backend-specific review and implementation agents:
 - **async-patterns-reviewer.md** - Async/await patterns, N+1 queries, performance
 - **observability-reviewer.md** - Logging, metrics, tracing, monitoring
 
-### Commands (`.claude/commands/`)
+### Skills (`.claude/skills/`)
 
-- **implement.md** - Implement a feature from requirements
-- **follow-pod.md** - Follow Kubernetes pod logs for debugging
+- **implement** - Implement a feature from requirements (`/implement`)
+- **follow-logs** - Follow service logs via DevSpace (`/follow-logs`)
 
 ### Shared Documentation (`.claude/shared/`)
 
@@ -270,6 +270,29 @@ For production instance creation:
 - Proper async context manager usage
 - Session lifecycle management
 
+### DevSpace Abstraction Layer
+
+**All cluster operations go through DevSpace or the devspace-mcp server. Raw kubectl/k3d/docker/helm commands are blocked by `.claude/settings.json` deny rules.**
+
+Full command map: [`.claude/domain/devspace-command-map.md`](.claude/domain/devspace-command-map.md)
+
+| Task | DevSpace Command | MCP Tool |
+|------|-----------------|----------|
+| Check cluster status | `devspace run status` | `devspace_status` |
+| View logs | `devspace logs -f` | `devspace_logs` |
+| Health check | `devspace run health` | `devspace_health_check` |
+| Enter container | `devspace enter --container api` | `devspace_container_exec` |
+| Run migrations | `devspace run alembic-upgrade` | `devspace_alembic_upgrade` |
+| Generate migration | `devspace run alembic-revision -- "msg"` | `devspace_alembic_revision` |
+| psql shell | `devspace run db-shell` | — |
+| Full diagnostics | `devspace run troubleshoot` | — |
+| Create cluster | `devspace run cluster-up` | — |
+| Tear down cluster | `devspace run k3d-down` | — |
+| Restart service | `devspace restart` | `devspace_restart` |
+| Rebuild & redeploy | `devspace deploy` | `devspace_redeploy` |
+
+**Standard workflow pattern:** status → changes → health → tests → logs
+
 ### ORM-Exclusive Database Policy
 
 All database schema management goes through the ORM. No exceptions without explicit user approval.
@@ -285,22 +308,6 @@ All database schema management goes through the ORM. No exceptions without expli
 3. Ask user for approval before any raw SQL
 
 Raw `op.execute()` SQL is a **last resort** — only after exhausting ORM/extension approaches AND getting explicit user approval.
-
-## Test Instance Workflow (Deprecated)
-
-> **Note**: This workflow is **deprecated** with the runnable-first architecture.
-> Work directly on `fastapi_template/` instead. See "Runnable-First Architecture" above.
-
-The old test instance workflow using `manage-test-instance.sh` is no longer needed:
-
-| Old Command | New Approach |
-|-------------|--------------|
-| `/test-instance generate` | Not needed - work directly on main |
-| `/test-instance verify` | Run `uv run ruff check .`, `uv run mypy .`, `uv run pytest` directly |
-| `/test-instance sync` | Not needed - no instances to sync |
-| `reverse-sync` | Not needed - changes are made directly to code |
-
-See [INSTANCES.md](INSTANCES.md) for the current deployment workflow.
 
 ## Review Process
 
@@ -352,10 +359,11 @@ Place all three at workspace level and reference from this template.
 3. `/review-thorough` for security/architecture changes
 
 ### Debug Production Issue
-1. `/follow-pod api-server-xyz` - Follow logs
-2. Check observability (metrics, traces)
-3. Write test to reproduce
-4. Fix and verify
+1. `devspace run status` - Check pod health
+2. `/follow-logs` or `devspace logs -f` - Stream logs
+3. `devspace run health` - Verify endpoint
+4. Write test to reproduce
+5. Fix and verify
 
 ## Contributing Back
 
