@@ -255,6 +255,14 @@ if [[ -d "${OUTPUT_DIR}/.claude" ]]; then
     echo "  Updated ${CLAUDE_COUNT} files in .claude/"
 fi
 
+# alembic/CLAUDE.md - references fastapi_template imports
+if [[ -f "${OUTPUT_DIR}/alembic/CLAUDE.md" ]]; then
+    if grep -q "fastapi_template" "${OUTPUT_DIR}/alembic/CLAUDE.md" 2>/dev/null; then
+        sed -i "s/fastapi_template/${SED_REPLACEMENT}/g" "${OUTPUT_DIR}/alembic/CLAUDE.md"
+        echo "  Updated: alembic/CLAUDE.md"
+    fi
+fi
+
 # dotenv.example - environment variable defaults
 if [[ -f "${OUTPUT_DIR}/dotenv.example" ]]; then
     if grep -q "fastapi_template" "${OUTPUT_DIR}/dotenv.example" 2>/dev/null; then
