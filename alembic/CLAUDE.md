@@ -1,5 +1,7 @@
 # Alembic Migrations
 
+> **Migration files are generated artifacts.** Never hand-edit files in `alembic/versions/`. Use the migration-creator agent or `devspace run alembic-revision` to generate them. This is enforced by `.claude/settings.json` deny rules.
+
 Database schema migrations for the backend.
 
 ## How Models Are Discovered

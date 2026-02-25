@@ -1,4 +1,5 @@
 ---
+name: implement
 description: Implement a backend feature following FastAPI patterns
 argument-hint: <feature-description>
 ---
@@ -15,13 +16,13 @@ Implement a new feature for this Python FastAPI microservice backend.
 
 ## Implementation Workflow
 
-### Phase 1: Analysis (5-10 min)
+### Phase 1: Analysis
 1. Understand requirements - clarify scope
 2. Survey existing patterns - review similar endpoints/services
 3. Plan architecture - models, services, API, tests
 4. Check dependencies - required libraries available?
 
-### Phase 2: Implementation (30-60 min)
+### Phase 2: Implementation
 1. **Models** - Pydantic request/response schemas
 2. **Database** - SQLAlchemy models if needed
 3. **Service** - Business logic in service layer
@@ -29,7 +30,7 @@ Implement a new feature for this Python FastAPI microservice backend.
 5. **Migrations** - Alembic migrations for schema changes
 6. **Tests** - Unit + integration tests
 
-### Phase 3: Verification (5-10 min)
+### Phase 3: Verification
 ```bash
 ruff check .     # Must be 0 violations
 mypy .           # Must be 0 type errors
@@ -39,21 +40,18 @@ pytest           # Must be 100% pass rate
 ## Code Structure
 
 ```
-app/
-├── api/v1/endpoints/
-│   └── <resource>.py        # New API routes
+fastapi_template/
+├── api/
+│   └── <resource>.py          # New API routes
 ├── models/
-│   └── <resource>.py        # Pydantic schemas
+│   └── <resource>.py          # Pydantic schemas + SQLModel models
 ├── services/
 │   └── <resource>_service.py  # Business logic
-└── db/models/
-    └── <resource>.py        # SQLAlchemy models
-
 tests/
-├── unit/services/
-│   └── test_<resource>_service.py
-└── integration/api/
-    └── test_<resource>_endpoints.py
+├── unit/
+│   └── test_<resource>.py
+└── integration/
+    └── test_<resource>.py
 ```
 
 ## Example Feature Patterns
@@ -62,7 +60,6 @@ tests/
 
 **Pydantic Models:**
 ```python
-# models/product.py
 class ProductCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     price: float = Field(..., gt=0)
@@ -78,7 +75,6 @@ class ProductRead(BaseModel):
 
 **Service:**
 ```python
-# services/product_service.py
 class ProductService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -93,7 +89,6 @@ class ProductService:
 
 **API:**
 ```python
-# api/v1/endpoints/products.py
 @router.post("/", response_model=ProductRead, status_code=201)
 async def create_product(
     product: ProductCreate,
@@ -105,23 +100,23 @@ async def create_product(
 
 ## Common Mistakes to Avoid
 
-- ❌ Business logic in API routes
-- ❌ Sync database calls (use async)
-- ❌ Missing type annotations
-- ❌ Forgetting `-> None` return type
-- ❌ Hardcoded values (use constants)
-- ❌ Inline error messages (extract to variables)
-- ❌ Missing tests
-- ❌ Skipping migration for schema changes
+- Business logic in API routes
+- Sync database calls (use async)
+- Missing type annotations
+- Forgetting `-> None` return type
+- Hardcoded values (use constants)
+- Inline error messages (extract to variables)
+- Missing tests
+- Skipping migration for schema changes
 
 ## Definition of Done
 
-- ✅ Ruff: 0 violations
-- ✅ MyPy: 0 type errors
-- ✅ Pytest: 100% pass rate
-- ✅ Coverage: 80%+ on new code
-- ✅ Migration created (if schema changed)
-- ✅ API documented (OpenAPI)
+- Ruff: 0 violations
+- MyPy: 0 type errors
+- Pytest: 100% pass rate
+- Coverage: 80%+ on new code
+- Migration created (if schema changed)
+- API documented (OpenAPI)
 
 ---
 

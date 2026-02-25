@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit alembic/versions/**",
+      "Write alembic/versions/**",
+      "Edit .templatized/alembic/versions/**",
+      "Write .templatized/alembic/versions/**",
+      "Bash(kubectl apply*)",
+      "Bash(kubectl create*)",
+      "Bash(kubectl delete*)",
+      "Bash(kubectl exec*)",
+      "Bash(kubectl port-forward*)",
+      "Bash(kubectl patch*)",
+      "Bash(kubectl replace*)",
+      "Bash(kubectl run*)",
+      "Bash(kubectl scale*)",
+      "Bash(kubectl set*)",
+      "Bash(kubectl rollout*)",
+      "Bash(k3d cluster create*)",
+      "Bash(k3d cluster delete*)",
+      "Bash(k3d image import*)",
+      "Bash(k3d node*)",
+      "Bash(k3d registry*)",
+      "Bash(docker build*)",
+      "Bash(docker run*)",
+      "Bash(docker exec*)",
+      "Bash(docker stop*)",
+      "Bash(docker rm *)",
+      "Bash(docker rmi*)",
+      "Bash(helm install*)",
+      "Bash(helm upgrade*)",
+      "Bash(helm delete*)",
+      "Bash(helm uninstall*)"
+    ]
+  }
+}

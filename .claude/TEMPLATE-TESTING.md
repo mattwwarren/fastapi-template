@@ -233,26 +233,17 @@ curl http://localhost:8000/users
 
 ## Complete Verification (Recommended)
 
-Use the persistent test instance for faster verification without repeated approvals:
+With the runnable-first architecture, verify directly on the template:
 
 ```bash
-# First time setup
-/test-instance generate
-
-# After template changes
-/test-instance sync     # Pull template changes
-/test-instance verify   # Run ruff, mypy, pytest
+uv run ruff check .
+uv run mypy .
+uv run pytest
 ```
 
-**Why prefer persistent instance?**
-- Faster (no repeated generation)
-- No user approval needed for verification
-- Git-tracked for copier update
-- Reusable across sessions
+### Alternative: One-Off Copier Verification
 
-### Alternative: One-Off Temporary Verification
-
-For quick testing of one-time variations, the original temporary workflow still works:
+For testing that Copier generation works correctly:
 
 ```bash
 #!/bin/bash

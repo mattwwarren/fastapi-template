@@ -17,12 +17,12 @@ Specialized agents for Python FastAPI backend development:
 - **code-reviewer.md** - Python code quality and FastAPI patterns
 - **observability-reviewer.md** - Logging, metrics, tracing
 
-### Commands (`commands/`)
+### Skills (`skills/`)
 
 Workflow automation for backend development:
 
-- **follow-pod.md** - Stream Kubernetes pod logs for this service
-- **implement.md** - Implement features following backend patterns
+- **implement** - Implement features following backend patterns (`/implement`)
+- **follow-logs** - Follow service logs via DevSpace (`/follow-logs`)
 
 ### Shared Documentation (`shared/`)
 
@@ -71,8 +71,11 @@ Backend-specific guidelines:
 ### Debugging Production
 
 ```bash
-# Follow pod logs
-/follow-pod app=backend-api
+# Follow service logs
+/follow-logs
+
+# Or use DevSpace directly
+devspace logs -f
 ```
 
 ## Tech Stack

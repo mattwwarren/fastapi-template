@@ -67,37 +67,6 @@ uv run pytest
 
 ---
 
-## What Changed from Previous Workflow
-
-### Old Workflow (Deprecated)
-
-Previously, the template used a "template-first" approach:
-- Main branch contained Copier template with `fastapi_template` variables
-- Development required creating test instances
-- The `manage-test-instance.sh` script managed instance lifecycle
-- Changes required template-instance sync workflows
-
-### New Workflow (Current)
-
-The runnable-first approach:
-- Main branch contains working Python code (`fastapi_template/`)
-- Template is auto-generated from code at release time
-- No test instances needed during development
-- GitHub Actions creates the `copier` branch automatically
-
-### Migration for Existing Workflows
-
-If you were using `manage-test-instance.sh` for development:
-
-| Old Command | New Approach |
-|-------------|--------------|
-| `/test-instance generate` | Not needed - work directly on main |
-| `/test-instance verify` | Run `uv run ruff check .`, `uv run mypy .`, `uv run pytest` directly |
-| `/test-instance sync` | Not needed - no instances to sync |
-| `reverse-sync` | Not needed - changes are made directly to code |
-
----
-
 ## For Contributors
 
 ### Development Workflow
@@ -201,29 +170,17 @@ git commit -m "Merge template improvements"
 
 ### Drift Checking
 
-Monitor if your project is behind the template:
+Monitor if your project is behind the template by comparing the `_commit` in `.copier-answers.yml` against the current template HEAD:
 
 ```bash
-# Check single project
-./scripts/check-instance-drift.sh /path/to/your-project
+# Check what commit your project was generated from
+grep "_commit:" /path/to/your-project/.copier-answers.yml
+
+# See what changed since then
+git log --oneline <that-commit>..HEAD
 ```
 
-**Output** (up-to-date):
-```
-Up-to-date
-```
-
-**Output** (behind):
-```
-Instance is 5 commits behind template
-
-Recent template changes:
-abc123d Fix user email validation
-def456e Add international email support
-789abcd Security patch: input validation
-
-To update: cd "/path/to/your-project" && copier update --trust
-```
+To update: `cd /path/to/your-project && copier update --trust`
 
 ---
 
@@ -324,16 +281,3 @@ def validate_email(email: str) -> bool:
 - **Configuration**: See [CONFIGURATION-GUIDE.md](CONFIGURATION-GUIDE.md)
 - **Quick Start**: See [QUICKSTART.md](QUICKSTART.md)
 - **Python Patterns**: See [PYTHON-PATTERNS.md](PYTHON-PATTERNS.md)
-
----
-
-## Deprecated: Test Instance Workflow
-
-The following commands from `manage-test-instance.sh` are **deprecated** and will be removed in a future release:
-
-- `generate` - No longer needed, work directly on main branch
-- `verify` - Run verification commands directly
-- `sync` - No instances to sync
-- `reverse-sync` - Not needed, make changes directly to code
-
-The script remains available for backwards compatibility but is not recommended for new development.
