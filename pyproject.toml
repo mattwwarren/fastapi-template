@@ -19,6 +19,8 @@ dependencies = [
   "python-multipart>=0.0.9",
   "slowapi>=0.1.9",
   "tenacity>=9.0.0",
+  "python-socketio>=5.12.0",
+  "redis>=7.3.0",
 ]
 
 [build-system]
@@ -110,6 +112,11 @@ ignore_missing_imports = true
 module = ["google.*"]
 ignore_missing_imports = true
 
+# Socket.IO - no complete type stubs available
+[[tool.mypy.overrides]]
+module = ["socketio.*", "engineio.*"]
+ignore_missing_imports = true
+
 [tool.coverage.run]
 source = ["fastapi_template"]
 # Required for accurate coverage with FastAPI + async SQLAlchemy
@@ -129,9 +136,12 @@ exclude_lines = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "--tb=short -n auto --cov=fastapi_template --cov-report=term-missing --cov-fail-under=90"
+addopts = "--tb=short -n auto --cov=fastapi_template --cov-report=term-missing --cov-fail-under=90 -m 'not integration'"
 asyncio_mode = "auto"
 testpaths = ["fastapi_template/tests"]
+markers = [
+    "integration: requires Docker services (Redis, Postgres)",
+]
 
 [project.optional-dependencies]
 # Object storage provider dependencies (install as needed)
@@ -160,4 +170,5 @@ dev = [
   "myst-parser>=3.0.0",
   "types-aioboto3>=13.0.0",
   "types-aiobotocore[s3]",
+  "aiohttp>=3.13.3",
 ]

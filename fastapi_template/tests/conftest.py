@@ -58,6 +58,7 @@ from fastapi_template.tests.fixtures.settings import (  # noqa: F401
 
 # Port constants
 POSTGRES_PORT = 5432
+REDIS_PORT = 6379
 SOCKET_TIMEOUT_SECONDS = 1
 DOCKER_TIMEOUT_SECONDS = 30.0
 DOCKER_PAUSE_SECONDS = 0.5
@@ -309,6 +310,34 @@ def database_url(
     # Cleanup: drop worker database (skip for master to allow debugging)
     if worker_id != "master":
         drop_database_if_exists(docker_ip, port, db_name)
+
+
+@pytest.fixture(scope="session")
+def redis_url(
+    docker_ip: str,
+    docker_services: object,
+) -> str:
+    """Get Redis URL from Docker Compose service.
+
+    Safe to call from any xdist worker — docker_services already coordinates
+    container startup via refcounting, and port_for() is a read-only lookup.
+    """
+    port = docker_services.port_for("redis", REDIS_PORT)  # type: ignore[attr-defined]
+
+    def is_responsive() -> bool:
+        try:
+            socket.create_connection((docker_ip, port), timeout=SOCKET_TIMEOUT_SECONDS).close()
+        except OSError:
+            return False
+        return True
+
+    docker_services.wait_until_responsive(  # type: ignore[attr-defined]
+        timeout=DOCKER_TIMEOUT_SECONDS,
+        pause=DOCKER_PAUSE_SECONDS,
+        check=is_responsive,
+    )
+
+    return f"redis://{docker_ip}:{port}/0"
 
 
 @pytest.fixture(scope="session")

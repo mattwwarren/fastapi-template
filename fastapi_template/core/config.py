@@ -115,6 +115,16 @@ class Settings(BaseSettings):
         alias="JWT_PUBLIC_KEY",
         description="Public key for JWT validation (PEM format) or path to key file",
     )
+    redis_url: str | None = Field(
+        default=None,
+        alias="REDIS_URL",
+        description="Redis URL for Socket.IO cross-process pub/sub (optional)",
+    )
+    socketio_cors_origins: str | None = Field(
+        default=None,
+        alias="SOCKETIO_CORS_ORIGINS",
+        description="Socket.IO CORS origins (comma-separated). Defaults to cors_allowed_origins when not set.",
+    )
     cors_allowed_origins_raw: str | list[str] = Field(
         default="http://localhost:3000",
         alias="CORS_ALLOWED_ORIGINS",
