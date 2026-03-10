@@ -51,6 +51,7 @@ from fastapi_template.core.logging import LoggingMiddleware
 from fastapi_template.core.metrics import metrics_app
 from fastapi_template.core.pagination import configure_pagination
 from fastapi_template.db.session import PoolConfig, create_db_engine, create_session_maker
+from fastapi_template.realtime.server import get_sio_app, init_sio
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +107,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         db_url = settings.database_url
         error_msg = f"Failed to connect to database on startup: {exc}. Check DATABASE_URL={db_url}"
         raise RuntimeError(error_msg) from exc
+
+    # Initialize Socket.IO server (optional - requires no external services)
+    init_sio()
+    sio_app = get_sio_app()
+    app.mount("/ws", sio_app)
+    logger.info("socketio_mounted", extra={"path": "/ws/socket.io/"})
 
     yield
 
