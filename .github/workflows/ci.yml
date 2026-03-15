@@ -43,8 +43,8 @@ jobs:
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
 
-  tests:
-    name: Tests
+  unit-tests:
+    name: Unit Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -68,8 +68,97 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
-      - name: Run tests
+      - name: Run unit tests
         run: |
-          uv run pytest fastapi_template/tests/ \
-            -v --tb=short -n auto \
-            --cov=fastapi_template --cov-report=term-missing --cov-fail-under=90
+          uv run pytest fastapi_template/tests/unit/ \
+            -v --tb=short -o "addopts=" \
+            --cov=fastapi_template --cov-report=term-missing
+
+      - name: Rename coverage data
+        if: always()
+        run: mv .coverage .coverage.unit
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-unit
+          path: .coverage.unit
+          include-hidden-files: true
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run integration tests
+        run: |
+          uv run pytest fastapi_template/tests/integration/ \
+            -v --tb=short -n auto -o "addopts=" \
+            --cov=fastapi_template --cov-report=term-missing
+
+      - name: Rename coverage data
+        if: always()
+        run: mv .coverage .coverage.integration
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-integration
+          path: .coverage.integration
+          include-hidden-files: true
+
+  coverage:
+    name: Coverage Check
+    needs: [unit-tests, integration-tests]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Download unit coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-unit
+
+      - name: Download integration coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-integration
+
+      - name: Combine coverage and check threshold
+        run: |
+          uv run coverage combine .coverage.unit .coverage.integration
+          uv run coverage report --fail-under=90

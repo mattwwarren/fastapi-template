@@ -25,7 +25,7 @@ from fastapi import Depends, Request
 from httpx import ASGITransport, AsyncClient
 from psycopg import sql
 from pytest_docker.plugin import DockerComposeExecutor, Services
-from sqlalchemy import bindparam, create_engine, select, text
+from sqlalchemy import create_engine, select
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -374,32 +374,20 @@ def run_migrations(config: Config, engine: Engine) -> None:
         connection.commit()
 
 
-async def truncate_tables(engine: AsyncEngine, alembic_config: Config, alembic_engine: Engine) -> None:
-    table_names = [table.name for table in SQLModel.metadata.sorted_tables]
-    if not table_names:
+async def delete_all_rows(engine: AsyncEngine) -> None:
+    """Delete all rows from all tables in reverse FK order.
+
+    Faster than TRUNCATE CASCADE for near-empty tables between tests:
+    - Uses ROW EXCLUSIVE locks (not ACCESS EXCLUSIVE)
+    - No CASCADE lock propagation to referencing tables
+    - Allows concurrent deletes from parallel xdist workers without blocking
+    """
+    tables = list(reversed(SQLModel.metadata.sorted_tables))
+    if not tables:
         return
     async with engine.begin() as connection:
-        result = await connection.execute(
-            text("SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename IN :names").bindparams(
-                bindparam("names", expanding=True)
-            ),
-            {"names": table_names},
-        )
-        existing = [row[0] for row in result.fetchall()]
-    if not existing:
-        await asyncio.to_thread(run_migrations, alembic_config, alembic_engine)
-        async with engine.begin() as connection:
-            result = await connection.execute(
-                text("SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename IN :names").bindparams(
-                    bindparam("names", expanding=True)
-                ),
-                {"names": table_names},
-            )
-            existing = [row[0] for row in result.fetchall()]
-    if not existing:
-        return
-    async with engine.begin() as connection:
-        await connection.execute(text("TRUNCATE TABLE " + ", ".join(existing) + " RESTART IDENTITY CASCADE"))
+        for table in tables:
+            await connection.execute(table.delete())
 
 
 @pytest.fixture(scope="session")
@@ -437,7 +425,7 @@ async def engine(
     yield test_engine
 
     # Cleanup
-    await truncate_tables(test_engine, alembic_config, alembic_engine)
+    await delete_all_rows(test_engine)
     await test_engine.dispose()
 
 
@@ -457,8 +445,13 @@ async def session(
 
 
 @pytest.fixture(autouse=True)
-async def reset_db(engine: AsyncEngine, alembic_config: Config, alembic_engine: Engine) -> None:
-    await truncate_tables(engine, alembic_config, alembic_engine)
+async def reset_db(engine: AsyncEngine) -> None:
+    """Delete all rows between tests for isolation.
+
+    Uses DELETE in reverse FK order instead of TRUNCATE CASCADE to avoid
+    ACCESS EXCLUSIVE locks and allow concurrent xdist workers.
+    """
+    await delete_all_rows(engine)
 
 
 class TestAuthMiddleware(BaseHTTPMiddleware):
@@ -816,50 +809,26 @@ async def default_auth_user_in_org(
     session_maker: async_sessionmaker[AsyncSession],
     reset_db: None,  # noqa: ARG001 - Ensure DB is reset before creating default user/org
 ) -> None:
-    """Ensure default test user and default org exist with OWNER membership.
+    """Create default test user, org, and membership for auth context.
 
-    This fixture creates the user/org/membership required for tests that rely on
-    the default auth middleware credentials to have RBAC permissions.
-
-    Runs automatically for all tests (autouse=True) so tests don't need to declare it.
+    Since reset_db deletes all rows, we INSERT directly without existence
+    checks. Uses a single flush + commit instead of 3 SELECT/INSERT/COMMIT cycles.
     """
     test_org_id = UUID("00000000-0000-0000-0000-000000000000")
     test_user_id = UUID("00000000-0000-0000-0000-000000000001")
 
     async with session_maker() as session:
-        # Create test user if it doesn't exist
-        user_result = await session.execute(select(User).where(User.id == test_user_id))
-        if not user_result.scalar_one_or_none():
-            test_user = User(
-                id=test_user_id,
-                email="testuser@example.com",
-                name="Test User",
-            )
-            session.add(test_user)
-            await session.commit()
-
-        # Create test organization if it doesn't exist
-        org_result = await session.execute(select(Organization).where(Organization.id == test_org_id))
-        if not org_result.scalar_one_or_none():
-            test_org = Organization(id=test_org_id, name="Test Organization")
-            session.add(test_org)
-            await session.commit()
-
-        # Create default membership for test user with OWNER role
-        membership_result = await session.execute(
-            select(Membership).where(
-                Membership.user_id == test_user_id,
-                Membership.organization_id == test_org_id,
-            )
-        )
-        if not membership_result.scalar_one_or_none():
-            test_membership = Membership(
-                user_id=test_user_id,
-                organization_id=test_org_id,
-                role=MembershipRole.OWNER,
-            )
-            session.add(test_membership)
-            await session.commit()
+        session.add_all([
+            User(id=test_user_id, email="testuser@example.com", name="Test User"),
+            Organization(id=test_org_id, name="Test Organization"),
+        ])
+        await session.flush()
+        session.add(Membership(
+            user_id=test_user_id,
+            organization_id=test_org_id,
+            role=MembershipRole.OWNER,
+        ))
+        await session.commit()
 
 
 # =============================================================================
