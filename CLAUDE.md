@@ -22,8 +22,14 @@ Backend-specific review and implementation agents:
 
 ### Skills (`.claude/skills/`)
 
+Hand-authored, project-specific skills:
+
 - **implement** - Implement a feature from requirements (`/implement`)
 - **follow-logs** - Follow service logs via DevSpace (`/follow-logs`)
+
+Vendored upstream skills live under `.claude/skills/_upstream/<name>/` and are bootstrapped via `bash scripts/install-upstream-skills.sh` (which calls `library-skills install --copy` against the dev `.venv`). The pin is in `pyproject.toml` dev deps. Refresh workflow is deferred to DRIFT-3 (#TBD); for now the script is one-shot. See `.claude/skills/_upstream/README.md` for the per-refresh audit checklist and known precedence overrides (the upstream FastAPI skill recommends `def`-for-blocking and `ty`-over-mypy; this template overrides both — see ASYNC-DOC-1 #8 and TYPE-1 #7).
+
+`uv run library-skills --check --claude` exits non-zero whenever it finds any `hand-authored` skill — that includes both the vendored `--copy` ones and the existing project skills (`implement`, `follow-logs`). It is not a drift indicator under `--copy` mode and the actual refresh / drift workflow is deferred to DRIFT-3 (not yet filed).
 
 ### Shared Documentation (`.claude/shared/`)
 
