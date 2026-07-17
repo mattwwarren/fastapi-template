@@ -101,8 +101,8 @@ async def archive_old_activity_logs_task(org_id: UUID, days_older_than: int) -> 
         # See: docs/implementing_log_archival.md for archival patterns and options
         #
         # Simulate archival process (replace with actual implementation)
-        # from datetime import datetime, timedelta
-        # cutoff_date = datetime.utcnow() - timedelta(days=days_older_than)
+        # from datetime import datetime, timezone, timedelta
+        # cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_older_than)
         # await archive_service.archive_logs(org_id, cutoff_date)
         await asyncio.sleep(0.1)  # Placeholder - remove this line when implementing
 
