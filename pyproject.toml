@@ -117,14 +117,22 @@ exclude = [
 module = ["azure.*"]
 ignore_missing_imports = true
 
-# Google Cloud - no complete type stubs available
+# Google Cloud - no complete type stubs available.
+# google-cloud-storage 3.x ships partial py.typed markers that make mypy
+# resolve `google.cloud` as a typed namespace package lacking the `storage`
+# submodule, producing a spurious attr-defined on `from google.cloud import
+# storage`. follow_imports=skip treats the namespace as untyped, matching the
+# runtime-optional nature of these providers.
 [[tool.mypy.overrides]]
 module = ["google.*"]
 ignore_missing_imports = true
+follow_imports = "skip"
 
-# Socket.IO - no complete type stubs available
+# Socket.IO - no complete type stubs available.
+# python-engineio ships py.typed as of 4.13.3, so it no longer needs an
+# ignore_missing_imports override (warn_unused_configs would flag it).
 [[tool.mypy.overrides]]
-module = ["socketio.*", "engineio.*"]
+module = ["socketio.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
