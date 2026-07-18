@@ -79,6 +79,10 @@ EXCLUDE_PATTERNS=(
     ".dist"
     ".DS_Store"
     ".devspace"
+    # Why: gitignored cw dev-tool artifacts (e.g. .cw/plan.md) leaked into
+    # templatized output during agent-driven development, tripping the
+    # remaining-references self-check even though it's never present in a
+    # fresh CI checkout.
     ".cw"
     "uploads"
     "docs/_build"
