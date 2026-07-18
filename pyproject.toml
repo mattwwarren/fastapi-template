@@ -27,10 +27,10 @@ dependencies = [
 # Holdbacks: cap dependencies below their next major/breaking release during the
 # safe dependency sweep (ticket #19). These are majors we have not yet vetted.
 constraint-dependencies = [
-  "redis<8",
-  "mypy<2",
-  "starlette<1",
-  "fastapi<0.139",
+  "redis<8",     # TODO: removed by the redis 8 upgrade ticket
+  "mypy<2",      # TODO: removed by the mypy 2 upgrade ticket
+  "starlette<1", # TODO: removed by the fastapi/starlette upgrade ticket (holds fastapi to a compatible 0.x)
+  "fastapi<0.139", # TODO: removed by the fastapi 0.139/starlette 1.x upgrade ticket (#21)
 ]
 
 [build-system]
