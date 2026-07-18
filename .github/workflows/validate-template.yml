@@ -68,8 +68,6 @@ jobs:
       - name: Lint (ruff check)
         run: |
           cd /tmp/test-project
-          # Auto-fix import ordering (changes when project_slug differs from fastapi_template)
-          uv run ruff check --fix --unsafe-fixes .
           uv run ruff check .
 
       - name: Type check (mypy)
