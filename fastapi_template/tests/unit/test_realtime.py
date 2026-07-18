@@ -7,7 +7,9 @@ Tests cover:
 - Schema catalog endpoint (OpenAPI integration)
 """
 
+from collections.abc import Callable, Coroutine
 from http import HTTPStatus
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -161,9 +163,7 @@ class TestInitSio:
 
     @patch("fastapi_template.realtime.server.socketio.AsyncRedisManager")
     @patch("fastapi_template.realtime.server.settings")
-    def test_init_sio_with_redis_url(
-        self, mock_settings: MagicMock, mock_redis_manager: MagicMock
-    ) -> None:
+    def test_init_sio_with_redis_url(self, mock_settings: MagicMock, mock_redis_manager: MagicMock) -> None:
         """When redis_url is set, AsyncRedisManager is used."""
         mock_settings.redis_url = "redis://redis:6379/0"
         mock_settings.socketio_cors_origins = None
@@ -185,13 +185,18 @@ class TestGetSio:
             get_sio()
 
 
+# Handler signature matches fastapi_template.realtime.server's registered
+# `connect` handler exactly (sid, environ, auth) -> bool | None, awaited via socketio.
+_ConnectHandler = Callable[[str, dict[str, Any], dict[str, Any] | None], Coroutine[Any, Any, bool | None]]
+
+
 class TestConnectHandler:
     """Tests for the Socket.IO connect handler with JWT auth."""
 
     @patch("fastapi_template.realtime.server.settings")
     def _init_sio_and_get_connect_handler(
         self, mock_settings: MagicMock
-    ) -> tuple[socketio.AsyncServer, object]:
+    ) -> tuple[socketio.AsyncServer, _ConnectHandler]:
         """Helper: init server and extract the connect handler."""
         mock_settings.redis_url = None
         mock_settings.socketio_cors_origins = None
@@ -252,9 +257,7 @@ class TestConnectHandler:
         # Verify enter_room was called with the correct org room
         sio.enter_room.assert_called_once_with("test-sid", f"org:{org_id}")
         # Verify session was saved with correct data
-        sio.save_session.assert_called_once_with(
-            "test-sid", {"user_id": user_id, "org_id": org_id}
-        )
+        sio.save_session.assert_called_once_with("test-sid", {"user_id": user_id, "org_id": org_id})
 
 
 # ---------------------------------------------------------------------------
