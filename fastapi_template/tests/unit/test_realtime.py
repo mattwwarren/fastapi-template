@@ -163,9 +163,7 @@ class TestInitSio:
 
     @patch("fastapi_template.realtime.server.socketio.AsyncRedisManager")
     @patch("fastapi_template.realtime.server.settings")
-    def test_init_sio_with_redis_url(
-        self, mock_settings: MagicMock, mock_redis_manager: MagicMock
-    ) -> None:
+    def test_init_sio_with_redis_url(self, mock_settings: MagicMock, mock_redis_manager: MagicMock) -> None:
         """When redis_url is set, AsyncRedisManager is used."""
         mock_settings.redis_url = "redis://redis:6379/0"
         mock_settings.socketio_cors_origins = None
@@ -259,9 +257,7 @@ class TestConnectHandler:
         # Verify enter_room was called with the correct org room
         sio.enter_room.assert_called_once_with("test-sid", f"org:{org_id}")
         # Verify session was saved with correct data
-        sio.save_session.assert_called_once_with(
-            "test-sid", {"user_id": user_id, "org_id": org_id}
-        )
+        sio.save_session.assert_called_once_with("test-sid", {"user_id": user_id, "org_id": org_id})
 
 
 # ---------------------------------------------------------------------------
