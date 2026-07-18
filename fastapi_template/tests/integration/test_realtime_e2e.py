@@ -27,6 +27,7 @@ from fastapi_template.realtime.contracts import (
     TaskStatusEvent,
 )
 
+
 # Override autouse fixtures that depend on Postgres -- this test only needs Redis.
 @pytest.fixture(autouse=True)
 def reset_db() -> None:
@@ -181,10 +182,9 @@ class TestRealtimeRoundTrip:
     async def emitter(self, redis_url):
         """Create a write-only emitter backed by the same Redis."""
         mgr = socketio.AsyncRedisManager(redis_url, write_only=True)
-        sio = socketio.AsyncServer(
+        return socketio.AsyncServer(
             async_mode="asgi", client_manager=mgr
         )
-        yield sio
 
     async def test_emitter_to_client_round_trip(self, server_stack, emitter):
         """Event emitted by write-only server reaches a connected client via Redis."""
