@@ -46,6 +46,7 @@ from sqlalchemy import text
 from fastapi_template.api.admin import router as admin_internal_router
 from fastapi_template.api.admin import webhooks_router as admin_webhooks_router
 from fastapi_template.api.routes import router as api_router
+from fastapi_template.cache.client import create_redis_client
 from fastapi_template.core.config import ConfigurationError, settings
 from fastapi_template.core.logging import LoggingMiddleware
 from fastapi_template.core.metrics import metrics_app
@@ -114,11 +115,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.mount("/ws", sio_app)
     logger.info("socketio_mounted", extra={"path": "/ws/socket.io/"})
 
+    # Initialize Redis cache client (optional - graceful degradation).
+    # Enablement derives from REDIS_URL presence; an unset or unreachable
+    # Redis leaves cache operations as silent no-ops.
+    app.state.redis_client = await create_redis_client()
+    if app.state.redis_client is not None:
+        logger.info("Redis caching enabled")
+    else:
+        logger.warning("Redis caching disabled - cache operations will be no-ops")
+
     yield
 
     # Shutdown: Clean up resources
     logger.info("Shutting down: draining database connection pool")
     await app.state.engine.dispose()
+    if app.state.redis_client is not None:
+        await app.state.redis_client.aclose()
+        logger.info("Redis cache connection closed")
     logger.info("Shutdown complete: all database connections closed")
 
 
