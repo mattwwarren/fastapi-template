@@ -10,6 +10,9 @@ import pytest
 from fastapi_template.core.metrics import (
     active_memberships_gauge,
     activity_log_entries_created,
+    cache_hits_total,
+    cache_misses_total,
+    cache_operation_duration_seconds,
     database_query_duration_seconds,
     document_upload_size_bytes,
     memberships_created_total,
@@ -177,6 +180,40 @@ class TestHistogramMetrics:
         # Should not raise errors for any duration
         for duration in durations:
             histogram.observe(duration)
+
+
+class TestCacheMetrics:
+    """Tests for cache-specific metrics."""
+
+    def test_cache_hits_total_increments_with_resource_type(self) -> None:
+        counter = cache_hits_total.labels(resource_type="user")
+        before = counter._value.get()
+
+        counter.inc()
+
+        assert counter._value.get() == before + 1
+
+    def test_cache_misses_total_increments_with_resource_type(self) -> None:
+        counter = cache_misses_total.labels(resource_type="organization")
+        before = counter._value.get()
+
+        counter.inc()
+
+        assert counter._value.get() == before + 1
+
+    def test_cache_hits_and_misses_are_separate_series(self) -> None:
+        hits = cache_hits_total.labels(resource_type="document")
+        misses = cache_misses_total.labels(resource_type="document")
+        before_misses = misses._value.get()
+
+        hits.inc()
+
+        assert misses._value.get() == before_misses
+
+    def test_cache_operation_duration_observes_each_operation(self) -> None:
+        # Should not raise for any of the three operation labels.
+        for operation in ("get", "set", "delete"):
+            cache_operation_duration_seconds.labels(operation=operation).observe(0.005)
 
 
 class TestMetricsApp:
