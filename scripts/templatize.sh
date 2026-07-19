@@ -79,6 +79,11 @@ EXCLUDE_PATTERNS=(
     ".dist"
     ".DS_Store"
     ".devspace"
+    # Why: gitignored cw dev-tool artifacts (e.g. .cw/plan.md) leaked into
+    # templatized output during agent-driven development, tripping the
+    # remaining-references self-check even though it's never present in a
+    # fresh CI checkout.
+    ".cw"
     "uploads"
     "docs/_build"
     ".templatized"
@@ -277,10 +282,10 @@ if [[ -d "${OUTPUT_DIR}/k8s" ]]; then
     K8S_COUNT=0
     while IFS= read -r -d '' file; do
         if grep -qE '\{\{.*\}\}' "$file" 2>/dev/null; then
-            # Prepend {% raw %} and append {% endraw %}
-            # This tells Jinja2 to not process the content as templates
-            sed -i '1s/^/{% raw %}\n/' "$file"
-            echo '{% endraw %}' >> "$file"
+            # Prepend {% raw %} and append {% endraw %} without adding newlines
+            # (Jinja2's trim_blocks doesn't strip the newline after {% raw %}, only before {% endraw %})
+            sed -i '1s/^/{% raw %}/' "$file"
+            printf '%s' '{% endraw %}' >> "$file"
             ((K8S_COUNT++)) || true
         fi
     done < <(find "${OUTPUT_DIR}/k8s" -type f \( -name "*.yaml" -o -name "*.yml" \) -print0 2>/dev/null)

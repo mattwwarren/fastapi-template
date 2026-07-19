@@ -69,6 +69,14 @@ extend-exclude = ["stubs", "alembic/versions/*"]
 # RET - flake8-return (return statement patterns)
 select = ["E", "F", "I", "N", "UP", "B", "SIM", "PL", "RUF", "ANN", "S", "W", "EM", "TRY", "A", "ARG", "C90", "PT", "RSE", "RET"]
 
+[tool.ruff.lint.isort]
+# This looks hardcoded to the source repo's package name, but it isn't:
+# templatize.sh's blanket sed over pyproject.toml rewrites this value to the
+# generated slug, so import grouping stays correct after templatization
+# (without it, isort falls back to alphabetical-only grouping, which can
+# mis-sort first-party imports once the package name changes).
+known-first-party = ["fastapi_template"]
+
 [tool.ruff.lint.flake8-annotations]
 # FastAPI uses operator overloading heavily (Depends, Query, Path, etc.)
 # Annotating __dunder__ methods adds noise without value

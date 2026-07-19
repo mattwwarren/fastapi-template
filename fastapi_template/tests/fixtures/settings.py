@@ -18,9 +18,10 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import pytest
+from pydantic import ValidationError
+
 from fastapi_template.core.config import Settings
 from fastapi_template.core.storage import StorageProvider
-from pydantic import ValidationError
 
 
 @pytest.fixture
