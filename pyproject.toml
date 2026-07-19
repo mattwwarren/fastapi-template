@@ -4,7 +4,7 @@ version = "0.3.0"
 description = "{{ description }}"
 requires-python = ">=3.13,<3.14"
 dependencies = [
-  "fastapi>=0.138.2",
+  "fastapi>=0.139.0",
   "fastapi-pagination>=0.15.15",
   "uvicorn[standard]>=0.51.0",
   "sqlmodel>=0.0.39",
@@ -28,8 +28,6 @@ dependencies = [
 # safe dependency sweep (ticket #19). These are majors we have not yet vetted.
 constraint-dependencies = [
   "mypy<2",      # TODO: removed by the mypy 2 upgrade ticket
-  "starlette<1", # TODO: removed by the fastapi/starlette upgrade ticket (holds fastapi to a compatible 0.x)
-  "fastapi<0.139", # TODO: removed by the fastapi 0.139/starlette 1.x upgrade ticket (#21)
 ]
 
 [build-system]
