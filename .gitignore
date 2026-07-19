@@ -34,3 +34,6 @@ docs/_build/
 
 # Templatization output
 .templatized/
+
+# library-skills install staging — real files are rsynced into .claude/skills/_upstream/
+.agents/
