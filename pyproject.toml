@@ -26,9 +26,7 @@ dependencies = [
 [tool.uv]
 # Holdbacks: cap dependencies below their next major/breaking release during the
 # safe dependency sweep (ticket #19). These are majors we have not yet vetted.
-constraint-dependencies = [
-  "mypy<2",      # TODO: removed by the mypy 2 upgrade ticket
-]
+constraint-dependencies = []
 
 [build-system]
 requires = ["hatchling>=1.24.2"]
@@ -179,7 +177,7 @@ dev = [
   "filelock>=3.30.2",
   "furo>=2025.12.19",
   "httpx>=0.28.1",
-  "mypy>=1.20.2",
+  "mypy>=2.3.0",
   "pre-commit>=4.6.0",
   "psycopg[binary]>=3.3.4",
   "pytest>=9.1.1",
