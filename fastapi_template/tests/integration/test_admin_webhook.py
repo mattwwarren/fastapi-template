@@ -56,16 +56,12 @@ class TestKratosRegistrationWebhook:
         body = response.json()
         assert body["status"] == "created"
 
-        user = (
-            await session.execute(select(User).where(col(User.kratos_identity_id) == identity_id))
-        ).scalar_one()
+        user = (await session.execute(select(User).where(col(User.kratos_identity_id) == identity_id))).scalar_one()
         assert str(user.id) == body["user_id"]
         assert user.email == email
 
         org = (
-            await session.execute(
-                select(Organization).where(col(Organization.id) == UUID(body["organization_id"]))
-            )
+            await session.execute(select(Organization).where(col(Organization.id) == UUID(body["organization_id"])))
         ).scalar_one_or_none()
         assert org is not None
         assert str(org.id) == body["organization_id"]
@@ -102,13 +98,11 @@ class TestKratosRegistrationWebhook:
         assert second_body["organization_id"] == first_body["organization_id"]
 
         users = (
-            await session.execute(select(User).where(col(User.kratos_identity_id) == identity_id))
-        ).scalars().all()
+            (await session.execute(select(User).where(col(User.kratos_identity_id) == identity_id))).scalars().all()
+        )
         assert len(users) == 1
 
         memberships = (
-            await session.execute(
-                select(Membership).where(col(Membership.user_id) == users[0].id)
-            )
-        ).scalars().all()
+            (await session.execute(select(Membership).where(col(Membership.user_id) == users[0].id))).scalars().all()
+        )
         assert len(memberships) == 1
