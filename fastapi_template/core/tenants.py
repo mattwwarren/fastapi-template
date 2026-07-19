@@ -54,6 +54,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
 from sqlalchemy.sql.elements import ColumnElement
+from sqlmodel import col
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
@@ -136,9 +137,9 @@ async def _validate_user_org_access(
         Failure to validate membership allows cross-tenant access.
     """
     result = await session.execute(
-        select(Membership.role).where(
-            Membership.user_id == user_id,
-            Membership.organization_id == organization_id,
+        select(col(Membership.role)).where(
+            col(Membership.user_id) == user_id,
+            col(Membership.organization_id) == organization_id,
         )
     )
     role = result.scalar_one_or_none()

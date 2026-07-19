@@ -135,7 +135,7 @@ async def create_organization(session: AsyncSession, payload: OrganizationCreate
 
     organization = Organization(**payload.model_dump())
     session.add(organization)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush()
     await session.refresh(organization)
 
     # Increment counter after successful creation
@@ -167,7 +167,7 @@ async def update_organization(
     for field, value in updates.items():
         setattr(organization, field, value)
     session.add(organization)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush()
     await session.refresh(organization)
     return organization
 
@@ -194,7 +194,7 @@ async def delete_organization(session: AsyncSession, organization: Organization)
     membership_count = len(list(membership_count_result.scalars().all()))
 
     await session.delete(organization)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush()
 
     # Decrement gauge by the number of memberships that were deleted
     if membership_count > 0:
@@ -214,7 +214,7 @@ async def list_users_for_organizations(session: AsyncSession, organization_ids: 
     if not organization_ids:
         return {}
     result = await session.execute(
-        select(Membership.organization_id, User)
+        select(col(Membership.organization_id), User)
         .join(User, col(Membership.user_id) == col(User.id))
         .where(col(Membership.organization_id).in_(organization_ids))
     )

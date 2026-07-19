@@ -58,8 +58,14 @@ def run_migrations_online() -> None:
             do_run_migrations(connection)
         return
 
+    # config.get_section() returns dict | None; async_engine_from_config requires a
+    # non-Optional dict, so fail loudly if the section is missing rather than passing None.
+    section = config.get_section(config.config_ini_section)
+    if section is None:
+        msg = f"Alembic config section '{config.config_ini_section}' is missing"
+        raise RuntimeError(msg)
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section),
+        section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

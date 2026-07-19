@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.pool import NullPool
-from sqlmodel import SQLModel
+from sqlmodel import SQLModel, col
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
@@ -514,9 +514,9 @@ class TestAuthMiddleware(BaseHTTPMiddleware):
         # Look up the user's actual role from the database for proper RBAC testing
         async with request.app.state.async_session_maker() as session:
             result = await session.execute(
-                select(Membership.role)
-                .where(Membership.user_id == test_user.id)
-                .where(Membership.organization_id == test_user.organization_id)
+                select(col(Membership.role))
+                .where(col(Membership.user_id) == test_user.id)
+                .where(col(Membership.organization_id) == test_user.organization_id)
             )
             user_role = result.scalar_one_or_none()
 
@@ -820,13 +820,13 @@ async def default_auth_user_in_org(
     async with session_maker() as session:
         # Why: sqlmodel's presence hides some AsyncSession proxy methods from
         # mypy (same suppression as services/membership_service.py flush).
-        session.add_all(  # type: ignore[attr-defined]
+        session.add_all(
             [
                 User(id=test_user_id, email="testuser@example.com", name="Test User"),
                 Organization(id=test_org_id, name="Test Organization"),
             ]
         )
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
         session.add(
             Membership(
                 user_id=test_user_id,

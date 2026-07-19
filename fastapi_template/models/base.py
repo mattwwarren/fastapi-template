@@ -17,7 +17,10 @@ class TimestampedTable(SQLModel):
             "nullable": False,
         },
     )
-    created_at: datetime = Field(
+    # sqlmodel's Field() sa_type overloads only accept type[Any], not parametrized
+    # instances (PGUUID(as_uuid=True) above, sa.DateTime(timezone=True) below) that this
+    # codebase requires — an upstream sqlmodel stub gap, same as the id field's ignore.
+    created_at: datetime = Field(  # type: ignore[call-overload]
         sa_type=sa.DateTime(timezone=True),
         sa_column_kwargs={
             "server_default": sa.func.now(),
@@ -25,7 +28,7 @@ class TimestampedTable(SQLModel):
         },
         index=True,
     )
-    updated_at: datetime = Field(
+    updated_at: datetime = Field(  # type: ignore[call-overload]
         sa_type=sa.DateTime(timezone=True),
         sa_column_kwargs={
             "server_default": sa.func.now(),

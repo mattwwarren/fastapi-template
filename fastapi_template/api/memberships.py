@@ -7,6 +7,7 @@ from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlmodel import col
 
 from fastapi_template.core.activity_logging import ActivityAction, log_activity_decorator
 from fastapi_template.core.pagination import ParamsDep
@@ -72,7 +73,7 @@ async def list_memberships_endpoint(
     session: SessionDep,
     params: ParamsDep,
 ) -> Page[MembershipRead]:
-    return await apaginate(session, select(Membership).order_by(Membership.created_at), params)
+    return await apaginate(session, select(Membership).order_by(col(Membership.created_at)), params)
 
 
 @router.patch("/{membership_id}", response_model=MembershipRead)

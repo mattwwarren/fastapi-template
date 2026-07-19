@@ -16,6 +16,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from fastapi_template.models.membership import Membership, MembershipRole
 from fastapi_template.models.organization import Organization
@@ -37,7 +38,7 @@ async def org_with_owner_admin_member(
     # Create organization
     org = Organization(name="Test Organization")
     session.add(org)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush()
 
     # Create users
     owner_user = User(name="Owner User", email="owner@example.com")
@@ -46,7 +47,7 @@ async def org_with_owner_admin_member(
     session.add(owner_user)
     session.add(admin_user)
     session.add(member_user)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush()
 
     # Create memberships with roles
     owner_membership = Membership(
@@ -309,8 +310,8 @@ class TestMembershipRemovePermissions:
         # Get member's membership ID
 
         stmt = select(Membership).where(
-            Membership.user_id == member_user.id,
-            Membership.organization_id == org.id,
+            col(Membership.user_id) == member_user.id,
+            col(Membership.organization_id) == org.id,
         )
         result = await session.execute(stmt)
         membership = result.scalar_one()
@@ -337,8 +338,8 @@ class TestMembershipRemovePermissions:
         # Get member's membership ID
 
         stmt = select(Membership).where(
-            Membership.user_id == member_user.id,
-            Membership.organization_id == org.id,
+            col(Membership.user_id) == member_user.id,
+            col(Membership.organization_id) == org.id,
         )
         result = await session.execute(stmt)
         membership = result.scalar_one()
@@ -365,8 +366,8 @@ class TestMembershipRemovePermissions:
         # Get owner's membership ID
 
         stmt = select(Membership).where(
-            Membership.user_id == owner_user.id,
-            Membership.organization_id == org.id,
+            col(Membership.user_id) == owner_user.id,
+            col(Membership.organization_id) == org.id,
         )
         result = await session.execute(stmt)
         membership = result.scalar_one()
@@ -398,8 +399,8 @@ class TestRoleChangePermissions:
         # Get member's membership ID
 
         stmt = select(Membership).where(
-            Membership.user_id == member_user.id,
-            Membership.organization_id == org.id,
+            col(Membership.user_id) == member_user.id,
+            col(Membership.organization_id) == org.id,
         )
         result = await session.execute(stmt)
         membership = result.scalar_one()
@@ -428,8 +429,8 @@ class TestRoleChangePermissions:
         # Get admin's membership ID
 
         stmt = select(Membership).where(
-            Membership.user_id == admin_user.id,
-            Membership.organization_id == org.id,
+            col(Membership.user_id) == admin_user.id,
+            col(Membership.organization_id) == org.id,
         )
         result = await session.execute(stmt)
         membership = result.scalar_one()
@@ -458,8 +459,8 @@ class TestRoleChangePermissions:
         # Get member's membership ID
 
         stmt = select(Membership).where(
-            Membership.user_id == member_user.id,
-            Membership.organization_id == org.id,
+            col(Membership.user_id) == member_user.id,
+            col(Membership.organization_id) == org.id,
         )
         result = await session.execute(stmt)
         membership = result.scalar_one()
@@ -488,8 +489,8 @@ class TestRoleChangePermissions:
         # Get owner's membership ID
 
         stmt = select(Membership).where(
-            Membership.user_id == owner_user.id,
-            Membership.organization_id == org.id,
+            col(Membership.user_id) == owner_user.id,
+            col(Membership.organization_id) == org.id,
         )
         result = await session.execute(stmt)
         membership = result.scalar_one()

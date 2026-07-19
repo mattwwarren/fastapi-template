@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi_pagination import Page, create_page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
+from sqlmodel import col
 
 from fastapi_template.core.activity_logging import ActivityAction, log_activity_decorator
 from fastapi_template.core.pagination import ParamsDep
@@ -63,7 +64,7 @@ async def list_orgs(
     session: SessionDep,
     params: ParamsDep,
 ) -> Page[OrganizationRead]:
-    page = await apaginate(session, select(Organization).order_by(Organization.created_at), params)
+    page = await apaginate(session, select(Organization).order_by(col(Organization.created_at)), params)
     organizations = page.items
     organization_ids = [org.id for org in organizations]
     users_by_org = await list_users_for_organizations(session, organization_ids)

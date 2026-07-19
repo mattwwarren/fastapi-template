@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from fastapi_template.core.activity_logging import (
     log_activity,
@@ -79,7 +80,7 @@ class TestLogActivityTransactional:
         await session.commit()
 
         # Verify activity was logged
-        result = await session.execute(select(ActivityLog).where(ActivityLog.resource_id == resource_id))
+        result = await session.execute(select(ActivityLog).where(col(ActivityLog.resource_id) == resource_id))
         activity = result.scalar_one_or_none()
 
         assert activity is not None
@@ -105,7 +106,7 @@ class TestLogActivityTransactional:
         )
         await session.commit()
 
-        result = await session.execute(select(ActivityLog).where(ActivityLog.resource_id == resource_id))
+        result = await session.execute(select(ActivityLog).where(col(ActivityLog.resource_id) == resource_id))
         activity = result.scalar_one_or_none()
 
         assert activity is not None
@@ -225,7 +226,7 @@ class TestLogActivityDecorator:
         assert result["id"] == resource_id
 
         # Verify activity was logged
-        result_db = await session.execute(select(ActivityLog).where(ActivityLog.resource_id == resource_id))
+        result_db = await session.execute(select(ActivityLog).where(col(ActivityLog.resource_id) == resource_id))
         activity = result_db.scalar_one_or_none()
 
         assert activity is not None
@@ -247,7 +248,7 @@ class TestLogActivityDecorator:
         await mock_endpoint(session=session)
         await session.commit()
 
-        result = await session.execute(select(ActivityLog).where(ActivityLog.resource_id == resource_id))
+        result = await session.execute(select(ActivityLog).where(col(ActivityLog.resource_id) == resource_id))
         activity = result.scalar_one_or_none()
 
         assert activity is not None
@@ -269,7 +270,7 @@ class TestLogActivityDecorator:
         await delete_endpoint(item_id=resource_id, session=session)
         await session.commit()
 
-        result = await session.execute(select(ActivityLog).where(ActivityLog.resource_id == resource_id))
+        result = await session.execute(select(ActivityLog).where(col(ActivityLog.resource_id) == resource_id))
         activity = result.scalar_one_or_none()
 
         assert activity is not None
@@ -291,7 +292,7 @@ class TestLogActivityDecorator:
         await endpoint_without_session()
 
         # Verify NO activity was logged (session was None in decorator)
-        result = await session.execute(select(ActivityLog).where(ActivityLog.resource_id == resource_id))
+        result = await session.execute(select(ActivityLog).where(col(ActivityLog.resource_id) == resource_id))
         activity = result.scalar_one_or_none()
 
         # No activity logged because session was not passed

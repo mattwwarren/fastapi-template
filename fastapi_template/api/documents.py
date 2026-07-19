@@ -165,7 +165,7 @@ async def upload_document(
     )
 
     session.add(document)
-    await session.flush()  # type: ignore[attr-defined]  # Get document.id without committing
+    await session.flush()  # Get document.id without committing
 
     # After flush, UUID should be assigned by database
     if document.id is None:
