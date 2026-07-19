@@ -23,11 +23,6 @@ dependencies = [
   "redis>=8.0.0",
 ]
 
-[tool.uv]
-# Holdbacks: cap dependencies below their next major/breaking release during the
-# safe dependency sweep (ticket #19). These are majors we have not yet vetted.
-constraint-dependencies = []
-
 [build-system]
 requires = ["hatchling>=1.24.2"]
 build-backend = "hatchling.build"
