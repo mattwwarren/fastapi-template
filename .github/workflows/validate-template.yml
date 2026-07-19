@@ -65,6 +65,13 @@ jobs:
       - name: Install dependencies
         run: cd /tmp/test-project && uv sync
 
+      - name: Generated project passes its own pre-commit
+        run: |
+          cd /tmp/test-project
+          git init -q
+          git add -A
+          uv run pre-commit run --all-files
+
       - name: Lint (ruff check)
         run: |
           cd /tmp/test-project
