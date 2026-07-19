@@ -43,6 +43,7 @@ using the template as the foundation for new services.
    :caption: Features
 
    background_jobs
+   caching
    resilience_patterns
    service_integration_patterns
 
