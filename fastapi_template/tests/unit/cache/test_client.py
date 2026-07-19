@@ -30,11 +30,11 @@ class _Sample(BaseModel):
 
 
 def _hits(resource_type: str) -> float:
-    return cache_hits_total.labels(resource_type=resource_type)._value.get()  # noqa: SLF001
+    return cache_hits_total.labels(resource_type=resource_type)._value.get()
 
 
 def _misses(resource_type: str) -> float:
-    return cache_misses_total.labels(resource_type=resource_type)._value.get()  # noqa: SLF001
+    return cache_misses_total.labels(resource_type=resource_type)._value.get()
 
 
 # --------------------------------------------------------------------------- #

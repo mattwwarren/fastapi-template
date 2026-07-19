@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from unittest.mock import AsyncMock
 from uuid import UUID
 
-import pytest
 from pydantic import BaseModel
 
 from fastapi_template.cache.decorator import cached
@@ -26,7 +25,7 @@ def _tenant() -> TenantContext:
     return TenantContext(organization_id=ORG_ID, user_id=USER_ID, role=MembershipRole.MEMBER)
 
 
-def _make_fn() -> tuple[Callable[..., object], list[int]]:
+def _make_fn() -> tuple[Callable[..., Awaitable[_Sample]], list[int]]:
     """Return a decorated fn plus a call-count list it appends to."""
     calls: list[int] = []
 

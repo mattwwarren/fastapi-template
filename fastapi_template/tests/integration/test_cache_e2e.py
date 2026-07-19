@@ -109,8 +109,8 @@ async def test_tenant_isolation_no_cross_contamination(cache_redis: Redis) -> No
     result_a = await cache_get(cache_redis, "widget", "1", Widget, tenant=tenant_a)
     result_b = await cache_get(cache_redis, "widget", "1", Widget, tenant=tenant_b)
 
-    assert result_a is not None
-    assert result_b is not None
+    assert isinstance(result_a, Widget)
+    assert isinstance(result_b, Widget)
     assert result_a.name == "a-value"
     assert result_b.name == "b-value"
     assert build_cache_key("widget", "1", tenant=tenant_a) != build_cache_key("widget", "1", tenant=tenant_b)
