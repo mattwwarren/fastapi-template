@@ -9,6 +9,7 @@ from fastapi_pagination import Page, create_page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlmodel import col
 
 from fastapi_template.core.activity_logging import ActivityAction, log_activity_decorator
 from fastapi_template.core.auth import CurrentUserFromHeaders
@@ -78,7 +79,7 @@ async def list_users_endpoint(
     params: ParamsDep,
     current_user: CurrentUserFromHeaders,  # noqa: ARG001
 ) -> Page[UserRead]:
-    page = await apaginate(session, select(User).order_by(User.created_at), params)
+    page = await apaginate(session, select(User).order_by(col(User.created_at)), params)
     users = page.items
     user_ids = [user.id for user in users]
     organizations_by_user = await list_organizations_for_users(session, user_ids)

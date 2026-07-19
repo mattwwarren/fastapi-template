@@ -16,6 +16,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from fastapi_template.core.tenants import TenantContext, add_tenant_filter
 from fastapi_template.models.document import Document
@@ -36,12 +37,12 @@ async def org_a_with_user_a(session: AsyncSession) -> tuple[Organization, User]:
     # Create Organization A
     org_a = Organization(name="Organization A")
     session.add(org_a)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush()
 
     # Create User A
     user_a = User(name="User A", email="user_a@example.com")
     session.add(user_a)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush()
 
     # Create membership: User A → Organization A
     membership_a = Membership(user_id=user_a.id, organization_id=org_a.id)
@@ -60,12 +61,12 @@ async def org_b_with_user_b(session: AsyncSession) -> tuple[Organization, User]:
     # Create Organization B
     org_b = Organization(name="Organization B")
     session.add(org_b)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush()
 
     # Create User B
     user_b = User(name="User B", email="user_b@example.com")
     session.add(user_b)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush()
 
     # Create membership: User B → Organization B
     membership_b = Membership(user_id=user_b.id, organization_id=org_b.id)
@@ -118,7 +119,7 @@ class TestTenantIsolationDocuments:
         await session.commit()
 
         # Verify document was created in Org B
-        stmt = select(Document).where(Document.id == doc_b.id)
+        stmt = select(Document).where(col(Document.id) == doc_b.id)
         result = await session.execute(stmt)
         assert result.scalar_one() is not None
 
@@ -129,7 +130,7 @@ class TestTenantIsolationDocuments:
         tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id, role=MembershipRole.MEMBER)
 
         # Query documents with tenant isolation filter
-        stmt = select(Document).where(Document.id == doc_b.id)
+        stmt = select(Document).where(col(Document.id) == doc_b.id)
         stmt = add_tenant_filter(stmt, tenant_context, Document.organization_id)  # type: ignore[arg-type]
         result = await session.execute(stmt)
         doc = result.scalar_one_or_none()
@@ -168,7 +169,7 @@ class TestTenantIsolationDocuments:
             storage_path=f"uploads/{org_b.id}/org_b_doc.txt",
             storage_url=f"http://storage/uploads/{org_b.id}/org_b_doc.txt",
         )
-        session.add_all([doc_a, doc_b])  # type: ignore[attr-defined]
+        session.add_all([doc_a, doc_b])
         await session.commit()
 
         # User A queries documents with tenant isolation
@@ -216,7 +217,7 @@ class TestTenantIsolationUsers:
         tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id, role=MembershipRole.MEMBER)
 
         # User query with membership filter (simulating real endpoint)
-        stmt = select(User).join(Membership).where(Membership.organization_id == tenant_context.organization_id)
+        stmt = select(User).join(Membership).where(col(Membership.organization_id) == tenant_context.organization_id)
         result = await session.execute(stmt)
         users = result.scalars().all()
 
@@ -275,7 +276,9 @@ class TestMembershipValidation:
         org_c = org_c_without_user
 
         # Check if User A is a member of Org C
-        stmt = select(Membership).where((Membership.user_id == user_a.id) & (Membership.organization_id == org_c.id))
+        stmt = select(Membership).where(
+            (col(Membership.user_id) == user_a.id) & (col(Membership.organization_id) == org_c.id)
+        )
         result = await session.execute(stmt)
         membership = result.scalar_one_or_none()
 
@@ -354,7 +357,7 @@ class TestQueryFilterVerification:
             storage_path=f"uploads/{org_b.id}/org_b.txt",
             storage_url=f"http://storage/uploads/{org_b.id}/org_b.txt",
         )
-        session.add_all([doc_a, doc_b])  # type: ignore[attr-defined]
+        session.add_all([doc_a, doc_b])
         await session.commit()
 
         # Query as User A

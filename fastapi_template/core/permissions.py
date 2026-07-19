@@ -49,6 +49,7 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from fastapi_template.core.tenants import TenantContext
 from fastapi_template.db.session import SessionDep
@@ -88,9 +89,9 @@ async def _get_user_role(
         a user can perform within an organization.
     """
     result = await session.execute(
-        select(Membership.role)
-        .where(Membership.user_id == user_id)
-        .where(Membership.organization_id == organization_id)
+        select(col(Membership.role))
+        .where(col(Membership.user_id) == user_id)
+        .where(col(Membership.organization_id) == organization_id)
     )
     return result.scalar_one_or_none()
 

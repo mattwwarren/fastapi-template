@@ -69,7 +69,7 @@ async def create_user(session: AsyncSession, payload: UserCreate) -> User:
     """
     user = User(**payload.model_dump())
     session.add(user)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush()
     await session.refresh(user)
 
     # Increment counter AFTER successful creation
@@ -84,14 +84,14 @@ async def update_user(session: AsyncSession, user: User, payload: UserUpdate) ->
     for field, value in updates.items():
         setattr(user, field, value)
     session.add(user)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush()
     await session.refresh(user)
     return user
 
 
 async def delete_user(session: AsyncSession, user: User) -> None:
     await session.delete(user)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush()
 
 
 async def list_organizations_for_user(session: AsyncSession, user_id: UUID) -> list[Organization]:
@@ -110,7 +110,7 @@ async def list_organizations_for_users(session: AsyncSession, user_ids: list[UUI
     if not user_ids:
         return {}
     result = await session.execute(
-        select(Membership.user_id, Organization)
+        select(col(Membership.user_id), Organization)
         .join(
             Membership,
             col(Membership.organization_id) == col(Organization.id),

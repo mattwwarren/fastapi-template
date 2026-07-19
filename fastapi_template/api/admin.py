@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from fastapi_template.db.session import get_session
 from fastapi_template.models.membership import Membership, MembershipRole
@@ -142,15 +143,15 @@ async def handle_registration(
     full_name = f"{first_name} {last_name}".strip() or email.split("@")[0]
 
     # Check if user already exists (idempotency)
-    result = await session.execute(select(User).where(User.kratos_identity_id == identity_id))
+    result = await session.execute(select(User).where(col(User.kratos_identity_id) == identity_id))
     existing_user = result.scalar_one_or_none()
 
     if existing_user:
         # Get user's default organization
         membership_result = await session.execute(
             select(Membership)
-            .where(Membership.user_id == existing_user.id)
-            .where(Membership.role == MembershipRole.OWNER)
+            .where(col(Membership.user_id) == existing_user.id)
+            .where(col(Membership.role) == MembershipRole.OWNER)
             .limit(1)
         )
         membership = membership_result.scalar_one_or_none()
@@ -169,12 +170,12 @@ async def handle_registration(
         kratos_identity_id=identity_id,
     )
     session.add(user)
-    await session.flush()  # type: ignore[attr-defined]  # Get user.id
+    await session.flush()  # Get user.id
 
     # Create default organization
     org = Organization(name=f"{full_name}'s Organization")
     session.add(org)
-    await session.flush()  # type: ignore[attr-defined]  # Get org.id
+    await session.flush()  # Get org.id
 
     # Create OWNER membership
     membership = Membership(

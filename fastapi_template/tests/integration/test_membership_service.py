@@ -13,6 +13,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi_template.core.config import settings
 from fastapi_template.core.metrics import active_memberships_gauge, memberships_created_total
 from fastapi_template.models.membership import Membership, MembershipCreate, MembershipRole, MembershipUpdate
 from fastapi_template.models.organization import Organization
@@ -35,8 +36,8 @@ class TestGetMembership:
         # Create user and organization
         user = User(name="Get User", email=f"get-{uuid4()}@example.com")
         org = Organization(name=f"Get Org {uuid4()}")
-        session.add_all([user, org])  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all([user, org])
+        await session.flush()
 
         membership = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add(membership)
@@ -69,14 +70,14 @@ class TestListMemberships:
         # Create user and org
         user = User(name="List User", email=f"list-{uuid4()}@example.com")
         org = Organization(name=f"List Org {uuid4()}")
-        session.add_all([user, org])  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all([user, org])
+        await session.flush()
 
         # Create multiple memberships
         for _ in range(5):
             new_user = User(name="List User Extra", email=f"listextra-{uuid4()}@example.com")
             session.add(new_user)
-            await session.flush()  # type: ignore[attr-defined]
+            await session.flush()
             m = Membership(user_id=new_user.id, organization_id=org.id, role=MembershipRole.MEMBER)
             session.add(m)
         await session.commit()
@@ -92,13 +93,13 @@ class TestListMemberships:
         # Create org
         org = Organization(name=f"Offset Org {uuid4()}")
         session.add(org)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         # Create memberships
         for i in range(5):
             user = User(name=f"Offset User {i}", email=f"offset-{i}-{uuid4()}@example.com")
             session.add(user)
-            await session.flush()  # type: ignore[attr-defined]
+            await session.flush()
             m = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
             session.add(m)
         await session.commit()
@@ -118,13 +119,13 @@ class TestListMemberships:
         # Create org
         org = Organization(name=f"Limit Org {uuid4()}")
         session.add(org)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         # Create memberships
         for i in range(5):
             user = User(name=f"Limit User {i}", email=f"limit-{i}-{uuid4()}@example.com")
             session.add(user)
-            await session.flush()  # type: ignore[attr-defined]
+            await session.flush()
             m = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
             session.add(m)
         await session.commit()
@@ -150,8 +151,8 @@ class TestCreateMembership:
         """create_membership creates a new membership and returns it."""
         user = User(name="Create User", email=f"create-{uuid4()}@example.com")
         org = Organization(name=f"Create Org {uuid4()}")
-        session.add_all([user, org])  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all([user, org])
+        await session.flush()
 
         payload = MembershipCreate(user_id=user.id, organization_id=org.id)
 
@@ -168,8 +169,8 @@ class TestCreateMembership:
         """create_membership respects specified role."""
         user = User(name="Owner User", email=f"owner-{uuid4()}@example.com")
         org = Organization(name=f"Owner Org {uuid4()}")
-        session.add_all([user, org])  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all([user, org])
+        await session.flush()
 
         payload = MembershipCreate(user_id=user.id, organization_id=org.id, role=MembershipRole.OWNER)
 
@@ -189,8 +190,8 @@ class TestCreateMembership:
 
         user = User(name="Counter User", email=f"counter-{uuid4()}@example.com")
         org = Organization(name=f"Counter Org {uuid4()}")
-        session.add_all([user, org])  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all([user, org])
+        await session.flush()
 
         payload = MembershipCreate(user_id=user.id, organization_id=org.id)
         await create_membership(session, payload)
@@ -212,8 +213,8 @@ class TestCreateMembership:
 
         user = User(name="Gauge User", email=f"gauge-{uuid4()}@example.com")
         org = Organization(name=f"Gauge Org {uuid4()}")
-        session.add_all([user, org])  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all([user, org])
+        await session.flush()
 
         payload = MembershipCreate(user_id=user.id, organization_id=org.id)
         await create_membership(session, payload)
@@ -233,8 +234,8 @@ class TestUpdateMembership:
         """update_membership changes specified fields."""
         user = User(name="Update User", email=f"update-{uuid4()}@example.com")
         org = Organization(name=f"Update Org {uuid4()}")
-        session.add_all([user, org])  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all([user, org])
+        await session.flush()
 
         membership = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add(membership)
@@ -254,8 +255,8 @@ class TestUpdateMembership:
         """update_membership only changes specified fields (exclude_unset)."""
         user = User(name="Partial User", email=f"partial-{uuid4()}@example.com")
         org = Organization(name=f"Partial Org {uuid4()}")
-        session.add_all([user, org])  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all([user, org])
+        await session.flush()
 
         membership = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add(membership)
@@ -279,8 +280,8 @@ class TestDeleteMembership:
         """delete_membership removes membership from database."""
         user = User(name="Delete User", email=f"delete-{uuid4()}@example.com")
         org = Organization(name=f"Delete Org {uuid4()}")
-        session.add_all([user, org])  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all([user, org])
+        await session.flush()
 
         membership = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add(membership)
@@ -301,8 +302,8 @@ class TestDeleteMembership:
         """delete_membership decrements the active_memberships_gauge."""
         user = User(name="Gauge Del User", email=f"gaugedel-{uuid4()}@example.com")
         org = Organization(name=f"Gauge Del Org {uuid4()}")
-        session.add_all([user, org])  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all([user, org])
+        await session.flush()
 
         membership = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add(membership)
@@ -332,13 +333,17 @@ class TestDeleteMembership:
         """
         user = User(name="Race User", email=f"race-{uuid4()}@example.com")
         org = Organization(name=f"Race Org {uuid4()}")
-        session.add_all([user, org])  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all([user, org])
+        await session.flush()
 
         membership = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add(membership)
         await session.commit()
         await session.refresh(membership)
+
+        # Capture gauge before any delete to assert exactly one decrement across both deletes.
+        # Use settings.environment as the label to match what the service records under.
+        gauge_before = active_memberships_gauge.labels(environment=settings.environment)._value.get()
 
         # First delete succeeds
         rows_deleted_1 = await delete_membership(session, membership)
@@ -353,3 +358,8 @@ class TestDeleteMembership:
         rows_deleted_2 = await delete_membership(session, ghost_membership)
         await session.commit()
         assert rows_deleted_2 == 0
+
+        # Gauge decrements exactly once: the successful delete decrements, the no-op does not.
+        # This pins the result.rowcount guard behavior before the cast(CursorResult, ...) change.
+        gauge_after = active_memberships_gauge.labels(environment=settings.environment)._value.get()
+        assert gauge_after == gauge_before - 1

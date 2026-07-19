@@ -60,8 +60,8 @@ class TestGetOrganization:
         # Create user and organization
         user = User(name="Filter User", email=f"filter-{uuid4()}@example.com")
         org = Organization(name=f"Filter Org {uuid4()}")
-        session.add_all([user, org])  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all([user, org])
+        await session.flush()
 
         # Create membership
         membership = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
@@ -79,7 +79,7 @@ class TestGetOrganization:
         # Create user and organization (no membership)
         user = User(name="Non-Member User", email=f"non-member-{uuid4()}@example.com")
         org = Organization(name=f"Non-Member Org {uuid4()}")
-        session.add_all([user, org])  # type: ignore[attr-defined]
+        session.add_all([user, org])
         await session.commit()
 
         # User is NOT a member - should not find org
@@ -149,13 +149,13 @@ class TestListOrganizations:
         # Create user
         user = User(name="Filter User", email=f"filter-list-{uuid4()}@example.com")
         session.add(user)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         # Create 2 orgs - user is member of only one
         org1 = Organization(name=f"User Org {uuid4()}")
         org2 = Organization(name=f"Other Org {uuid4()}")
-        session.add_all([org1, org2])  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all([org1, org2])
+        await session.flush()
 
         # Membership only for org1
         membership = Membership(user_id=user.id, organization_id=org1.id, role=MembershipRole.MEMBER)
@@ -230,6 +230,15 @@ class TestUpdateOrganization:
         session.add(org)
         await session.commit()
         await session.refresh(org)
+
+        # DB-managed timestamps are populated and timezone-aware after refresh.
+        # Guards the models/base.py Field(...) call-overload ignores from masking a real
+        # annotation mistake on created_at/updated_at.
+        assert org.created_at is not None
+        assert org.updated_at is not None
+        assert org.created_at.tzinfo is not None
+        assert org.updated_at.tzinfo is not None
+
         original_created = org.created_at
 
         payload = OrganizationUpdate()  # No fields set
@@ -266,12 +275,12 @@ class TestDeleteOrganization:
         org = Organization(name=f"Gauge Delete Org {uuid4()}")
         user1 = User(name="Gauge User 1", email=f"gauge1-{uuid4()}@example.com")
         user2 = User(name="Gauge User 2", email=f"gauge2-{uuid4()}@example.com")
-        session.add_all([org, user1, user2])  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all([org, user1, user2])
+        await session.flush()
 
         m1 = Membership(user_id=user1.id, organization_id=org.id, role=MembershipRole.OWNER)
         m2 = Membership(user_id=user2.id, organization_id=org.id, role=MembershipRole.MEMBER)
-        session.add_all([m1, m2])  # type: ignore[attr-defined]
+        session.add_all([m1, m2])
         await session.commit()
         await session.refresh(org)
 
@@ -299,18 +308,18 @@ class TestListUsersForOrganization:
         # Create organization
         org = Organization(name=f"Users Org {uuid4()}")
         session.add(org)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         # Create users
         user1 = User(name="Org User 1", email=f"orguser1-{uuid4()}@example.com")
         user2 = User(name="Org User 2", email=f"orguser2-{uuid4()}@example.com")
-        session.add_all([user1, user2])  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all([user1, user2])
+        await session.flush()
 
         # Create memberships
         m1 = Membership(user_id=user1.id, organization_id=org.id, role=MembershipRole.OWNER)
         m2 = Membership(user_id=user2.id, organization_id=org.id, role=MembershipRole.MEMBER)
-        session.add_all([m1, m2])  # type: ignore[attr-defined]
+        session.add_all([m1, m2])
         await session.commit()
 
         result = await list_users_for_organization(session, org.id)
@@ -348,13 +357,13 @@ class TestListUsersForOrganizations:
         # Create organizations
         org1 = Organization(name=f"Batch Org 1 {uuid4()}")
         org2 = Organization(name=f"Batch Org 2 {uuid4()}")
-        session.add_all([org1, org2])  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all([org1, org2])
+        await session.flush()
 
         # Create user and membership for only org1
         user = User(name="Batch User", email=f"batch-{uuid4()}@example.com")
         session.add(user)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         membership = Membership(user_id=user.id, organization_id=org1.id, role=MembershipRole.MEMBER)
         session.add(membership)
@@ -377,12 +386,12 @@ class TestListUsersForOrganizations:
         # Create organization
         org = Organization(name=f"Multi User Org {uuid4()}")
         session.add(org)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         # Create multiple users
         users = [User(name=f"Multi User {i}", email=f"multi{i}-{uuid4()}@example.com") for i in range(3)]
-        session.add_all(users)  # type: ignore[attr-defined]
-        await session.flush()  # type: ignore[attr-defined]
+        session.add_all(users)
+        await session.flush()
 
         # Create memberships for all users
         for user in users:

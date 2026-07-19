@@ -1,8 +1,9 @@
 """Membership data access helpers for services and endpoints."""
 
+from typing import cast
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import CursorResult, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
@@ -36,7 +37,7 @@ async def create_membership(session: AsyncSession, payload: MembershipCreate) ->
     """
     membership = Membership(**payload.model_dump())
     session.add(membership)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush()
     await session.refresh(membership)
 
     # Record metrics after successful creation
@@ -59,7 +60,7 @@ async def update_membership(session: AsyncSession, membership: Membership, paylo
     for field, value in updates.items():
         setattr(membership, field, value)
     session.add(membership)
-    await session.flush()  # type: ignore[attr-defined]
+    await session.flush()
     await session.refresh(membership)
     return membership
 
@@ -95,9 +96,11 @@ async def delete_membership(session: AsyncSession, membership: Membership) -> in
         Typically this means:
         - User has ADMIN or OWNER role in the organization
     """
-    # Use explicit DELETE statement to get rowcount for race condition handling
-    result = await session.execute(delete(Membership).where(col(Membership.id) == membership.id))
-    await session.flush()  # type: ignore[attr-defined]
+    # Use explicit DELETE statement to get rowcount for race condition handling.
+    # AsyncSession.execute() is typed as returning Result, but a DML statement yields a
+    # CursorResult at runtime — cast to read .rowcount without an attr-defined ignore.
+    result = cast(CursorResult, await session.execute(delete(Membership).where(col(Membership.id) == membership.id)))
+    await session.flush()
 
     # Only decrement gauge if we actually deleted a row
     if result.rowcount and result.rowcount > 0:

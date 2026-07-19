@@ -19,6 +19,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient, Request, RequestError, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlmodel import col
 
 from fastapi_template.core.auth import (
     AuthMiddleware,
@@ -84,7 +85,7 @@ async def auth_client(
     # Create test organization in database (needed for valid token tests)
     test_org_id = UUID("00000000-0000-0000-0000-000000000000")
     async with session_maker() as session:
-        result = await session.execute(select(Organization).where(Organization.id == test_org_id))
+        result = await session.execute(select(Organization).where(col(Organization.id) == test_org_id))
         if not result.scalar_one_or_none():
             test_org = Organization(id=test_org_id, name="Test Organization")
             session.add(test_org)

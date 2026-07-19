@@ -89,11 +89,11 @@ class TestValidateUserOrgAccess:
         # Create test data
         org = Organization(name="Test Org")
         session.add(org)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         user = User(name="Test User", email="test@example.com")
         session.add(user)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         membership = Membership(
             user_id=user.id,
@@ -112,7 +112,7 @@ class TestValidateUserOrgAccess:
         """Should return (False, None) when user is not a member."""
         org = Organization(name="Test Org No Member")
         session.add(org)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         user = User(name="Non Member", email="nonmember@example.com")
         session.add(user)
@@ -244,11 +244,11 @@ class TestValidateTenantContext:
         # Create test data
         org = Organization(name="Validate JWT Org")
         session.add(org)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         user = User(name="JWT User", email="jwt@example.com")
         session.add(user)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         membership = Membership(
             user_id=user.id,
@@ -279,11 +279,11 @@ class TestValidateTenantContext:
         """Should validate tenant context from path parameters."""
         org = Organization(name="Path Org")
         session.add(org)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         user = User(name="Path User", email="path@example.com")
         session.add(user)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         membership = Membership(
             user_id=user.id,
@@ -312,11 +312,11 @@ class TestValidateTenantContext:
         """Should validate tenant context from query parameters."""
         org = Organization(name="Query Org")
         session.add(org)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         user = User(name="Query User", email="query@example.com")
         session.add(user)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         membership = Membership(
             user_id=user.id,
@@ -362,7 +362,7 @@ class TestValidateTenantContext:
         """Should return 403 when user is not a member of org."""
         org = Organization(name="No Access Org")
         session.add(org)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         user = User(name="No Access User", email="noaccess@example.com")
         session.add(user)
@@ -404,11 +404,11 @@ class TestValidateTenantContext:
         """Should create session from app.state when not provided."""
         org = Organization(name="App State Org")
         session.add(org)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         user = User(name="App State User", email="appstate@example.com")
         session.add(user)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         membership = Membership(
             user_id=user.id,
@@ -532,11 +532,11 @@ class TestTenantIsolationMiddleware:
         """Should set tenant context on request.state on success."""
         org = Organization(name="Middleware Test Org")
         session.add(org)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         user = User(name="Middleware User", email="middleware@example.com")
         session.add(user)
-        await session.flush()  # type: ignore[attr-defined]
+        await session.flush()
 
         membership = Membership(
             user_id=user.id,
