@@ -4,12 +4,13 @@ from asyncio.runners import run
 from logging.config import fileConfig
 
 from alembic import context
-from fastapi_template.core.config import settings
-from fastapi_template.db import base  # noqa: F401
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlmodel import SQLModel
+
+from fastapi_template.core.config import settings
+from fastapi_template.db import base  # noqa: F401
 
 config = context.config
 
