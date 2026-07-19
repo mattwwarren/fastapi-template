@@ -818,16 +818,22 @@ async def default_auth_user_in_org(
     test_user_id = UUID("00000000-0000-0000-0000-000000000001")
 
     async with session_maker() as session:
-        session.add_all([
-            User(id=test_user_id, email="testuser@example.com", name="Test User"),
-            Organization(id=test_org_id, name="Test Organization"),
-        ])
-        await session.flush()
-        session.add(Membership(
-            user_id=test_user_id,
-            organization_id=test_org_id,
-            role=MembershipRole.OWNER,
-        ))
+        # Why: sqlmodel's presence hides some AsyncSession proxy methods from
+        # mypy (same suppression as services/membership_service.py flush).
+        session.add_all(  # type: ignore[attr-defined]
+            [
+                User(id=test_user_id, email="testuser@example.com", name="Test User"),
+                Organization(id=test_org_id, name="Test Organization"),
+            ]
+        )
+        await session.flush()  # type: ignore[attr-defined]
+        session.add(
+            Membership(
+                user_id=test_user_id,
+                organization_id=test_org_id,
+                role=MembershipRole.OWNER,
+            )
+        )
         await session.commit()
 
 
