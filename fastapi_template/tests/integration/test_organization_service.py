@@ -230,6 +230,15 @@ class TestUpdateOrganization:
         session.add(org)
         await session.commit()
         await session.refresh(org)
+
+        # DB-managed timestamps are populated and timezone-aware after refresh.
+        # Guards the models/base.py Field(...) call-overload ignores from masking a real
+        # annotation mistake on created_at/updated_at.
+        assert org.created_at is not None
+        assert org.updated_at is not None
+        assert org.created_at.tzinfo is not None
+        assert org.updated_at.tzinfo is not None
+
         original_created = org.created_at
 
         payload = OrganizationUpdate()  # No fields set

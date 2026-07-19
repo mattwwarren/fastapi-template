@@ -13,6 +13,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi_template.core.config import settings
 from fastapi_template.core.metrics import active_memberships_gauge, memberships_created_total
 from fastapi_template.models.membership import Membership, MembershipCreate, MembershipRole, MembershipUpdate
 from fastapi_template.models.organization import Organization
@@ -340,6 +341,10 @@ class TestDeleteMembership:
         await session.commit()
         await session.refresh(membership)
 
+        # Capture gauge before any delete to assert exactly one decrement across both deletes.
+        # Use settings.environment as the label to match what the service records under.
+        gauge_before = active_memberships_gauge.labels(environment=settings.environment)._value.get()
+
         # First delete succeeds
         rows_deleted_1 = await delete_membership(session, membership)
         await session.commit()
@@ -353,3 +358,8 @@ class TestDeleteMembership:
         rows_deleted_2 = await delete_membership(session, ghost_membership)
         await session.commit()
         assert rows_deleted_2 == 0
+
+        # Gauge decrements exactly once: the successful delete decrements, the no-op does not.
+        # This pins the result.rowcount guard behavior before the cast(CursorResult, ...) change.
+        gauge_after = active_memberships_gauge.labels(environment=settings.environment)._value.get()
+        assert gauge_after == gauge_before - 1
