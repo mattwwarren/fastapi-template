@@ -7,7 +7,9 @@ Tests cover:
 - Schema catalog endpoint (OpenAPI integration)
 """
 
+from collections.abc import Callable, Coroutine
 from http import HTTPStatus
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -183,11 +185,18 @@ class TestGetSio:
             get_sio()
 
 
+# Handler signature matches fastapi_template.realtime.server's registered
+# `connect` handler exactly (sid, environ, auth) -> bool | None, awaited via socketio.
+_ConnectHandler = Callable[[str, dict[str, Any], dict[str, Any] | None], Coroutine[Any, Any, bool | None]]
+
+
 class TestConnectHandler:
     """Tests for the Socket.IO connect handler with JWT auth."""
 
     @patch("fastapi_template.realtime.server.settings")
-    def _init_sio_and_get_connect_handler(self, mock_settings: MagicMock) -> tuple[socketio.AsyncServer, object]:
+    def _init_sio_and_get_connect_handler(
+        self, mock_settings: MagicMock
+    ) -> tuple[socketio.AsyncServer, _ConnectHandler]:
         """Helper: init server and extract the connect handler."""
         mock_settings.redis_url = None
         mock_settings.socketio_cors_origins = None
