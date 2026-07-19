@@ -4,23 +4,33 @@ version = "0.3.0"
 description = "{{ description }}"
 requires-python = ">=3.13,<3.14"
 dependencies = [
-  "fastapi>=0.115.0",
-  "fastapi-pagination>=0.12.31",
-  "uvicorn[standard]>=0.30.0",
-  "sqlmodel>=0.0.22",
-  "asyncpg>=0.29.0",
-  "alembic>=1.13.0",
-  "pydantic-settings>=2.4.0",
-  "pydantic[email]>=2.0.0",
-  "prometheus-client>=0.21.0",
-  "ecs-logging>=2.2.0",
-  "pyjwt[crypto]>=2.9.0",
-  "httpx>=0.27.0",
-  "python-multipart>=0.0.9",
-  "slowapi>=0.1.9",
-  "tenacity>=9.0.0",
-  "python-socketio>=5.12.0",
-  "redis>=7.3.0",
+  "fastapi>=0.138.2",
+  "fastapi-pagination>=0.15.15",
+  "uvicorn[standard]>=0.51.0",
+  "sqlmodel>=0.0.39",
+  "asyncpg>=0.31.0",
+  "alembic>=1.18.5",
+  "pydantic-settings>=2.14.2",
+  "pydantic[email]>=2.13.4",
+  "prometheus-client>=0.25.0",
+  "ecs-logging>=2.3.0",
+  "pyjwt[crypto]>=2.13.0",
+  "httpx>=0.28.1",
+  "python-multipart>=0.0.32",
+  "slowapi>=0.1.10",
+  "tenacity>=9.1.4",
+  "python-socketio>=5.16.3",
+  "redis>=7.4.1",
+]
+
+[tool.uv]
+# Holdbacks: cap dependencies below their next major/breaking release during the
+# safe dependency sweep (ticket #19). These are majors we have not yet vetted.
+constraint-dependencies = [
+  "redis<8",     # TODO: removed by the redis 8 upgrade ticket
+  "mypy<2",      # TODO: removed by the mypy 2 upgrade ticket
+  "starlette<1", # TODO: removed by the fastapi/starlette upgrade ticket (holds fastapi to a compatible 0.x)
+  "fastapi<0.139", # TODO: removed by the fastapi 0.139/starlette 1.x upgrade ticket (#21)
 ]
 
 [build-system]
@@ -115,14 +125,22 @@ exclude = [
 module = ["azure.*"]
 ignore_missing_imports = true
 
-# Google Cloud - no complete type stubs available
+# Google Cloud - no complete type stubs available.
+# google-cloud-storage 3.x ships partial py.typed markers that make mypy
+# resolve `google.cloud` as a typed namespace package lacking the `storage`
+# submodule, producing a spurious attr-defined on `from google.cloud import
+# storage`. follow_imports=skip treats the namespace as untyped, matching the
+# runtime-optional nature of these providers.
 [[tool.mypy.overrides]]
 module = ["google.*"]
 ignore_missing_imports = true
+follow_imports = "skip"
 
-# Socket.IO - no complete type stubs available
+# Socket.IO - no complete type stubs available.
+# python-engineio ships py.typed as of 4.13.3, so it no longer needs an
+# ignore_missing_imports override (warn_unused_configs would flag it).
 [[tool.mypy.overrides]]
-module = ["socketio.*", "engineio.*"]
+module = ["socketio.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
@@ -154,29 +172,29 @@ markers = [
 [project.optional-dependencies]
 # Object storage provider dependencies (install as needed)
 # Local storage (default) requires no additional dependencies
-azure = ["azure-storage-blob>=12.20.0"]
-aws = ["aioboto3>=13.0.0"]
-gcs = ["google-cloud-storage>=2.14.0"]
+azure = ["azure-storage-blob>=12.30.0"]
+aws = ["aioboto3>=15.5.0"]
+gcs = ["google-cloud-storage>=3.13.0"]
 # Install all cloud providers: pip install .[azure,aws,gcs]
 
 [dependency-groups]
 dev = [
-  "filelock>=3.12.0",
-  "furo>=2024.1.29",
-  "httpx>=0.27.0",
-  "mypy>=1.10.0",
-  "pre-commit>=3.7.0",
-  "psycopg[binary]>=3.1.0",
-  "pytest>=8.0.0",
-  "pytest-asyncio>=0.23.0",
-  "pytest-alembic>=0.11.1",
-  "pytest-cov>=7.0.0",
-  "pytest-docker>=3.1.1",
-  "pytest-xdist>=3.5.0",
-  "ruff>=0.5.0",
-  "sphinx>=7.3.0",
-  "myst-parser>=3.0.0",
-  "types-aioboto3>=13.0.0",
+  "filelock>=3.30.2",
+  "furo>=2025.12.19",
+  "httpx>=0.28.1",
+  "mypy>=1.20.2",
+  "pre-commit>=4.6.0",
+  "psycopg[binary]>=3.3.4",
+  "pytest>=9.1.1",
+  "pytest-asyncio>=1.4.0",
+  "pytest-alembic>=0.12.1",
+  "pytest-cov>=7.1.0",
+  "pytest-docker>=3.2.5",
+  "pytest-xdist>=3.8.0",
+  "ruff>=0.15.22",
+  "sphinx>=9.1.0",
+  "myst-parser>=5.1.0",
+  "types-aioboto3>=15.5.0",
   "types-aiobotocore[s3]",
-  "aiohttp>=3.13.3",
+  "aiohttp>=3.14.1",
 ]

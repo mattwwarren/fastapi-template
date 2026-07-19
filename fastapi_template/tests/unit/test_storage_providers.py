@@ -187,6 +187,7 @@ class TestAzureBlobStorageServiceMocked:
 
         mock_sas_permissions = MagicMock()
         mock_generate_sas = MagicMock(return_value="sas_token_123")
+        mock_content_settings = MagicMock(side_effect=lambda **kwargs: kwargs)
 
         # Create mock exception
         class MockResourceNotFoundError(Exception):
@@ -198,6 +199,7 @@ class TestAzureBlobStorageServiceMocked:
             "service_client": mock_service_client,
             "BlobSasPermissions": mock_sas_permissions,
             "generate_blob_sas": mock_generate_sas,
+            "ContentSettings": mock_content_settings,
             "AzureResourceNotFoundError": MockResourceNotFoundError,
         }
 
@@ -213,6 +215,10 @@ class TestAzureBlobStorageServiceMocked:
             patch(
                 "fastapi_template.core.storage_providers.generate_blob_sas",
                 mock_generate_sas,
+            ),
+            patch(
+                "fastapi_template.core.storage_providers.ContentSettings",
+                mock_content_settings,
             ),
             patch(
                 "fastapi_template.core.storage_providers.AzureResourceNotFoundError",
@@ -350,6 +356,32 @@ class TestAzureBlobStorageServiceMocked:
 
         with pytest.raises(StorageError, match="Failed to generate"):
             await storage.get_download_url(TEST_DOC_ID)
+
+    @pytest.mark.asyncio
+    async def test_get_download_url_missing_account_name(self, mock_azure_modules: dict[str, Any]) -> None:
+        """Azure get_download_url should raise StorageError when AccountName is absent."""
+        storage = AzureBlobStorageService(
+            container_name="test-container",
+            connection_string="AccountKey=testkey",
+        )
+
+        with pytest.raises(StorageError, match="missing AccountName or AccountKey"):
+            await storage.get_download_url(TEST_DOC_ID)
+
+        mock_azure_modules["generate_blob_sas"].assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_download_url_missing_account_key(self, mock_azure_modules: dict[str, Any]) -> None:
+        """Azure get_download_url should raise StorageError when AccountKey is absent."""
+        storage = AzureBlobStorageService(
+            container_name="test-container",
+            connection_string="AccountName=testaccount",
+        )
+
+        with pytest.raises(StorageError, match="missing AccountName or AccountKey"):
+            await storage.get_download_url(TEST_DOC_ID)
+
+        mock_azure_modules["generate_blob_sas"].assert_not_called()
 
     def test_get_blob_name_with_org(self, mock_azure_modules: dict[str, Any]) -> None:
         """Blob name should include org ID when provided."""

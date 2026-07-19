@@ -98,6 +98,7 @@ if TYPE_CHECKING:
     )
     from azure.storage.blob import (
         BlobSasPermissions,
+        ContentSettings,
         generate_blob_sas,
     )
     from azure.storage.blob.aio import BlobServiceClient
@@ -109,6 +110,7 @@ else:
     BlobServiceClient = None
     AzureResourceNotFoundError = None
     BlobSasPermissions = None
+    ContentSettings = None
     generate_blob_sas = None
     aioboto3 = None
     ClientError = None
@@ -119,7 +121,11 @@ else:
         from azure.core.exceptions import (
             ResourceNotFoundError as AzureResourceNotFoundError,
         )
-        from azure.storage.blob import BlobSasPermissions, generate_blob_sas
+        from azure.storage.blob import (
+            BlobSasPermissions,
+            ContentSettings,
+            generate_blob_sas,
+        )
         from azure.storage.blob.aio import BlobServiceClient
     except ImportError:
         pass
@@ -536,7 +542,7 @@ class AzureBlobStorageService:
             await blob_client.upload_blob(
                 file_data,
                 overwrite=True,
-                content_settings={"content_type": content_type},
+                content_settings=ContentSettings(content_type=content_type),
             )
         except Exception as e:
             storage_error = f"Failed to upload to Azure Blob Storage: {e}"
@@ -630,16 +636,20 @@ class AzureBlobStorageService:
         """
         blob_name = self._get_blob_name(document_id, organization_id)
 
-        try:
-            # Extract account name and key from connection string
-            account_name = None
-            account_key = None
-            for part in self.connection_string.split(";"):
-                if part.startswith("AccountName="):
-                    account_name = part.replace("AccountName=", "")
-                elif part.startswith("AccountKey="):
-                    account_key = part.replace("AccountKey=", "")
+        # Extract account name and key from connection string
+        account_name = None
+        account_key = None
+        for part in self.connection_string.split(";"):
+            if part.startswith("AccountName="):
+                account_name = part.replace("AccountName=", "")
+            elif part.startswith("AccountKey="):
+                account_key = part.replace("AccountKey=", "")
 
+        if account_name is None or account_key is None:
+            missing_creds = "Azure connection string missing AccountName or AccountKey"
+            raise StorageError(missing_creds)
+
+        try:
             sas_token = generate_blob_sas(
                 account_name=account_name,
                 container_name=self.container_name,
