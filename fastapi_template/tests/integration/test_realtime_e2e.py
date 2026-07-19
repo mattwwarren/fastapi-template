@@ -93,9 +93,7 @@ def _build_server_app(redis_url: str) -> tuple[socketio.ASGIApp, socketio.AsyncS
     return sio_asgi, sio
 
 
-async def _start_server(
-    app: socketio.ASGIApp, port: int
-) -> tuple[uvicorn.Server, asyncio.Task[None]]:
+async def _start_server(app: socketio.ASGIApp, port: int) -> tuple[uvicorn.Server, asyncio.Task[None]]:
     """Start uvicorn in a background task, wait until it is accepting."""
     config = uvicorn.Config(
         app,
@@ -118,9 +116,7 @@ async def _start_server(
     return server, task
 
 
-async def _connect_client(
-    port: int, org_id: str
-) -> socketio.AsyncClient:
+async def _connect_client(port: int, org_id: str) -> socketio.AsyncClient:
     """Connect a Socket.IO client to the test server, joining an org room."""
     client = socketio.AsyncClient(logger=False, engineio_logger=False)
     await client.connect(
