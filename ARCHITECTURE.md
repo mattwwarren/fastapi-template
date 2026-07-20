@@ -113,10 +113,11 @@ Verified request flow for the active stack:
    `request_id` (and post-auth `user_id`/`org_id`) in ContextVars so every
    log line in the request — including in services — carries the context via
    `get_logging_context()`
-2. **SlowAPIMiddleware** — per-IP rate limiting (default 100/min, 2000/hr).
-   Note: the `Limiter` is constructed without a `storage_uri`, so limits are
-   tracked **in-process, per worker** — not shared across replicas. Point it
-   at Redis if you need cluster-wide limits.
+2. **SlowAPIMiddleware** — per-IP rate limiting (current limits: see the
+   `Limiter` config in `main.py`). Note: the `Limiter` is constructed
+   without a `storage_uri`, so limits are tracked **in-process, per
+   worker** — not shared across replicas. Point it at Redis if you need
+   cluster-wide limits.
 3. **CORSMiddleware** — explicit method/header lists, configured origins
 4. Route handler, with dependencies injected
 
@@ -236,11 +237,13 @@ infrastructure**, not mocks of our own code:
 - pytest-xdist compatibility comes from the lifespan/`app.state` design:
   each worker's fixtures swap the engine/session maker to a worker-specific
   database.
-- `tests/unit/` — pure logic (config, middleware, pagination, cache,
-  retry…); `tests/integration/` — API + DB, including dedicated suites for
-  tenant isolation, RBAC, SQL injection, XSS, and race conditions.
-- Mocks exist only at boundaries we don't own: `tests/mocks/` fakes auth
-  providers and storage providers.
+- `fastapi_template/tests/unit/` — pure logic (config, middleware,
+  pagination, cache, retry…); `fastapi_template/tests/integration/` — API +
+  DB, including dedicated suites for tenant isolation, RBAC, SQL injection,
+  XSS, and race conditions.
+- Mocks exist only at boundaries we don't own:
+  `fastapi_template/tests/mocks/` fakes auth providers and storage
+  providers.
 
 ## Deployment
 
