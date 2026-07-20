@@ -34,7 +34,7 @@ generation (or manual uncommenting) activates them.
 HTTP request
     │
     ▼
-Middleware stack (CORS → rate limit → logging → [auth] → [tenant])
+Middleware stack (logging → rate limit → [auth] → [tenant] → CORS)
     │
     ▼
 api/          routers — HTTP concerns only: routing, status codes,
@@ -106,20 +106,27 @@ pytest-xdist. New code should reach for `app.state` / `SessionDep` instead.
 
 ## Request lifecycle
 
-Middleware executes in reverse order of addition. Request flow:
+Middleware executes in reverse order of addition (last added runs first).
+Verified request flow for the active stack:
 
-1. **SlowAPIMiddleware** — per-IP rate limiting (default 100/min, 2000/hr),
-   Redis-backed
-2. **LoggingMiddleware** — extracts/generates `X-Request-ID`, stores
+1. **LoggingMiddleware** — extracts/generates `X-Request-ID`, stores
    `request_id` (and post-auth `user_id`/`org_id`) in ContextVars so every
    log line in the request — including in services — carries the context via
    `get_logging_context()`
-3. **AuthMiddleware** (gated on `auth_enabled`) — JWT validation, supports
-   Ory/Auth0/Keycloak/Cognito; populates `request.state.user`
-4. **TenantIsolationMiddleware** (gated on `multi_tenant`, requires auth) —
-   resolves tenant context
-5. **CORSMiddleware** — explicit method/header lists, configured origins
-6. Route handler, with dependencies injected
+2. **SlowAPIMiddleware** — per-IP rate limiting (default 100/min, 2000/hr).
+   Note: the `Limiter` is constructed without a `storage_uri`, so limits are
+   tracked **in-process, per worker** — not shared across replicas. Point it
+   at Redis if you need cluster-wide limits.
+3. **CORSMiddleware** — explicit method/header lists, configured origins
+4. Route handler, with dependencies injected
+
+**AuthMiddleware** (gated on `auth_enabled` — JWT validation for
+Ory/Auth0/Keycloak/Cognito, populates `request.state.user`) and
+**TenantIsolationMiddleware** (gated on `multi_tenant`, requires auth) ship
+commented out in `main.py`; generation or manual uncommenting activates
+them. Beware the reverse-execution rule when placing them: the narrative
+comments in `main.py` describe the *intended* order (logging → auth →
+tenant), which requires adding them in the opposite order.
 
 ### Standard endpoint dependencies
 
@@ -222,7 +229,8 @@ storage paths); there is deliberately no ambient/implicit tenant detection.
 Tests live in `fastapi_template/tests/` and run against **real
 infrastructure**, not mocks of our own code:
 
-- `pytest-docker` starts Postgres from `tests/docker-compose.yml`;
+- `pytest-docker` starts Postgres from the repo-root `tests/docker-compose.yml`
+  (a separate top-level directory from `fastapi_template/tests/`);
   migrations run via Alembic before tests.
 - `pytest-alembic` guards against model/migration drift.
 - pytest-xdist compatibility comes from the lifespan/`app.state` design:
