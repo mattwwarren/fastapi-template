@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
 from fastapi import Depends
-from redis.asyncio import ConnectionPool, Redis
+from redis.asyncio import BlockingConnectionPool, Redis
 
 from fastapi_template.cache.exceptions import CacheSerializationError
 from fastapi_template.cache.keys import build_cache_key
@@ -40,10 +40,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Module-level Redis client for application-wide access.
-# Updated by main.py lifespan (startup) and by test fixtures. For new code,
-# prefer the RedisDep dependency; this global supports fire-and-forget usage
-# without request context.
+# Set by create_redis_client() as a side effect (mirrors realtime/server.py's
+# own `global _sio, _sio_app` convention for init_sio()). For new code, prefer
+# the RedisDep dependency; this global supports fire-and-forget usage without
+# request context.
 redis_client: Redis | None = None
+
+
+def _log_cache_failure(operation: str, resource_type: str, identifier: str, exc: Exception) -> None:
+    logger.warning("Cache %s failed for %s:%s - %s", operation, resource_type, identifier, exc)
 
 
 async def create_redis_client() -> Redis | None:
@@ -54,29 +59,43 @@ async def create_redis_client() -> Redis | None:
     A connection failure is logged and also yields ``None`` (graceful
     degradation) -- this function never raises into its caller.
 
+    As a side effect, updates the module-level ``redis_client`` global so that
+    ``get_redis()``/``RedisDep`` reflect the current connection state -- this
+    is the single source of truth for the DI path, regardless of what the
+    caller (e.g. main.py's lifespan) also stores on ``app.state``.
+
     Returns:
         A connected Redis client, or None if Redis is unset/unreachable.
     """
+    global redis_client  # noqa: PLW0603 - mirrors realtime/server.py's init_sio() convention
+
     if not settings.redis_url:
         logger.warning("Redis caching disabled (REDIS_URL not set) - cache operations will be no-ops")
+        redis_client = None
         return None
 
+    client: Redis | None = None
     try:
-        pool = ConnectionPool.from_url(
+        pool = BlockingConnectionPool.from_url(
             settings.redis_url,
             max_connections=settings.redis_pool_size,
+            timeout=settings.redis_pool_timeout,
             socket_connect_timeout=settings.redis_socket_connect_timeout,
             socket_timeout=settings.redis_socket_timeout,
         )
-        client: Redis = Redis(connection_pool=pool, decode_responses=True)
+        client = Redis(connection_pool=pool, decode_responses=True)
         await client.ping()
     except Exception:
         logger.exception("Failed to connect to Redis - caching disabled")
+        if client is not None:
+            await client.aclose()
+        redis_client = None
         return None
 
     # Redact credentials from URL before logging.
     safe_url = settings.redis_url.split("@")[-1]
     logger.info("Redis connection successful: %s", safe_url)
+    redis_client = client
     return client
 
 
@@ -123,14 +142,15 @@ async def cache_get[T: "BaseModel"](  # noqa: PLR0913 - explicit tenant threadin
 
     key = build_cache_key(resource_type, identifier, tenant=tenant, organization_id=organization_id)
 
+    start = time.perf_counter()
     try:
-        start = time.perf_counter()
         data = await redis.get(key)
-        cache_operation_duration_seconds.labels(operation="get").observe(time.perf_counter() - start)
     except Exception as exc:
-        logger.warning("Cache %s failed for %s:%s - %s", "get", resource_type, identifier, exc)
+        cache_operation_duration_seconds.labels(operation="get").observe(time.perf_counter() - start)
+        _log_cache_failure("get", resource_type, identifier, exc)
         cache_misses_total.labels(resource_type=resource_type).inc()
         return None
+    cache_operation_duration_seconds.labels(operation="get").observe(time.perf_counter() - start)
 
     if not data:
         cache_misses_total.labels(resource_type=resource_type).inc()
@@ -139,7 +159,7 @@ async def cache_get[T: "BaseModel"](  # noqa: PLR0913 - explicit tenant threadin
     try:
         result = deserialize(data, model_class)
     except CacheSerializationError as exc:
-        logger.warning("Cache %s failed for %s:%s - %s", "deserialize", resource_type, identifier, exc)
+        _log_cache_failure("deserialize", resource_type, identifier, exc)
         cache_misses_total.labels(resource_type=resource_type).inc()
         return None
     else:
@@ -177,15 +197,16 @@ async def cache_set(  # noqa: PLR0913 - explicit tenant threading (tenant + orga
     key = build_cache_key(resource_type, identifier, tenant=tenant, organization_id=organization_id)
     ttl = ttl or settings.redis_default_ttl
 
+    start = time.perf_counter()
     try:
-        start = time.perf_counter()
         data = serialize(value)
         await redis.setex(key, ttl, data)
-        cache_operation_duration_seconds.labels(operation="set").observe(time.perf_counter() - start)
     except Exception as exc:
-        logger.warning("Cache %s failed for %s:%s - %s", "set", resource_type, identifier, exc)
+        cache_operation_duration_seconds.labels(operation="set").observe(time.perf_counter() - start)
+        _log_cache_failure("set", resource_type, identifier, exc)
         return False
     else:
+        cache_operation_duration_seconds.labels(operation="set").observe(time.perf_counter() - start)
         return True
 
 
@@ -214,12 +235,13 @@ async def cache_delete(
 
     key = build_cache_key(resource_type, identifier, tenant=tenant, organization_id=organization_id)
 
+    start = time.perf_counter()
     try:
-        start = time.perf_counter()
         await redis.delete(key)
-        cache_operation_duration_seconds.labels(operation="delete").observe(time.perf_counter() - start)
     except Exception as exc:
-        logger.warning("Cache %s failed for %s:%s - %s", "delete", resource_type, identifier, exc)
+        cache_operation_duration_seconds.labels(operation="delete").observe(time.perf_counter() - start)
+        _log_cache_failure("delete", resource_type, identifier, exc)
         return False
     else:
+        cache_operation_duration_seconds.labels(operation="delete").observe(time.perf_counter() - start)
         return True

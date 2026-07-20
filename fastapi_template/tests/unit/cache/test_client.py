@@ -44,16 +44,19 @@ class TestCreateRedisClient:
     async def test_returns_none_when_url_unset(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr("fastapi_template.cache.client.settings.redis_url", None)
         from_url = MagicMock()
-        monkeypatch.setattr("fastapi_template.cache.client.ConnectionPool.from_url", from_url)
+        monkeypatch.setattr("fastapi_template.cache.client.BlockingConnectionPool.from_url", from_url)
 
         result = await create_redis_client()
 
         assert result is None
         from_url.assert_not_called()
+        assert cache_client.redis_client is None
 
     async def test_returns_client_when_ping_succeeds(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr("fastapi_template.cache.client.settings.redis_url", "redis://user:pw@localhost:6379/0")
-        monkeypatch.setattr("fastapi_template.cache.client.ConnectionPool.from_url", MagicMock(return_value="pool"))
+        monkeypatch.setattr(
+            "fastapi_template.cache.client.BlockingConnectionPool.from_url", MagicMock(return_value="pool")
+        )
         fake_client = AsyncMock()
         monkeypatch.setattr("fastapi_template.cache.client.Redis", MagicMock(return_value=fake_client))
 
@@ -61,10 +64,16 @@ class TestCreateRedisClient:
 
         assert result is fake_client
         fake_client.ping.assert_awaited_once()
+        # Regression guard: get_redis()/RedisDep reads this module-level global, which
+        # main.py's lifespan never assigns directly -- create_redis_client() must be the
+        # single source of truth that keeps it in sync with the connection it just made.
+        assert cache_client.redis_client is fake_client
 
     async def test_returns_none_when_ping_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr("fastapi_template.cache.client.settings.redis_url", "redis://localhost:6379/0")
-        monkeypatch.setattr("fastapi_template.cache.client.ConnectionPool.from_url", MagicMock(return_value="pool"))
+        monkeypatch.setattr(
+            "fastapi_template.cache.client.BlockingConnectionPool.from_url", MagicMock(return_value="pool")
+        )
         fake_client = AsyncMock()
         fake_client.ping.side_effect = ConnectionError("boom")
         monkeypatch.setattr("fastapi_template.cache.client.Redis", MagicMock(return_value=fake_client))
@@ -72,6 +81,20 @@ class TestCreateRedisClient:
         result = await create_redis_client()
 
         assert result is None
+        fake_client.aclose.assert_awaited_once()
+        assert cache_client.redis_client is None
+
+    async def test_wires_pool_timeout_into_blocking_pool(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """redis_pool_timeout must actually reach the connection pool (regression guard)."""
+        monkeypatch.setattr("fastapi_template.cache.client.settings.redis_url", "redis://localhost:6379/0")
+        monkeypatch.setattr("fastapi_template.cache.client.settings.redis_pool_timeout", 42)
+        from_url = MagicMock(return_value="pool")
+        monkeypatch.setattr("fastapi_template.cache.client.BlockingConnectionPool.from_url", from_url)
+        monkeypatch.setattr("fastapi_template.cache.client.Redis", MagicMock(return_value=AsyncMock()))
+
+        await create_redis_client()
+
+        assert from_url.call_args.kwargs["timeout"] == 42
 
 
 # --------------------------------------------------------------------------- #

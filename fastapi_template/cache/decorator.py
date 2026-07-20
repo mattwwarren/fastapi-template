@@ -90,9 +90,9 @@ def cached(
 
             cached_value = await cache_get(
                 redis,
-                resource_type,
-                str(identifier),
-                model_class,
+                resource_type=resource_type,
+                identifier=str(identifier),
+                model_class=model_class,
                 tenant=tenant_ctx,
                 organization_id=org_id,
             )
@@ -104,10 +104,10 @@ def cached(
             if result is not None:
                 await cache_set(
                     redis,
-                    resource_type,
-                    str(identifier),
-                    cast("BaseModel", result),
-                    ttl,
+                    resource_type=resource_type,
+                    identifier=str(identifier),
+                    value=cast("BaseModel", result),
+                    ttl=ttl,
                     tenant=tenant_ctx,
                     organization_id=org_id,
                 )
