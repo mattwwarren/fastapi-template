@@ -24,6 +24,7 @@ Complete reference for all environment variables and feature configuration optio
 | `STORAGE_LOCAL_PATH` | str | ./uploads | ❌ | Local storage directory (if local) |
 | `MAX_FILE_SIZE_BYTES` | int | 52428800 | ❌ | Maximum file upload size (50MB default) |
 | `CORS_ORIGINS` | str | ["http://localhost:3000"] | ❌ | CORS allowed origins (JSON array) |
+| `REDIS_URL` | str | (none) | ❌ | Redis URL — shared by Socket.IO pub/sub and the cache backend; caching is enabled when set |
 
 ---
 
@@ -488,6 +489,46 @@ curl http://localhost:8000/metrics
 - `warning` - Warning messages
 - `error` - Error messages only
 - `critical` - Critical issues only
+
+---
+
+## Redis Caching Configuration
+
+Optional Redis caching for read-heavy endpoints. Caching is **enabled by the
+presence of `REDIS_URL`** — the same variable Socket.IO uses. There is no
+separate enable flag; an unset or unreachable Redis makes every cache operation
+a silent no-op (graceful degradation).
+
+```bash
+# .env
+REDIS_URL=redis://localhost:6379/0         # Shared with Socket.IO; enables caching when set
+REDIS_POOL_SIZE=10                         # Max connections in the cache pool (1–100)
+REDIS_POOL_TIMEOUT=5                       # Seconds to wait for a pooled connection (≥1)
+REDIS_SOCKET_CONNECT_TIMEOUT=5             # Seconds to establish a socket connection (≥1)
+REDIS_SOCKET_TIMEOUT=5                     # Seconds for socket operations (≥1)
+REDIS_DEFAULT_TTL=3600                     # Default cache TTL in seconds (60–86400)
+CACHE_KEY_PREFIX=                          # Key namespace prefix (defaults to app_name when empty)
+```
+
+**Environment variables**:
+
+- `REDIS_URL` — connection URL (`redis://host:port/db`). Shared with the
+  Socket.IO layer. When unset, caching is disabled.
+- `REDIS_POOL_SIZE` — maximum connections in the cache connection pool
+  (default `10`, range `1`–`100`).
+- `REDIS_POOL_TIMEOUT` — seconds to wait for a connection from the pool
+  (default `5`, minimum `1`).
+- `REDIS_SOCKET_CONNECT_TIMEOUT` — seconds to establish a Redis socket
+  connection (default `5`, minimum `1`).
+- `REDIS_SOCKET_TIMEOUT` — seconds for Redis socket operations
+  (default `5`, minimum `1`).
+- `REDIS_DEFAULT_TTL` — default cache TTL in seconds when a call omits an
+  explicit TTL (default `3600`, range `60`–`86400`).
+- `CACHE_KEY_PREFIX` — leading segment for cache-key namespace isolation.
+  Defaults to the application name when empty.
+
+See the [Redis Caching Guide](docs/caching.md) for usage patterns, multi-tenant
+key isolation, and metrics.
 
 ---
 

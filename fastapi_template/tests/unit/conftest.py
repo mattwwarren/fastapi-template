@@ -15,6 +15,7 @@ from fastapi_template.tests.fixtures.settings import (  # noqa: F401
     test_settings_factory,
     test_settings_with_activity_logging_disabled,
     test_settings_with_auth,
+    test_settings_with_redis,
     test_settings_with_storage,
 )
 

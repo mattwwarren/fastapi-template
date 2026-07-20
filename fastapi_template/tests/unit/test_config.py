@@ -158,6 +158,51 @@ class TestCorsAllowedOrigins:
         assert result == ["http://a.com", "http://b.com"]
 
 
+class TestRedisConfig:
+    """Tests for Redis cache configuration fields."""
+
+    def test_redis_url_defaults_to_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """redis_url must remain str | None with a None default (R3 regression guard)."""
+        monkeypatch.delenv("REDIS_URL", raising=False)
+
+        settings = Settings()
+
+        assert settings.redis_url is None
+
+    def test_redis_tunable_defaults(self, test_settings_factory: Callable[..., Settings]) -> None:
+        """The six Redis tunables carry the documented defaults."""
+        settings = test_settings_factory()
+
+        assert settings.redis_pool_size == 10
+        assert settings.redis_pool_timeout == 5
+        assert settings.redis_socket_connect_timeout == 5
+        assert settings.redis_socket_timeout == 5
+        assert settings.redis_default_ttl == 3600
+        assert settings.cache_key_prefix == ""
+
+    def test_redis_pool_size_range_enforced(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """redis_pool_size enforces its ge/le bounds."""
+        monkeypatch.setenv("REDIS_POOL_SIZE", "0")
+
+        with pytest.raises(ValidationError):
+            Settings()
+
+    def test_redis_default_ttl_range_enforced(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """redis_default_ttl enforces its ge/le bounds (min 60s)."""
+        monkeypatch.setenv("REDIS_DEFAULT_TTL", "10")
+
+        with pytest.raises(ValidationError):
+            Settings()
+
+    def test_no_validate_redis_config_method(self) -> None:
+        """PR #5's _validate_redis_config must not be ported (R3 regression guard)."""
+        assert not hasattr(Settings, "_validate_redis_config")
+
+    def test_no_redis_enabled_field(self) -> None:
+        """redis_enabled must not exist; enablement derives from redis_url (R3)."""
+        assert "redis_enabled" not in Settings.model_fields
+
+
 class TestValidateConfig:
     """Tests for validate_config method."""
 

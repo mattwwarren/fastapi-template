@@ -63,6 +63,13 @@ def test_settings_factory() -> Callable[..., Settings]:
             "jwt_public_key": None,
             "cors_allowed_origins_raw": "http://localhost:3000",
             "enforce_tenant_isolation": True,
+            "redis_url": None,
+            "redis_pool_size": 10,
+            "redis_pool_timeout": 5,
+            "redis_socket_connect_timeout": 5,
+            "redis_socket_timeout": 5,
+            "redis_default_ttl": 3600,
+            "cache_key_prefix": "",
             "request_id_header": "X-Request-ID",
             "include_request_context_in_logs": False,
             "storage_provider": "local",
@@ -164,6 +171,18 @@ def test_settings_with_storage(test_settings_factory: Callable[..., Settings]) -
         storage_azure_container="test-container",
         storage_azure_connection_string="DefaultEndpointsProtocol=https;AccountName=testaccount;AccountKey=testkey;EndpointSuffix=core.windows.net",
     )
+
+
+@pytest.fixture
+def test_settings_with_redis(test_settings_factory: Callable[..., Settings]) -> Settings:
+    """Settings configured with a Redis URL for cache testing.
+
+    Pre-configures settings so cache operations treat Redis as enabled.
+
+    Returns:
+        Fresh Settings instance with redis_url pointed at a local Redis.
+    """
+    return test_settings_factory(redis_url="redis://localhost:6379/0")
 
 
 @pytest.fixture

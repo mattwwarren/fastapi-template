@@ -118,7 +118,46 @@ class Settings(BaseSettings):
     redis_url: str | None = Field(
         default=None,
         alias="REDIS_URL",
-        description="Redis URL for Socket.IO cross-process pub/sub (optional)",
+        description="Redis URL for Socket.IO cross-process pub/sub and as the cache backend (optional)",
+    )
+    # Redis caching tunables (the cache backend shares REDIS_URL above).
+    # Cache enablement is derived from redis_url presence, not a separate flag.
+    redis_pool_size: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        alias="REDIS_POOL_SIZE",
+        description="Maximum number of connections in the Redis cache pool",
+    )
+    redis_pool_timeout: int = Field(
+        default=5,
+        ge=1,
+        alias="REDIS_POOL_TIMEOUT",
+        description="Timeout in seconds for acquiring a connection from the pool",
+    )
+    redis_socket_connect_timeout: int = Field(
+        default=5,
+        ge=1,
+        alias="REDIS_SOCKET_CONNECT_TIMEOUT",
+        description="Timeout in seconds for establishing a Redis socket connection",
+    )
+    redis_socket_timeout: int = Field(
+        default=5,
+        ge=1,
+        alias="REDIS_SOCKET_TIMEOUT",
+        description="Timeout in seconds for Redis socket operations",
+    )
+    redis_default_ttl: int = Field(
+        default=3600,
+        ge=60,
+        le=86400,
+        alias="REDIS_DEFAULT_TTL",
+        description="Default cache TTL in seconds (1 hour default, max 24 hours)",
+    )
+    cache_key_prefix: str = Field(
+        default="",
+        alias="CACHE_KEY_PREFIX",
+        description="Cache key prefix for namespace isolation (defaults to app_name when empty)",
     )
     socketio_cors_origins: str | None = Field(
         default=None,
