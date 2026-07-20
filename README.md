@@ -238,14 +238,11 @@ uv run pre-commit run --all-files
 
 ## Project layout
 
-- `fastapi_template/main.py` FastAPI app
-- `fastapi_template/api/` routers
-- `fastapi_template/models/` SQLModel models and schemas
-- `fastapi_template/services/` CRUD helpers
-- `fastapi_template/db/` async engine/session + Alembic model registry
-- `alembic/` migrations
-- `k8s/` Kubernetes manifests
-- `devspace.yaml` DevSpace configuration
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full directory map, layering
+rules, and design invariants. Quick orientation: routers in
+`fastapi_template/api/`, business logic in `fastapi_template/services/`,
+SQLModel models in `fastapi_template/models/`, engine/session + Alembic
+registry in `fastapi_template/db/`.
 
 ## Documentation (Sphinx)
 
@@ -264,6 +261,9 @@ Key docs live in `docs/`:
 - `docs/architecture.rst`
 
 ## Decision log (summary)
+
+(The full, maintained invariant list lives in
+[ARCHITECTURE.md](ARCHITECTURE.md); this is the historical summary.)
 
 - Async-only API + DB access.
 - SQLModel + Alembic for schema lifecycle.

@@ -1,12 +1,17 @@
 Architecture
 ============
 
+.. note::
+
+   The authoritative architecture document is ``ARCHITECTURE.md`` at the
+   repository root. This page is a quick orientation summary.
+
 High-level flow:
 
-- Requests enter FastAPI routes under ``app/api/``.
-- Route handlers call service helpers in ``app/services/``.
-- Services use the async SQLAlchemy session provided by ``app/db/session.py``.
-- SQLModel defines tables and schemas in ``app/models/``.
+- Requests enter FastAPI routes under ``fastapi_template/api/``.
+- Route handlers call service helpers in ``fastapi_template/services/``.
+- Services use the async SQLAlchemy session provided by ``fastapi_template/db/session.py``.
+- SQLModel defines tables and schemas in ``fastapi_template/models/``.
 - Alembic reads ``SQLModel.metadata`` for migrations.
 
 Runtime components:
