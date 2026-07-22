@@ -94,6 +94,13 @@ def install_precommit() -> None:
     """Install pre-commit hooks."""
     log_step("Step 3/4: Install Pre-commit Hooks")
 
+    # Copier output directory is not a git repo — init one first
+    git_path = shutil.which("git")
+    if git_path:
+        result = subprocess.run([git_path, "init"], capture_output=True, text=True)
+        if result.returncode != 0:
+            log_warning(f"Could not initialize git repo: {result.stderr.strip()}")
+
     precommit_path = shutil.which("pre-commit")
     if not precommit_path:
         log_warning("pre-commit not found - skipping hook installation")
