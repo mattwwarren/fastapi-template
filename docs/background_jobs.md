@@ -308,7 +308,7 @@ async def process_document_job(document_id: UUID) -> None:
 
             # Update document
             document.status = "ready"
-            document.indexed_at = datetime.utcnow()
+            document.indexed_at = datetime.now(UTC)
             session.add(document)
             await session.commit()
 
@@ -345,7 +345,7 @@ async def cleanup_old_files_job() -> None:
     """Periodic job to clean up old uploaded files."""
     while True:
         try:
-            cutoff = datetime.utcnow() - timedelta(days=30)
+            cutoff = datetime.now(UTC) - timedelta(days=30)
 
             async with async_session_maker() as session:
                 # Find old files
@@ -406,7 +406,7 @@ async def process_batch_job(batch_id: UUID, items: list[Any]) -> None:
     async with async_session_maker() as session:
         batch = await get_batch(session, batch_id)
         batch.status = "processing"
-        batch.started_at = datetime.utcnow()
+        batch.started_at = datetime.now(UTC)
         session.add(batch)
         await session.commit()
 
@@ -423,7 +423,7 @@ async def process_batch_job(batch_id: UUID, items: list[Any]) -> None:
                     await session.commit()
 
             batch.status = "completed"
-            batch.completed_at = datetime.utcnow()
+            batch.completed_at = datetime.now(UTC)
             session.add(batch)
             await session.commit()
 
