@@ -174,7 +174,7 @@ class AsyncCircuitBreaker:
         """Check if recovery timeout has elapsed."""
         if not self.last_failure_time:
             return False
-        elapsed = (datetime.utcnow() - self.last_failure_time).total_seconds()
+        elapsed = (datetime.now(UTC) - self.last_failure_time).total_seconds()
         return elapsed >= self.recovery_timeout
 
     def _on_success(self) -> None:
@@ -187,7 +187,7 @@ class AsyncCircuitBreaker:
     def _on_failure(self) -> None:
         """Handle failed call."""
         self.failure_count += 1
-        self.last_failure_time = datetime.utcnow()
+        self.last_failure_time = datetime.now(UTC)
 
         if self.failure_count >= self.failure_threshold:
             self.state = CircuitState.OPEN

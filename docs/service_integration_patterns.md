@@ -461,7 +461,7 @@ async def report_activity(
                     "action": action,
                     "resource_type": resource_type,
                     "resource_id": resource_id,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
         except httpx.RequestError:

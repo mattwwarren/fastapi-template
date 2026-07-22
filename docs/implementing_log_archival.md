@@ -845,7 +845,7 @@ archived_activity_logs = Table(
     Column('action', String(50)),
     # ... same columns as ActivityLog
     Column('created_at', DateTime),
-    Column('archived_at', DateTime, default=datetime.utcnow),
+    Column('archived_at', DateTime, default=lambda: datetime.now(UTC)),
 )
 ```
 
