@@ -100,7 +100,7 @@ async def create_user(data: UserCreate):
 ```python
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": datetime.utcnow()}
+    return {"status": "healthy", "timestamp": datetime.now(UTC)}
 
 @app.get("/ready")
 async def readiness_check(db: AsyncSession = Depends(get_db)):
