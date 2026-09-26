@@ -7,9 +7,9 @@ allowed-tools: ["Bash", "Read"]
 # Ship It (fastapi-template)
 
 Project-level ship-it for `fastapi-template`. Runs after `/prep-pr` finishes its
-self-review and quality gates. Covers push and PR creation only — this repo has
-auto-merge disabled, so merging is handled by the operator/orchestrator after
-the `validate-template` workflow is green. Do not attempt `gh pr merge --auto`.
+self-review and quality gates. Covers push, PR creation, and arming auto-merge
+when `.claude/project-config.yaml` allows it; the merge itself waits on the
+required `Validate (*)` checks protecting `main`.
 
 **Arguments:** "$ARGUMENTS"
 
@@ -45,8 +45,55 @@ Draft the title from the branch's commits (or use `EXPLICIT_TITLE`). Body must:
 gh pr create --base "$BASE" --head "$BRANCH" --title "$TITLE" --body "$BODY"
 ```
 
-## Step 4: Report
+## Step 4: Arm auto-merge (gated by project config)
 
-Print the PR URL and the CI status command (`gh pr checks <num>`). Do NOT merge
-and do NOT enable auto-merge — the merge decision belongs to the
-operator/orchestrator once `validate-template` is green.
+Auto-merge is armed only when `.claude/project-config.yaml` allows it
+(`pr.auto_merge` absent or `true`). A repo without branch protection must keep
+`pr.auto_merge: false` there — on such a repo `gh pr merge --auto` merges
+immediately instead of waiting for CI.
+
+```bash
+PR_NUMBER=$(gh pr view --json number -q .number)
+REPO_ROOT=$(git rev-parse --show-toplevel)
+if [ -f "$REPO_ROOT/.claude/scripts/prep_pr_finalize.py" ]; then
+  AUTOMERGE_CHECK="$REPO_ROOT/.claude/scripts/prep_pr_finalize.py"
+else
+  AUTOMERGE_CHECK="$HOME/.claude/scripts/prep_pr_finalize.py"
+fi
+if "$AUTOMERGE_CHECK" check-automerge-allowed --repo-path "$REPO_ROOT"; then
+  gh pr merge "$PR_NUMBER" --auto --squash
+else
+  GATE_STATUS=$?
+  if [ "$GATE_STATUS" -ne 1 ]; then
+    echo "Auto-merge gate failed unexpectedly (exit $GATE_STATUS) — BLOCK." >&2
+    exit 1
+  fi
+  echo "Auto-merge disabled via .claude/project-config.yaml (pr.auto_merge: false) — leaving PR #$PR_NUMBER open for manual merge."
+fi
+```
+
+If `check-automerge-allowed` permits arming and the `gh pr merge --auto` call
+itself fails (for example the repo setting `allow_auto_merge` is off), BLOCK
+with the `gh` error verbatim — the PR exists but auto-merge is not on; never
+leave it silently unset. If the check reports disallowed, that is deliberate
+repo state, not a failure — do not BLOCK.
+
+## Step 5: Register PR monitor
+
+```bash
+PR_NUMBER=$(gh pr view --json number --jq .number)
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+REPO_PATH=$(git rev-parse --show-toplevel)
+HEAD_SHA=$(gh pr view --json headRefOid --jq .headRefOid)
+
+~/.claude/scripts/review_monitor.py register "$PR_NUMBER" \
+  --role author \
+  --repo "$REPO" \
+  --repo-path "$REPO_PATH" \
+  --sha "$HEAD_SHA"
+```
+
+## Step 6: Report
+
+Print the PR URL, whether auto-merge was armed or deliberately left off, and
+the CI status command (`gh pr checks <num>`). Never merge directly.
