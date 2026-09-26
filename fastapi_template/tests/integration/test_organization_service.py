@@ -187,6 +187,21 @@ class TestCreateOrganization:
         assert result.id is not None
         assert result.name == payload.name
 
+    def test_models_construct_without_db_managed_fields(self) -> None:
+        """TimestampedTable models construct without id/created_at/updated_at.
+
+        These columns are DB-generated (models/base.py), so they must be
+        omittable at construction and read back as None until flush/refresh.
+        """
+        org = Organization(name="Construct Org")
+        user = User(name="Construct User", email="construct@example.com")
+        membership = Membership(user_id=uuid4(), organization_id=uuid4(), role=MembershipRole.MEMBER)
+
+        for instance in (org, user, membership):
+            assert instance.id is None
+            assert instance.created_at is None
+            assert instance.updated_at is None
+
     @pytest.mark.asyncio
     async def test_create_organization_increments_metric(self, session: AsyncSession) -> None:
         """create_organization increments the organizations_created_total counter."""
