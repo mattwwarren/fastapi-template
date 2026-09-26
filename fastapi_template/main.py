@@ -46,6 +46,7 @@ from sqlalchemy import text
 from fastapi_template.api.admin import router as admin_internal_router
 from fastapi_template.api.admin import webhooks_router as admin_webhooks_router
 from fastapi_template.api.routes import router as api_router
+from fastapi_template.cache import client as cache_client
 from fastapi_template.cache.client import create_redis_client
 from fastapi_template.core.config import ConfigurationError, settings
 from fastapi_template.core.logging import LoggingMiddleware
@@ -131,6 +132,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     await app.state.engine.dispose()
     if app.state.redis_client is not None:
         await app.state.redis_client.aclose()
+        # Reset the DI global too, so get_redis()/RedisDep never inject a closed client.
+        cache_client.redis_client = None
         logger.info("Redis cache connection closed")
     logger.info("Shutdown complete: all database connections closed")
 
