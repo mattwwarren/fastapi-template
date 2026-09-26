@@ -17,6 +17,7 @@ from fastapi_template.cache.client import (
     get_redis,
 )
 from fastapi_template.core.metrics import (
+    cache_errors_total,
     cache_hits_total,
     cache_misses_total,
 )
@@ -35,6 +36,10 @@ def _hits(resource_type: str) -> float:
 
 def _misses(resource_type: str) -> float:
     return cache_misses_total.labels(resource_type=resource_type)._value.get()
+
+
+def _errors(resource_type: str, operation: str) -> float:
+    return cache_errors_total.labels(resource_type=resource_type, operation=operation)._value.get()
 
 
 # --------------------------------------------------------------------------- #
@@ -122,23 +127,27 @@ class TestCacheGet:
         assert result is None
         assert _misses("user") == before + 1
 
-    async def test_redis_error_returns_none_counts_miss(self, redis_mock: AsyncMock) -> None:
+    async def test_redis_error_returns_none_counts_error_not_miss(self, redis_mock: AsyncMock) -> None:
         redis_mock.get.side_effect = ConnectionError("down")
-        before = _misses("user")
+        before_errors = _errors("user", "get")
+        before_misses = _misses("user")
 
         result = await cache_get(redis_mock, "user", "1", _Sample)
 
         assert result is None
-        assert _misses("user") == before + 1
+        assert _errors("user", "get") == before_errors + 1
+        assert _misses("user") == before_misses
 
-    async def test_serialization_error_counts_miss(self, redis_mock: AsyncMock) -> None:
+    async def test_serialization_error_counts_error_not_miss(self, redis_mock: AsyncMock) -> None:
         redis_mock.get.return_value = "{not-json"
-        before = _misses("user")
+        before_errors = _errors("user", "get")
+        before_misses = _misses("user")
 
         result = await cache_get(redis_mock, "user", "1", _Sample)
 
         assert result is None
-        assert _misses("user") == before + 1
+        assert _errors("user", "get") == before_errors + 1
+        assert _misses("user") == before_misses
 
 
 # --------------------------------------------------------------------------- #
@@ -171,6 +180,14 @@ class TestCacheSet:
 
         assert result is False
 
+    async def test_setex_error_counts_error(self, redis_mock: AsyncMock) -> None:
+        redis_mock.setex.side_effect = ConnectionError("down")
+        before = _errors("user", "set")
+
+        await cache_set(redis_mock, "user", "1", _Sample(id=1, name="a"))
+
+        assert _errors("user", "set") == before + 1
+
 
 # --------------------------------------------------------------------------- #
 # cache_delete
@@ -191,6 +208,14 @@ class TestCacheDelete:
         result = await cache_delete(redis_mock, "user", "1")
 
         assert result is False
+
+    async def test_delete_error_counts_error(self, redis_mock: AsyncMock) -> None:
+        redis_mock.delete.side_effect = ConnectionError("down")
+        before = _errors("user", "delete")
+
+        await cache_delete(redis_mock, "user", "1")
+
+        assert _errors("user", "delete") == before + 1
 
 
 # --------------------------------------------------------------------------- #

@@ -10,6 +10,7 @@ import pytest
 from fastapi_template.core.metrics import (
     active_memberships_gauge,
     activity_log_entries_created,
+    cache_errors_total,
     cache_hits_total,
     cache_misses_total,
     cache_operation_duration_seconds,
@@ -207,6 +208,23 @@ class TestCacheMetrics:
         before_misses = misses._value.get()
 
         hits.inc()
+
+        assert misses._value.get() == before_misses
+
+    def test_cache_errors_total_increments_with_resource_type_and_operation(self) -> None:
+        counter = cache_errors_total.labels(resource_type="user", operation="get")
+        before = counter._value.get()
+
+        counter.inc()
+
+        assert counter._value.get() == before + 1
+
+    def test_cache_errors_and_misses_are_separate_series(self) -> None:
+        errors = cache_errors_total.labels(resource_type="document", operation="get")
+        misses = cache_misses_total.labels(resource_type="document")
+        before_misses = misses._value.get()
+
+        errors.inc()
 
         assert misses._value.get() == before_misses
 
