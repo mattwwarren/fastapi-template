@@ -10,11 +10,18 @@ Missing either kwarg is treated as decorator misconfiguration: the wrapper logs
 a warning and calls through uncached (fail-open). This is distinct from the
 fail-closed-by-construction guarantee at the ``TenantContext`` level -- caching
 is a performance optimization, not a security boundary.
+
+Because values are read from ``kwargs`` only, a positional call would silently
+bypass the cache. To make that misuse loud, ``id_param``, ``tenant_param`` and
+``redis`` -- when present in the decorated function's signature -- must be
+declared keyword-only (after a bare ``*``); otherwise decoration raises
+``TypeError``.
 """
 
 from __future__ import annotations
 
 import functools
+import inspect
 import logging
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, ParamSpec, TypeVar, cast
@@ -30,6 +37,22 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 T = TypeVar("T")
+
+
+def _require_keyword_only(func: Callable[..., object], param_name: str) -> None:
+    """Raise ``TypeError`` if ``param_name`` is in ``func``'s signature but not keyword-only.
+
+    Params absent from the signature are left alone: that path is the
+    existing "missing kwarg -> warn + call through uncached" misconfiguration.
+    """
+    param = inspect.signature(func).parameters.get(param_name)
+    if param is not None and param.kind is not inspect.Parameter.KEYWORD_ONLY:
+        msg = (
+            f"@cached: {func.__name__!r} parameter {param_name!r} must be keyword-only "
+            "(add a bare '*' before it in the signature) -- a positional call would "
+            "silently disable caching."
+        )
+        raise TypeError(msg)
 
 
 def cached(
@@ -54,12 +77,23 @@ def cached(
 
     Notes:
         - The decorated function MUST accept a ``redis`` kwarg (``RedisDep``).
+        - ``id_param``, ``tenant_param`` and ``redis`` must be keyword-only
+          (declared after a bare ``*``); decoration raises ``TypeError``
+          otherwise.
         - Only non-``None`` results are cached.
         - Missing ``tenant_param``/``id_param`` -> warn + call through uncached.
         - Gracefully degrades to a direct call when Redis is unavailable.
+
+    Raises:
+        TypeError: At decoration time, if ``id_param``, ``tenant_param`` or
+            ``redis`` is in the decorated function's signature but not
+            keyword-only.
     """
 
     def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
+        for param_name in (id_param, tenant_param, "redis"):
+            _require_keyword_only(func, param_name)
+
         @functools.wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             redis = cast("Redis | None", kwargs.get("redis"))
