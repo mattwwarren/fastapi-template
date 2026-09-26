@@ -39,6 +39,7 @@ class TestGetOrganization:
         await session.commit()
         await session.refresh(org)
 
+        assert org.id is not None
         result = await get_organization(session, org.id)
 
         assert result is not None
@@ -64,6 +65,8 @@ class TestGetOrganization:
         await session.flush()
 
         # Create membership
+        assert user.id is not None
+        assert org.id is not None
         membership = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add(membership)
         await session.commit()
@@ -83,6 +86,8 @@ class TestGetOrganization:
         await session.commit()
 
         # User is NOT a member - should not find org
+        assert org.id is not None
+        assert user.id is not None
         result = await get_organization(session, org.id, user_id=user.id)
         assert result is None
 
@@ -158,6 +163,8 @@ class TestListOrganizations:
         await session.flush()
 
         # Membership only for org1
+        assert user.id is not None
+        assert org1.id is not None
         membership = Membership(user_id=user.id, organization_id=org1.id, role=MembershipRole.MEMBER)
         session.add(membership)
         await session.commit()
@@ -275,6 +282,7 @@ class TestDeleteOrganization:
         session.add(org)
         await session.commit()
         await session.refresh(org)
+        assert org.id is not None
         org_id = org.id
 
         await delete_organization(session, org)
@@ -293,7 +301,10 @@ class TestDeleteOrganization:
         session.add_all([org, user1, user2])
         await session.flush()
 
+        assert user1.id is not None
+        assert org.id is not None
         m1 = Membership(user_id=user1.id, organization_id=org.id, role=MembershipRole.OWNER)
+        assert user2.id is not None
         m2 = Membership(user_id=user2.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add_all([m1, m2])
         await session.commit()
@@ -332,7 +343,10 @@ class TestListUsersForOrganization:
         await session.flush()
 
         # Create memberships
+        assert user1.id is not None
+        assert org.id is not None
         m1 = Membership(user_id=user1.id, organization_id=org.id, role=MembershipRole.OWNER)
+        assert user2.id is not None
         m2 = Membership(user_id=user2.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add_all([m1, m2])
         await session.commit()
@@ -351,6 +365,7 @@ class TestListUsersForOrganization:
         session.add(org)
         await session.commit()
 
+        assert org.id is not None
         result = await list_users_for_organization(session, org.id)
 
         assert result == []
@@ -380,10 +395,13 @@ class TestListUsersForOrganizations:
         session.add(user)
         await session.flush()
 
+        assert user.id is not None
+        assert org1.id is not None
         membership = Membership(user_id=user.id, organization_id=org1.id, role=MembershipRole.MEMBER)
         session.add(membership)
         await session.commit()
 
+        assert org2.id is not None
         result = await list_users_for_organizations(session, [org1.id, org2.id])
 
         # Should have keys for both organizations
@@ -409,7 +427,9 @@ class TestListUsersForOrganizations:
         await session.flush()
 
         # Create memberships for all users
+        assert org.id is not None
         for user in users:
+            assert user.id is not None
             m = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
             session.add(m)
         await session.commit()
