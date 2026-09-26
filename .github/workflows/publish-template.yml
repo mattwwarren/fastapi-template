@@ -44,7 +44,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0  # Full history for branch operations
 
@@ -60,7 +60,9 @@ jobs:
 
       - name: Install uv
         if: github.event_name == 'release'
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.12.19"
 
       - name: Update version in templatized content
         if: github.event_name == 'release'
