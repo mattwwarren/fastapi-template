@@ -27,6 +27,11 @@ def _git(cwd: Path, *args: str) -> None:
     subprocess.run([GIT, *args], cwd=cwd, check=True, capture_output=True, text=True)
 
 
+def _git_path() -> str:
+    assert GIT is not None
+    return GIT
+
+
 def _init_repo(path: Path) -> Path:
     path.mkdir(parents=True, exist_ok=True)
     _git(path, "init", "-q")
@@ -115,6 +120,7 @@ def test_install_precommit_installs_hooks_in_real_repo(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     _init_repo(tmp_path)
+    (tmp_path / ".pre-commit-config.yaml").write_text("repos: []\n")
     monkeypatch.chdir(tmp_path)
 
     result = tasks.install_precommit()
@@ -198,7 +204,7 @@ def test_git_dirs_returns_none_outside_git_repo(
 ) -> None:
     monkeypatch.chdir(tmp_path)
 
-    assert tasks._git_dirs(GIT) is None
+    assert tasks._git_dirs(_git_path()) is None
 
 
 def test_git_dirs_equal_in_normal_repo(
@@ -209,7 +215,7 @@ def test_git_dirs_equal_in_normal_repo(
     _init_repo(tmp_path)
     monkeypatch.chdir(tmp_path)
 
-    dirs = tasks._git_dirs(GIT)
+    dirs = tasks._git_dirs(_git_path())
 
     assert dirs is not None
     git_dir, common_dir = dirs
@@ -226,7 +232,7 @@ def test_git_dirs_equal_in_subdirectory_of_normal_repo(
     subdir.mkdir(parents=True)
     monkeypatch.chdir(subdir)
 
-    dirs = tasks._git_dirs(GIT)
+    dirs = tasks._git_dirs(_git_path())
 
     assert dirs is not None
     git_dir, common_dir = dirs
@@ -241,7 +247,7 @@ def test_git_dirs_differs_for_linked_worktree(
     _, worktree = _init_repo_with_worktree(tmp_path)
     monkeypatch.chdir(worktree)
 
-    dirs = tasks._git_dirs(GIT)
+    dirs = tasks._git_dirs(_git_path())
 
     assert dirs is not None
     git_dir, common_dir = dirs
