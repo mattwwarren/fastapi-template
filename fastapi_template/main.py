@@ -18,7 +18,8 @@ Response flow is the reverse (CORS first, SlowAPI last).
 Performance Implications
 ------------------------
 - CORS: Minimal overhead, only affects preflight requests
-- Rate Limiting: Redis lookup per request (~1-2ms)
+- Rate Limiting: Redis lookup per request when REDIS_URL is set (~1-2ms);
+  in-process memory otherwise (per-worker, not shared across replicas)
 - Structured Logging: ContextVar operations, negligible overhead (<0.1ms)
 - Authentication: JWT validation (~5-10ms for RS256)
 - Tenant Isolation: Database lookup if not cached (~5-20ms)
@@ -180,6 +181,9 @@ app.add_middleware(
 #   RATE_LIMIT_PER_MINUTE=100 (default)
 #   RATE_LIMIT_PER_HOUR=2000 (default)
 #
+# Storage backend follows REDIS_URL: set -> Redis-backed (shared across
+# replicas/workers); unset -> in-process memory (per-worker only).
+#
 # Per-endpoint limits can override defaults:
 #   @router.get("/sensitive-endpoint")
 #   @limiter.limit("10/minute")
@@ -187,9 +191,30 @@ app.add_middleware(
 #       ...
 #
 # Documentation: https://slowapi.readthedocs.io/
+def _rate_limit_storage_uri() -> str | None:
+    """Resolve the slowapi storage backend from REDIS_URL.
+
+    Mirrors realtime.server's REDIS_URL-presence convention: set -> Redis-
+    backed (shared across replicas/workers); unset -> in-process memory
+    (per-worker limits only), which is safe only for a single-replica,
+    single-worker deployment.
+    """
+    if not settings.redis_url:
+        logger.warning(
+            "Rate limiting storage is in-process memory (REDIS_URL not set) - "
+            "limits are per-worker and NOT shared across replicas"
+        )
+        return None
+
+    safe_url = settings.redis_url.split("@")[-1]
+    logger.info("Rate limiting storage backend: Redis (%s)", safe_url)
+    return settings.redis_url
+
+
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["100/minute", "2000/hour"],
+    storage_uri=_rate_limit_storage_uri(),
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
