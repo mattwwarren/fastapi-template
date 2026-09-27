@@ -95,6 +95,8 @@ class TestValidateUserOrgAccess:
         session.add(user)
         await session.flush()
 
+        assert user.id is not None
+        assert org.id is not None
         membership = Membership(
             user_id=user.id,
             organization_id=org.id,
@@ -118,6 +120,8 @@ class TestValidateUserOrgAccess:
         session.add(user)
         await session.commit()
 
+        assert user.id is not None
+        assert org.id is not None
         has_access, role = await _validate_user_org_access(session, user.id, org.id)
         assert has_access is False
         assert role is None
@@ -129,6 +133,7 @@ class TestValidateUserOrgAccess:
         session.add(org)
         await session.commit()
 
+        assert org.id is not None
         has_access, role = await _validate_user_org_access(session, uuid4(), org.id)
         assert has_access is False
         assert role is None
@@ -250,6 +255,8 @@ class TestValidateTenantContext:
         session.add(user)
         await session.flush()
 
+        assert user.id is not None
+        assert org.id is not None
         membership = Membership(
             user_id=user.id,
             organization_id=org.id,
@@ -285,6 +292,8 @@ class TestValidateTenantContext:
         session.add(user)
         await session.flush()
 
+        assert user.id is not None
+        assert org.id is not None
         membership = Membership(
             user_id=user.id,
             organization_id=org.id,
@@ -318,6 +327,8 @@ class TestValidateTenantContext:
         session.add(user)
         await session.flush()
 
+        assert user.id is not None
+        assert org.id is not None
         membership = Membership(
             user_id=user.id,
             organization_id=org.id,
@@ -410,6 +421,8 @@ class TestValidateTenantContext:
         session.add(user)
         await session.flush()
 
+        assert user.id is not None
+        assert org.id is not None
         membership = Membership(
             user_id=user.id,
             organization_id=org.id,
@@ -538,6 +551,8 @@ class TestTenantIsolationMiddleware:
         session.add(user)
         await session.flush()
 
+        assert user.id is not None
+        assert org.id is not None
         membership = Membership(
             user_id=user.id,
             organization_id=org.id,
