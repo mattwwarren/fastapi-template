@@ -84,6 +84,8 @@ EXCLUDE_PATTERNS=(
     # remaining-references self-check even though it's never present in a
     # fresh CI checkout.
     ".cw"
+    ".claude/cw-context.json*"
+    ".claude/review-verdict.*"
     "uploads"
     "docs/_build"
     ".templatized"
