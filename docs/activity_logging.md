@@ -95,7 +95,7 @@ async def archive_document(
 ) -> None:
     """Archive document with activity logging."""
     document = await get_document(session, document_id)
-    document.archived_at = datetime.utcnow()
+    document.archived_at = datetime.now(UTC)
     session.add(document)
     await session.commit()
 
@@ -402,7 +402,7 @@ async def get_resource_audit_log(
 # User activity report
 async def user_activity_report(user_id: UUID, days: int = 30):
     """Generate activity report for user."""
-    since = datetime.utcnow() - timedelta(days=days)
+    since = datetime.now(UTC) - timedelta(days=days)
 
     stmt = select(ActivityLog).where(
         (ActivityLog.user_id == user_id)
@@ -443,7 +443,7 @@ async def anonymize_user_activity(user_id: UUID, session: AsyncSession) -> None:
 async def archive_old_activity_logs(session: AsyncSession) -> None:
     """Archive activity logs older than retention period."""
     retention_days = 365
-    cutoff = datetime.utcnow() - timedelta(days=retention_days)
+    cutoff = datetime.now(UTC) - timedelta(days=retention_days)
 
     stmt = delete(ActivityLog).where(ActivityLog.created_at < cutoff)
     await session.execute(stmt)
@@ -462,7 +462,7 @@ async def check_suspicious_activity(
 ) -> None:
     """Detect suspicious patterns in activity logs."""
     # Find failed auth attempts in last hour
-    since = datetime.utcnow() - timedelta(hours=1)
+    since = datetime.now(UTC) - timedelta(hours=1)
 
     stmt = select(func.count()).select_from(ActivityLog).where(
         (ActivityLog.organization_id == organization_id)
