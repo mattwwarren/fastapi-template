@@ -14,8 +14,9 @@ Examples:
     # Decorator caching
     from fastapi_template.cache import cached
 
+    # tenant/user_id/redis must be keyword-only (after a bare ``*``).
     @cached("user", tenant_param="tenant", id_param="user_id", model_class=User)
-    async def get_user(session: AsyncSession, tenant: TenantContext, user_id: UUID, redis: RedisDep):
+    async def get_user(session: AsyncSession, *, tenant: TenantContext, user_id: UUID, redis: RedisDep):
         ...
 
     # Cache key building
