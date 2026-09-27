@@ -39,9 +39,7 @@ class TestHealthErrorPaths:
     """Test error handling paths in health endpoint."""
 
     @pytest.mark.asyncio
-    async def test_healthz_returns_200_when_health_returns_503(
-        self, client: AsyncClient
-    ) -> None:
+    async def test_healthz_returns_200_when_health_returns_503(self, client: AsyncClient) -> None:
         """Liveness stays healthy while readiness fails on a dead database."""
         with patch("fastapi_template.api.health.asyncio.wait_for") as mock_wait:
             mock_wait.side_effect = OperationalError(None, None, Exception("connection refused"))
