@@ -200,7 +200,7 @@ async def cache_set(  # noqa: PLR0913 - explicit tenant threading (tenant + orga
     start = time.perf_counter()
     try:
         data = serialize(value)
-        await redis.setex(key, ttl, data)
+        await redis.set(key, data, ex=ttl)
     except Exception as exc:
         cache_operation_duration_seconds.labels(operation="set").observe(time.perf_counter() - start)
         _log_cache_failure("set", resource_type, identifier, exc)

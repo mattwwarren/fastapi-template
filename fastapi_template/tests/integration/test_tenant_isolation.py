@@ -11,11 +11,14 @@ a critical security boundary. These tests ensure:
 """
 
 from http import HTTPStatus
+from typing import cast
+from uuid import UUID
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col
 
 from fastapi_template.core.tenants import TenantContext, add_tenant_filter
@@ -138,7 +141,7 @@ class TestTenantIsolationDocuments:
 
         # Query documents with tenant isolation filter
         stmt = select(Document).where(col(Document.id) == doc_b.id)
-        stmt = add_tenant_filter(stmt, tenant_context, Document.organization_id)  # type: ignore[arg-type]
+        stmt = add_tenant_filter(stmt, tenant_context, cast(ColumnElement[UUID], col(Document.organization_id)))
         result = await session.execute(stmt)
         doc = result.scalar_one_or_none()
 
@@ -185,7 +188,7 @@ class TestTenantIsolationDocuments:
         assert user_a.id is not None
         tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id, role=MembershipRole.MEMBER)
         stmt = select(Document)
-        stmt = add_tenant_filter(stmt, tenant_context, Document.organization_id)  # type: ignore[arg-type]
+        stmt = add_tenant_filter(stmt, tenant_context, cast(ColumnElement[UUID], col(Document.organization_id)))
         result = await session.execute(stmt)
         docs = result.scalars().all()
 
@@ -333,7 +336,9 @@ class TestQueryFilterVerification:
 
         # Apply filter to query
         stmt = select(Document)
-        stmt_filtered = add_tenant_filter(stmt, tenant_context, Document.organization_id)  # type: ignore[arg-type]
+        stmt_filtered = add_tenant_filter(
+            stmt, tenant_context, cast(ColumnElement[UUID], col(Document.organization_id))
+        )
 
         # Execute and verify
         result = await session.execute(stmt_filtered)
@@ -380,7 +385,9 @@ class TestQueryFilterVerification:
         assert user_a.id is not None
         tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id, role=MembershipRole.MEMBER)
         stmt = select(Document)
-        stmt_filtered = add_tenant_filter(stmt, tenant_context, Document.organization_id)  # type: ignore[arg-type]
+        stmt_filtered = add_tenant_filter(
+            stmt, tenant_context, cast(ColumnElement[UUID], col(Document.organization_id))
+        )
 
         result = await session.execute(stmt_filtered)
         docs = result.scalars().all()

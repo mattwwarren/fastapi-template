@@ -154,18 +154,20 @@ class TestCacheSet:
         result = await cache_set(redis_mock, "user", "1", _Sample(id=1, name="a"))
 
         assert result is True
-        _key, ttl, _data = redis_mock.setex.call_args.args
+        _key, _data = redis_mock.set.call_args.args
+        ttl = redis_mock.set.call_args.kwargs["ex"]
         assert ttl == 3600
 
     async def test_explicit_ttl_overrides_default(self, redis_mock: AsyncMock) -> None:
         result = await cache_set(redis_mock, "user", "1", _Sample(id=1, name="a"), ttl=99)
 
         assert result is True
-        _key, ttl, _data = redis_mock.setex.call_args.args
+        _key, _data = redis_mock.set.call_args.args
+        ttl = redis_mock.set.call_args.kwargs["ex"]
         assert ttl == 99
 
-    async def test_setex_error_returns_false(self, redis_mock: AsyncMock) -> None:
-        redis_mock.setex.side_effect = ConnectionError("down")
+    async def test_set_error_returns_false(self, redis_mock: AsyncMock) -> None:
+        redis_mock.set.side_effect = ConnectionError("down")
 
         result = await cache_set(redis_mock, "user", "1", _Sample(id=1, name="a"))
 
