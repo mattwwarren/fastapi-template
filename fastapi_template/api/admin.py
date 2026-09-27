@@ -177,6 +177,10 @@ async def handle_registration(
     session.add(org)
     await session.flush()  # Get org.id
 
+    if user.id is None or org.id is None:
+        id_error_msg = "User/organization ID not assigned after flush"
+        raise RuntimeError(id_error_msg)
+
     # Create OWNER membership
     membership = Membership(
         user_id=user.id,
