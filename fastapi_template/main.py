@@ -2,18 +2,25 @@
 
 Middleware Execution Order
 --------------------------
-FastAPI middleware executes in REVERSE order of addition:
+FastAPI/Starlette middleware executes in REVERSE order of addition:
 - Last added middleware = FIRST to process requests
 - First added middleware = LAST to process requests
 
-Current middleware stack (request flow):
-1. SlowAPI rate limiting middleware - added last, executes first
-2. LoggingMiddleware - added second-to-last
-3. TenantIsolationMiddleware - added third
-4. AuthMiddleware - added fourth
-5. CORSMiddleware - added first, executes last before endpoint
+Verified request flow for the active stack (empirically confirmed via
+app.user_middleware):
+1. LoggingMiddleware - added last, executes first
+2. AsyncRateLimitMiddleware (rate limiting) - added second
+3. CORSMiddleware - added first, executes last before endpoint
 
-Response flow is the reverse (CORS first, SlowAPI last).
+Response flow is the reverse (CORS first, Logging last).
+
+AuthMiddleware and TenantIsolationMiddleware ship commented out below.
+Their app.add_middleware() calls are deliberately placed in this order:
+Tenant, then Auth, then Logging (last) - so that uncommenting them in
+place yields this execution order:
+    Logging -> Auth -> Tenant -> AsyncRateLimitMiddleware -> CORS
+Auth runs before Tenant so request.state.user exists when tenant
+isolation checks it. See ARCHITECTURE.md's "Request lifecycle" section.
 
 Performance Implications
 ------------------------
@@ -271,13 +278,52 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 app.add_middleware(AsyncRateLimitMiddleware)
 
+# Tenant Isolation Middleware (DISABLED - Authentication Required)
+# Multi-tenant isolation requires authentication to be enabled first.
+#
+# ADD-ORDER NOTE: Starlette executes middleware in REVERSE of add order
+# (last added runs first). This call is placed BEFORE AuthMiddleware's
+# below so that, once both are uncommented, AuthMiddleware executes FIRST
+# and this middleware executes SECOND - auth populates request.state.user
+# before tenant isolation reads it.
+#
+# To enable:
+#   1. Regenerate project with copier and set auth_enabled=true
+#   2. Or manually enable AuthMiddleware below, then uncomment:
+#
+# from fastapi_template.core.tenants import TenantIsolationMiddleware
+# app.add_middleware(TenantIsolationMiddleware)
+
+# Authentication Middleware (DISABLED)
+# To enable authentication:
+#   1. Regenerate project with copier and set auth_enabled=true
+#   2. Or manually uncomment the following and configure .env:
+#
+# ADD-ORDER NOTE: placed AFTER TenantIsolationMiddleware above so this
+# middleware executes BEFORE it (auth must run before tenant isolation).
+# See "Middleware Execution Order" in the module docstring.
+#
+# from fastapi_template.core.auth import AuthMiddleware
+# app.add_middleware(AuthMiddleware)
+#
+# Configuration required in .env:
+#   AUTH_PROVIDER_TYPE=ory|auth0|keycloak|cognito
+#   AUTH_PROVIDER_URL=https://your-auth-provider.com
+#   AUTH_PROVIDER_ISSUER=https://your-auth-provider.com/
+#   JWT_ALGORITHM=RS256
+#   JWT_PUBLIC_KEY=<your-public-key-pem>
+
 # Structured Logging Middleware
 # Automatically adds request_id, user_id, org_id to all logs
 # Configuration in .env:
 #   REQUEST_ID_HEADER=x-request-id (default)
 #   INCLUDE_REQUEST_CONTEXT_IN_LOGS=true (default)
 #
-# IMPORTANT: Add BEFORE AuthMiddleware to initialize request context early.
+# IMPORTANT: This middleware executes FIRST (before Auth/Tenant above) so
+# request context is available for the entire request lifecycle. Because
+# Starlette runs middleware in reverse of add order, this app.add_middleware
+# call is placed LAST (below AuthMiddleware/TenantIsolationMiddleware) -
+# execution order is Logging -> Auth -> Tenant, add order is the reverse.
 # The middleware will:
 # 1. Extract or generate request ID from X-Request-ID header
 # 2. Store request_id in ContextVar (available throughout request lifecycle)
@@ -289,29 +335,6 @@ app.add_middleware(AsyncRateLimitMiddleware)
 #   logger.info("operation", extra=get_logging_context())
 #
 app.add_middleware(LoggingMiddleware)
-
-# Authentication Middleware (DISABLED)
-# To enable authentication:
-#   1. Regenerate project with copier and set auth_enabled=true
-#   2. Or manually uncomment the following and configure .env:
-#
-# from fastapi_template.core.auth import AuthMiddleware
-# app.add_middleware(AuthMiddleware)
-#
-# Configuration required in .env:
-#   AUTH_PROVIDER_TYPE=ory|auth0|keycloak|cognito
-#   AUTH_PROVIDER_URL=https://your-auth-provider.com
-#   AUTH_PROVIDER_ISSUER=https://your-auth-provider.com/
-#   JWT_ALGORITHM=RS256
-#   JWT_PUBLIC_KEY=<your-public-key-pem>
-# Tenant Isolation Middleware (DISABLED - Authentication Required)
-# Multi-tenant isolation requires authentication to be enabled first.
-# To enable:
-#   1. Regenerate project with copier and set auth_enabled=true
-#   2. Or manually enable AuthMiddleware above, then uncomment:
-#
-# from fastapi_template.core.tenants import TenantIsolationMiddleware
-# app.add_middleware(TenantIsolationMiddleware)
 
 # Global Exception Handlers
 # These provide consistent error responses across the entire API
