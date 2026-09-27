@@ -237,7 +237,7 @@ async def download_document(
     stmt = add_tenant_filter(
         stmt,
         tenant,
-        Document.organization_id,  # type: ignore[arg-type]
+        col(Document.organization_id),
     )
 
     result = await session.execute(stmt)
@@ -336,7 +336,7 @@ async def delete_document(
     stmt = add_tenant_filter(
         stmt,
         tenant,
-        Document.organization_id,  # type: ignore[arg-type]
+        col(Document.organization_id),
     )
 
     result = await session.execute(stmt)
