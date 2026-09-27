@@ -92,6 +92,9 @@ max-complexity = 10
 # PT009 allows raw assert statements which are appropriate for pytest
 # PLR2004 allows magic numbers in test assertions (expected counts, etc.)
 "fastapi_template/tests/**" = ["S", "PT009", "PLR2004", "ARG002", "TRY002"]
+# S101 allows raw assert statements in the template-maintainer test suite
+# S603 allows subprocess-without-shell for real git/pre-commit binary calls
+"tests/**" = ["S101", "S603"]
 # PLC0415 allows late imports for optional dependencies (azure, aws, gcs)
 "fastapi_template/core/storage.py" = ["PLC0415"]
 

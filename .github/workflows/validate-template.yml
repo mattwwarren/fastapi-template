@@ -17,6 +17,7 @@ on:
     paths:
       - 'copier.yaml'
       - '_tasks.py'
+      - 'tests/test_tasks.py'
       - 'scripts/templatize.sh'
       - 'fastapi_template/**'
       - 'pyproject.toml'
@@ -48,6 +49,9 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           version: "0.12.19"
+
+      - name: Run _tasks.py unit tests
+        run: uv run pytest tests/test_tasks.py -v --tb=short -o "addopts="
 
       - name: Run templatize script
         run: |
