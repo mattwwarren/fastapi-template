@@ -12,7 +12,9 @@ Key Security Principles:
 
 Usage:
 
-    # In main.py - Add middleware (AFTER AuthMiddleware)
+    # In main.py - add this BEFORE AuthMiddleware's app.add_middleware call.
+    # Starlette executes middleware in reverse of add order, so adding
+    # Tenant before Auth makes Auth execute FIRST and Tenant SECOND.
     from fastapi_template.core.tenants import TenantIsolationMiddleware
     app.add_middleware(TenantIsolationMiddleware)
 
