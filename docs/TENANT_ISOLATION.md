@@ -206,16 +206,18 @@ ENFORCE_TENANT_ISOLATION=true
 ```python
 # fastapi_template/main.py
 
-# 1. Add AuthMiddleware first
-from fastapi_template.core.auth import AuthMiddleware
-app.add_middleware(AuthMiddleware)
-
-# 2. Add TenantIsolationMiddleware AFTER AuthMiddleware
+# Add in this order because Starlette executes middleware in reverse add order:
+# TenantIsolationMiddleware executes second, after AuthMiddleware.
+# 1. Add TenantIsolationMiddleware first
 from fastapi_template.core.tenants import TenantIsolationMiddleware
 app.add_middleware(TenantIsolationMiddleware)
+
+# 2. Add AuthMiddleware second; it executes first and populates user context
+from fastapi_template.core.auth import AuthMiddleware
+app.add_middleware(AuthMiddleware)
 ```
 
-**CRITICAL:** TenantIsolationMiddleware MUST come after AuthMiddleware because it requires authenticated user context.
+**CRITICAL:** Add TenantIsolationMiddleware BEFORE AuthMiddleware. It executes after AuthMiddleware because Starlette runs middleware in reverse add order.
 
 ## Usage Patterns
 

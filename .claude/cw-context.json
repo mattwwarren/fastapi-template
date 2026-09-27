@@ -1,0 +1,57 @@
+{
+  "schema_version": 9,
+  "session_id": "e1dafe66",
+  "session_name": "fastapi-template/auto-dev/44",
+  "client": "fastapi-template",
+  "lane": "default",
+  "purpose": "impl",
+  "ticket_id": "44",
+  "headless": false,
+  "worktree_path": "/home/matthew/.cw/wt/78ee907e/dev-44",
+  "workspace_path": "/home/matthew/workspace/templates/fastapi-template",
+  "agent_spawn_stamp": {
+    "unresolved_count": 0,
+    "last_stamped_at": null
+  },
+  "attempt": 3,
+  "wall_clock_budget_seconds": null,
+  "stage_started_at": "2026-09-27T07:14:52.370356+00:00",
+  "expected_sentinel_schema_ref": {
+    "command": "cw schema show auto-dev-result --format=tldr",
+    "model": "AutoDevResult",
+    "version": 8
+  },
+  "queue_metadata": {
+    "scope_hint": null,
+    "plan_source": null,
+    "headless_timeout_override": null,
+    "regressed_into_stage": null,
+    "pending_operator_comment": false,
+    "plan_approved_at": null,
+    "plan_approved_fingerprint": null,
+    "scope_drift_approved_extra_files": null,
+    "scope_drift_approved_head": null
+  },
+  "world_state_snapshot": {
+    "origin_main_sha_at_spawn": "f14eb8aef3341d31e4d06cc3cdd2ae11c6b92583",
+    "origin_main_branch": "main",
+    "prior_attempts_summary": [
+      {
+        "status": "stage_complete",
+        "stage_reached": "stage1_plan",
+        "blocker_reason": null,
+        "blocker_details": "",
+        "friction_highlights": []
+      },
+      {
+        "status": "stage_complete",
+        "stage_reached": "stage2_impl",
+        "blocker_reason": null,
+        "blocker_details": "",
+        "friction_highlights": [
+          "check_not_main_checkout.py guard invocation used bare `python`, not on PATH in worker env (only python3) \u2014 substituted manually, guard passed (exit 0). Fix interpreter reference upstream."
+        ]
+      }
+    ]
+  }
+}

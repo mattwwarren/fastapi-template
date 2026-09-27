@@ -332,9 +332,10 @@ class TenantIsolationMiddleware(BaseHTTPMiddleware):
         from fastapi_template.core.tenants import TenantIsolationMiddleware
         from fastapi_template.core.auth import AuthMiddleware
 
-        # CRITICAL: TenantIsolationMiddleware must come AFTER AuthMiddleware
-        app.add_middleware(AuthMiddleware)
+        # ADD-ORDER NOTE: add TenantIsolationMiddleware BEFORE AuthMiddleware.
+        # Starlette executes middleware in reverse add order, so Auth runs first.
         app.add_middleware(TenantIsolationMiddleware)
+        app.add_middleware(AuthMiddleware)
     """
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
