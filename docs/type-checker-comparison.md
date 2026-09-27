@@ -51,7 +51,7 @@ This satisfies the ticket's three-way choice (parallel+non-blocking / scope-and-
 
 ## Follow-up
 
-A follow-up ticket will track:
+A follow-up ticket, [#82](https://github.com/mattwwarren/fastapi-template/issues/82), will track:
 1. Fixing the 2 bucket-(a) findings (`permissions.py` return type, `settings.py` fixture `InitErrorDetails` literal).
 2. Optionally porting `mypy_path`/overrides to a `[tool.ty]` section to cut bucket-(b) noise.
 3. A re-triage trigger: `ty` reaching stable/1.0, or a fixed number of months elapsed.
