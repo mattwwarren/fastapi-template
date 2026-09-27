@@ -205,6 +205,8 @@ storage paths); there is deliberately no ambient/implicit tenant detection.
   (`build_cache_key(..., organization_id=...)`), explicit
   `cache_get`/`cache_set`/`cache_delete`, a `@cached` decorator, and
   serialization helpers. Optional by construction: no Redis → no-ops.
+  Caching is not a data-classification boundary by default — see
+  Invariant 10.
 - **Realtime** (`realtime/`) — Socket.IO (JWT-authenticated) mounted at
   `/ws`; uses Redis pub/sub as the cross-process message manager when
   `REDIS_URL` is set, in-memory otherwise. Event payloads are typed
@@ -273,3 +275,10 @@ infrastructure**, not mocks of our own code:
    must be configured as such in any real deployment.
 9. Optional infrastructure (Redis, storage SDKs) degrades gracefully or is
    feature-gated — the template boots with nothing but Postgres.
+10. Caching is not a data-classification boundary. `@cached`/`cache_set`
+    serialize a model to plaintext JSON in Redis; adding caching to a model
+    does not change what protections its sensitive fields need. Before
+    caching a model containing PII or other sensitive personal data, apply
+    the same at-rest controls it would need in Postgres, or exclude it from
+    caching — there is currently no automated field-level exclusion
+    mechanism (see `docs/caching.md`; automated enforcement tracked in #61).

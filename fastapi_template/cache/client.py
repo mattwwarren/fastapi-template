@@ -27,6 +27,7 @@ from fastapi_template.cache.keys import build_cache_key
 from fastapi_template.cache.serialization import deserialize, serialize
 from fastapi_template.core.config import settings
 from fastapi_template.core.metrics import (
+    cache_errors_total,
     cache_hits_total,
     cache_misses_total,
     cache_operation_duration_seconds,
@@ -124,7 +125,9 @@ async def cache_get[T: "BaseModel"](  # noqa: PLR0913 - explicit tenant threadin
 
     Returns ``None`` on cache miss, deserialization failure, Redis error, or a
     ``None`` client. Tenant scoping is threaded explicitly via ``tenant`` /
-    ``organization_id``.
+    ``organization_id``. A genuine miss counts toward ``cache_misses_total``;
+    Redis and deserialization failures count toward ``cache_errors_total``
+    instead, so the hit rate is not skewed by a degraded backend.
 
     Args:
         redis: Redis client (``None`` if disabled).
@@ -148,7 +151,7 @@ async def cache_get[T: "BaseModel"](  # noqa: PLR0913 - explicit tenant threadin
     except Exception as exc:
         cache_operation_duration_seconds.labels(operation="get").observe(time.perf_counter() - start)
         _log_cache_failure("get", resource_type, identifier, exc)
-        cache_misses_total.labels(resource_type=resource_type).inc()
+        cache_errors_total.labels(resource_type=resource_type, operation="get").inc()
         return None
     cache_operation_duration_seconds.labels(operation="get").observe(time.perf_counter() - start)
 
@@ -160,7 +163,7 @@ async def cache_get[T: "BaseModel"](  # noqa: PLR0913 - explicit tenant threadin
         result = deserialize(data, model_class)
     except CacheSerializationError as exc:
         _log_cache_failure("deserialize", resource_type, identifier, exc)
-        cache_misses_total.labels(resource_type=resource_type).inc()
+        cache_errors_total.labels(resource_type=resource_type, operation="get").inc()
         return None
     else:
         cache_hits_total.labels(resource_type=resource_type).inc()
@@ -204,6 +207,7 @@ async def cache_set(  # noqa: PLR0913 - explicit tenant threading (tenant + orga
     except Exception as exc:
         cache_operation_duration_seconds.labels(operation="set").observe(time.perf_counter() - start)
         _log_cache_failure("set", resource_type, identifier, exc)
+        cache_errors_total.labels(resource_type=resource_type, operation="set").inc()
         return False
     else:
         cache_operation_duration_seconds.labels(operation="set").observe(time.perf_counter() - start)
@@ -241,6 +245,7 @@ async def cache_delete(
     except Exception as exc:
         cache_operation_duration_seconds.labels(operation="delete").observe(time.perf_counter() - start)
         _log_cache_failure("delete", resource_type, identifier, exc)
+        cache_errors_total.labels(resource_type=resource_type, operation="delete").inc()
         return False
     else:
         cache_operation_duration_seconds.labels(operation="delete").observe(time.perf_counter() - start)
