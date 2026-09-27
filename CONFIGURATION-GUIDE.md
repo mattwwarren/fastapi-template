@@ -249,7 +249,8 @@ For SaaS with multiple independent organizations:
 ```bash
 # .env
 ENFORCE_TENANT_ISOLATION=true
-# Uncomment TenantIsolationMiddleware in fastapi_template/main.py (AFTER AuthMiddleware!)
+# Add TenantIsolationMiddleware BEFORE AuthMiddleware in fastapi_template/main.py
+# (it executes AFTER AuthMiddleware because Starlette reverses add order)
 ```
 
 **What this enables**:
@@ -263,12 +264,11 @@ ENFORCE_TENANT_ISOLATION=true
 ```python
 # In fastapi_template/main.py, add in this order:
 
-# 1. Authentication FIRST
-app.add_middleware(AuthMiddleware)
-
-# 2. Tenant Isolation SECOND
-# (relies on user context from AuthMiddleware)
+# 1. Add Tenant Isolation first; it executes second
 app.add_middleware(TenantIsolationMiddleware)
+
+# 2. Add Authentication second; it executes first and populates user context
+app.add_middleware(AuthMiddleware)
 ```
 
 **For details**, see [docs/TENANT_ISOLATION.md](docs/TENANT_ISOLATION.md).
