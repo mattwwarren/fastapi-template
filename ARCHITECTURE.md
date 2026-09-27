@@ -114,10 +114,9 @@ Verified request flow for the active stack:
    log line in the request — including in services — carries the context via
    `get_logging_context()`
 2. **SlowAPIMiddleware** — per-IP rate limiting (current limits: see the
-   `Limiter` config in `main.py`). Note: the `Limiter` is constructed
-   without a `storage_uri`, so limits are tracked **in-process, per
-   worker** — not shared across replicas. Point it at Redis if you need
-   cluster-wide limits.
+   `Limiter` config in `main.py`). Storage backend follows the `REDIS_URL`
+   convention: set → Redis-backed, shared across replicas/workers; unset →
+   in-process memory (per-worker only), with a startup warning.
 3. **CORSMiddleware** — explicit method/header lists, configured origins
 4. Route handler, with dependencies injected
 
