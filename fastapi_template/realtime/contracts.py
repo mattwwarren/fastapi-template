@@ -13,10 +13,10 @@ from uuid import UUID
 from pydantic import BaseModel
 
 # Event name constants -- used as the first argument to ``sio.emit()``.
-TASK_STATUS_CHANGED = "task_status_changed"
-TASK_PROGRESS = "task_progress"
-TASK_COMPLETED = "task_completed"
-TASK_FAILED = "task_failed"
+TASK_STATUS_CHANGED: Literal["task_status_changed"] = "task_status_changed"
+TASK_PROGRESS: Literal["task_progress"] = "task_progress"
+TASK_COMPLETED: Literal["task_completed"] = "task_completed"
+TASK_FAILED: Literal["task_failed"] = "task_failed"
 
 
 class TaskStatusEvent(BaseModel):
