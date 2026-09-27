@@ -48,6 +48,8 @@ async def org_a_with_user_a(session: AsyncSession) -> tuple[Organization, User]:
     await session.flush()
 
     # Create membership: User A → Organization A
+    assert user_a.id is not None
+    assert org_a.id is not None
     membership_a = Membership(user_id=user_a.id, organization_id=org_a.id)
     session.add(membership_a)
 
@@ -72,6 +74,8 @@ async def org_b_with_user_b(session: AsyncSession) -> tuple[Organization, User]:
     await session.flush()
 
     # Create membership: User B → Organization B
+    assert user_b.id is not None
+    assert org_b.id is not None
     membership_b = Membership(user_id=user_b.id, organization_id=org_b.id)
     session.add(membership_b)
 
@@ -110,6 +114,7 @@ class TestTenantIsolationDocuments:
 
         # Upload document to Organization B as User B
         # (In real scenario, User B would upload via API)
+        assert org_b.id is not None
         doc_b = Document(
             filename="secret_org_b.txt",
             content_type="text/plain",
@@ -130,6 +135,8 @@ class TestTenantIsolationDocuments:
         # In real scenario, User A would have JWT with org_id=org_a.id
         # The endpoint would verify org_id from path matches org_id from JWT
         # Since we're testing at the service/query level:
+        assert org_a.id is not None
+        assert user_a.id is not None
         tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id, role=MembershipRole.MEMBER)
 
         # Query documents with tenant isolation filter
@@ -156,6 +163,7 @@ class TestTenantIsolationDocuments:
         org_b, _user_b = org_b_with_user_b
 
         # Create documents in both orgs
+        assert org_a.id is not None
         doc_a = Document(
             filename="org_a_doc.txt",
             content_type="text/plain",
@@ -164,6 +172,7 @@ class TestTenantIsolationDocuments:
             storage_path=f"uploads/{org_a.id}/org_a_doc.txt",
             storage_url=f"http://storage/uploads/{org_a.id}/org_a_doc.txt",
         )
+        assert org_b.id is not None
         doc_b = Document(
             filename="org_b_doc.txt",
             content_type="text/plain",
@@ -176,6 +185,7 @@ class TestTenantIsolationDocuments:
         await session.commit()
 
         # User A queries documents with tenant isolation
+        assert user_a.id is not None
         tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id, role=MembershipRole.MEMBER)
         stmt = select(Document)
         stmt = add_tenant_filter(stmt, tenant_context, cast(ColumnElement[UUID], col(Document.organization_id)))
@@ -217,6 +227,8 @@ class TestTenantIsolationUsers:
         assert len(all_users) >= 2
 
         # Query users for Org A only (with tenant isolation)
+        assert org_a.id is not None
+        assert user_a.id is not None
         tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id, role=MembershipRole.MEMBER)
 
         # User query with membership filter (simulating real endpoint)
@@ -306,6 +318,7 @@ class TestQueryFilterVerification:
         org_a, user_a = org_a_with_user_a
 
         # Create a test document in Org A
+        assert org_a.id is not None
         doc = Document(
             filename="test.txt",
             content_type="text/plain",
@@ -318,6 +331,7 @@ class TestQueryFilterVerification:
         await session.commit()
 
         # Create tenant context
+        assert user_a.id is not None
         tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id, role=MembershipRole.MEMBER)
 
         # Apply filter to query
@@ -346,6 +360,7 @@ class TestQueryFilterVerification:
         org_b, _user_b = org_b_with_user_b
 
         # Create documents in both orgs
+        assert org_a.id is not None
         doc_a = Document(
             filename="org_a.txt",
             content_type="text/plain",
@@ -354,6 +369,7 @@ class TestQueryFilterVerification:
             storage_path=f"uploads/{org_a.id}/org_a.txt",
             storage_url=f"http://storage/uploads/{org_a.id}/org_a.txt",
         )
+        assert org_b.id is not None
         doc_b = Document(
             filename="org_b.txt",
             content_type="text/plain",
@@ -366,6 +382,7 @@ class TestQueryFilterVerification:
         await session.commit()
 
         # Query as User A
+        assert user_a.id is not None
         tenant_context = TenantContext(organization_id=org_a.id, user_id=user_a.id, role=MembershipRole.MEMBER)
         stmt = select(Document)
         stmt_filtered = add_tenant_filter(

@@ -85,3 +85,12 @@ async def health(session: SessionDep) -> dict[str, str]:
             detail=db_error_msg,
         ) from exc
     return {"status": "ok"}
+
+
+@router.get("/healthz", tags=["health"])
+async def liveness() -> dict[str, str]:
+    """Liveness check: confirms the process and event loop are responsive.
+
+    No database access — used for the Kubernetes livenessProbe only.
+    """
+    return {"status": "ok"}

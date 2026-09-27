@@ -41,6 +41,7 @@ class TestGetUser:
         await session.refresh(user)
 
         # Fetch via service
+        assert user.id is not None
         result = await get_user(session, user.id)
 
         assert result is not None
@@ -201,6 +202,7 @@ class TestDeleteUser:
         session.add(user)
         await session.commit()
         await session.refresh(user)
+        assert user.id is not None
         user_id = user.id
 
         # Delete user
@@ -230,7 +232,10 @@ class TestListOrganizationsForUser:
         await session.flush()
 
         # Create memberships
+        assert user.id is not None
+        assert org1.id is not None
         m1 = Membership(user_id=user.id, organization_id=org1.id, role=MembershipRole.MEMBER)
+        assert org2.id is not None
         m2 = Membership(user_id=user.id, organization_id=org2.id, role=MembershipRole.ADMIN)
         session.add_all([m1, m2])
         await session.commit()
@@ -253,6 +258,7 @@ class TestListOrganizationsForUser:
         await session.refresh(user)
 
         # List organizations
+        assert user.id is not None
         result = await list_organizations_for_user(session, user.id)
 
         assert result == []
@@ -282,11 +288,14 @@ class TestListOrganizationsForUsers:
         session.add(org)
         await session.flush()
 
+        assert user1.id is not None
+        assert org.id is not None
         membership = Membership(user_id=user1.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add(membership)
         await session.commit()
 
         # List organizations for both users
+        assert user2.id is not None
         result = await list_organizations_for_users(session, [user1.id, user2.id])
 
         # Should have keys for both users
@@ -312,7 +321,9 @@ class TestListOrganizationsForUsers:
         await session.flush()
 
         # Create memberships for all orgs
+        assert user.id is not None
         for org in orgs:
+            assert org.id is not None
             m = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
             session.add(m)
         await session.commit()
