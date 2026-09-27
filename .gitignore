@@ -36,5 +36,7 @@ docs/_build/
 .templatized/
 
 # cw session-scratch state (local worktree paths, session ids — never commit)
-.claude/cw-context.json
-.claude/cw-context.json.lock
+.claude/cw-context.json*
+
+# cw review-verdict artifacts (session-local reviewer output — never commit)
+.claude/review-verdict.*
