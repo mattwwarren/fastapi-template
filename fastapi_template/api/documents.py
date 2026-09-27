@@ -25,12 +25,13 @@ to a presigned URL for direct download, reducing load on the application server.
 
 import time
 from collections.abc import Iterator
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy import select
+from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col
 
 from fastapi_template.core.activity_logging import ActivityAction, log_activity_decorator
@@ -237,7 +238,7 @@ async def download_document(
     stmt = add_tenant_filter(
         stmt,
         tenant,
-        col(Document.organization_id),
+        cast(ColumnElement[UUID], col(Document.organization_id)),
     )
 
     result = await session.execute(stmt)
@@ -336,7 +337,7 @@ async def delete_document(
     stmt = add_tenant_filter(
         stmt,
         tenant,
-        col(Document.organization_id),
+        cast(ColumnElement[UUID], col(Document.organization_id)),
     )
 
     result = await session.execute(stmt)
