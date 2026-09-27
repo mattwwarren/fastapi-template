@@ -260,7 +260,7 @@ async def download_document(
     ):
         try:
             download_url = await storage_service.get_download_url(
-                document_id=document.id,
+                document_id=document_id,
                 organization_id=document.organization_id,
                 expiry_seconds=3600,  # 1 hour expiry
             )
@@ -275,7 +275,7 @@ async def download_document(
     # For local storage, stream file content directly
     try:
         file_data = await storage_service.download(
-            document_id=document.id,
+            document_id=document_id,
             organization_id=document.organization_id,
         )
         if file_data is None:
@@ -352,7 +352,7 @@ async def delete_document(
     # Delete from object storage first
     try:
         await storage_service.delete(
-            document_id=document.id,
+            document_id=document_id,
             organization_id=document.organization_id,
         )
     except StorageError as e:

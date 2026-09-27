@@ -50,16 +50,20 @@ async def org_with_owner_admin_member(
     await session.flush()
 
     # Create memberships with roles
+    assert owner_user.id is not None
+    assert org.id is not None
     owner_membership = Membership(
         user_id=owner_user.id,
         organization_id=org.id,
         role=MembershipRole.OWNER,
     )
+    assert admin_user.id is not None
     admin_membership = Membership(
         user_id=admin_user.id,
         organization_id=org.id,
         role=MembershipRole.ADMIN,
     )
+    assert member_user.id is not None
     member_membership = Membership(
         user_id=member_user.id,
         organization_id=org.id,
