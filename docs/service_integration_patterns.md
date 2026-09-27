@@ -452,7 +452,7 @@ async def report_activity(
     '''
     async with http_client(timeout=5.0) as client:
         try:
-            from datetime import datetime  # Add this import
+            from datetime import UTC, datetime  # Add this import
 
             response = await client.post(
                 f"{settings.analytics_service_url}/events",
@@ -461,7 +461,7 @@ async def report_activity(
                     "action": action,
                     "resource_type": resource_type,
                     "resource_id": resource_id,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
         except httpx.RequestError:

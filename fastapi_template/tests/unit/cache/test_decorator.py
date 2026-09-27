@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable
 from unittest.mock import AsyncMock
 from uuid import UUID
 
+import pytest
 from pydantic import BaseModel
 
 from fastapi_template.cache.decorator import cached
@@ -151,3 +152,60 @@ async def test_hit_returns_typed_model(redis_mock: AsyncMock) -> None:
 
     assert isinstance(result, _Sample)
     assert result.id == 7
+
+
+# --------------------------------------------------------------------------- #
+# Decoration-time keyword-only enforcement
+# --------------------------------------------------------------------------- #
+# A positional call to a decorated function leaves id/tenant/redis out of
+# ``kwargs``, which silently disables caching (warn + call through). Requiring
+# keyword-only params at decoration time turns that misuse into a loud
+# ``TypeError`` from Python's own call convention instead.
+
+
+def test_positional_capable_id_param_raises_at_decoration() -> None:
+    with pytest.raises(TypeError, match=r"'user_id' must be keyword-only"):
+
+        @cached("user", tenant_param="tenant", id_param="user_id")
+        async def get_user(user_id: str, *, tenant: object, redis: object) -> _Sample:  # noqa: ARG001
+            return _Sample(id=1, name="alice")
+
+
+def test_positional_capable_tenant_param_raises_at_decoration() -> None:
+    with pytest.raises(TypeError, match=r"'tenant' must be keyword-only"):
+
+        @cached("user", tenant_param="tenant", id_param="user_id")
+        async def get_user(tenant: object, *, user_id: str, redis: object) -> _Sample:  # noqa: ARG001
+            return _Sample(id=1, name="alice")
+
+
+def test_positional_capable_redis_param_raises_at_decoration() -> None:
+    with pytest.raises(TypeError, match=r"'redis' must be keyword-only"):
+
+        @cached("user", tenant_param="tenant", id_param="user_id")
+        async def get_user(redis: object, *, tenant: object, user_id: str) -> _Sample:  # noqa: ARG001
+            return _Sample(id=1, name="alice")
+
+
+def test_all_positional_signature_raises_at_decoration() -> None:
+    with pytest.raises(TypeError, match=r"must be keyword-only"):
+
+        @cached("user", tenant_param="tenant", id_param="user_id")
+        async def get_user(tenant: object, user_id: str, redis: object) -> _Sample:  # noqa: ARG001
+            return _Sample(id=1, name="alice")
+
+
+def test_keyword_only_params_decorate_cleanly() -> None:
+    get_user, _calls = _make_fn()
+
+    assert callable(get_user)
+
+
+def test_absent_params_decorate_cleanly() -> None:
+    """Params entirely absent from the signature are not enforced (misconfig path stays warn + call-through)."""
+
+    @cached("user", tenant_param="tenant", id_param="user_id")
+    async def get_user(session: object) -> _Sample:  # noqa: ARG001
+        return _Sample(id=1, name="alice")
+
+    assert callable(get_user)

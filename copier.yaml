@@ -5,6 +5,8 @@ _envops:
 _exclude:
   # Template-maintainer tooling config (cw / auto-dev tracker pin), not for generated projects
   - ".claude/project-config.yaml"
+  - ".claude/cw-context.json*"
+  - ".claude/review-verdict.*"
   - "scripts/templatize.sh"
   - "tests/test_tasks.py"
   - ".git"
