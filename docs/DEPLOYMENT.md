@@ -58,7 +58,7 @@ services:
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
       - STORAGE_PROVIDER=${STORAGE_PROVIDER}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -177,7 +177,7 @@ spec:
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /health
+              path: /healthz
               port: 8000
             initialDelaySeconds: 30
             periodSeconds: 30
@@ -398,8 +398,8 @@ The application exposes health endpoints:
 
 | Endpoint | Purpose | Auth Required |
 |----------|---------|---------------|
-| `/health` | Basic liveness check | No |
-| `/health/ready` | Readiness (DB connected) | No |
+| `/health` | Readiness (DB connected) | No |
+| `/healthz` | Basic liveness check (no DB) | No |
 | `/metrics` | Prometheus metrics | No |
 
 ### Load Balancer Configuration

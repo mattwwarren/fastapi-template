@@ -16,7 +16,7 @@ class User(TimestampedTable, UserBase, table=True):
     __tablename__ = "app_user"
 ```
 
-- `TimestampedTable` (from `base.py`) provides `id: UUID`, `created_at`, `updated_at` - all DB-managed
+- `TimestampedTable` (from `base.py`) provides `id`, `created_at`, `updated_at` - all DB-managed, typed `X | None` (None until flush/refresh; narrow with `is not None` before passing to `UUID`-typed code)
 - Domain base class (`UserBase`) contains business fields
 - `table=True` marks it as a database table
 
