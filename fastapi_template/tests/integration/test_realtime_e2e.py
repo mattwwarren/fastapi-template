@@ -193,6 +193,7 @@ class TestRealtimeRoundTrip:
 
         # Emit from the write-only emitter (simulating worker)
         event = TaskCompletedEvent(
+            type=TASK_COMPLETED,
             task_id=TASK_ID,
             task_name="process_document",
             result_url="s3://bucket/result.pdf",
@@ -230,6 +231,7 @@ class TestRealtimeRoundTrip:
 
         # Emit to org A only
         event = TaskStatusEvent(
+            type=TASK_STATUS_CHANGED,
             task_id=TASK_ID,
             task_name="process_document",
             status="RUNNING",
@@ -267,6 +269,7 @@ class TestRealtimeRoundTrip:
 
         # Emit status change
         status_event = TaskStatusEvent(
+            type=TASK_STATUS_CHANGED,
             task_id=TASK_ID,
             task_name="etl_pipeline",
             status="RUNNING",
@@ -282,6 +285,7 @@ class TestRealtimeRoundTrip:
         # Reset event and emit completion
         collector._got_event.clear()
         completed_event = TaskCompletedEvent(
+            type=TASK_COMPLETED,
             task_id=TASK_ID,
             task_name="etl_pipeline",
             tenant_id=ORG_A,
@@ -308,6 +312,7 @@ class TestRealtimeRoundTrip:
         client.on(TASK_FAILED, collector.handler(TASK_FAILED))
 
         original = TaskFailedEvent(
+            type=TASK_FAILED,
             task_id=TASK_ID,
             task_name="import_csv",
             error_detail="ValueError: invalid column 'foo'",

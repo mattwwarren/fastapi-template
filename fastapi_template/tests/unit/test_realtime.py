@@ -62,6 +62,7 @@ class TestTaskStatusEvent:
         task_id = uuid4()
         tenant_id = uuid4()
         event = TaskStatusEvent(
+            type=TASK_STATUS_CHANGED,
             task_id=task_id,
             task_name="process_document",
             status="running",
@@ -89,7 +90,7 @@ class TestTaskProgressEvent:
     def test_task_progress_event_defaults(self) -> None:
         """Default values are set correctly for optional fields."""
         task_id = uuid4()
-        event = TaskProgressEvent(task_id=task_id, completed_steps=3)
+        event = TaskProgressEvent(type=TASK_PROGRESS, task_id=task_id, completed_steps=3)
         dumped = event.model_dump(mode="json")
 
         assert dumped["task_id"] == str(task_id)
@@ -107,6 +108,7 @@ class TestTaskCompletedEvent:
         task_id = uuid4()
         tenant_id = uuid4()
         event = TaskCompletedEvent(
+            type=TASK_COMPLETED,
             task_id=task_id,
             task_name="generate_report",
             result_url="https://storage.example.com/reports/abc.pdf",
@@ -131,6 +133,7 @@ class TestTaskFailedEvent:
 
         # Without error_detail
         event_no_error = TaskFailedEvent(
+            type=TASK_FAILED,
             task_id=task_id,
             task_name="import_data",
             tenant_id=tenant_id,
@@ -142,6 +145,7 @@ class TestTaskFailedEvent:
 
         # With error_detail
         event_with_error = TaskFailedEvent(
+            type=TASK_FAILED,
             task_id=task_id,
             task_name="import_data",
             error_detail="Connection timeout after 30s",
@@ -331,6 +335,7 @@ class TestEmitToOrg:
         org_id = uuid4()
         task_id = uuid4()
         event_data = TaskStatusEvent(
+            type=TASK_STATUS_CHANGED,
             task_id=task_id,
             task_name="test_task",
             status="running",
@@ -354,6 +359,7 @@ class TestEmitToOrg:
         org_id = uuid4()
         task_id = uuid4()
         event_data = TaskStatusEvent(
+            type=TASK_STATUS_CHANGED,
             task_id=task_id,
             task_name="test_task",
             status="failed",
@@ -371,7 +377,7 @@ class TestEmitToOrg:
         """The emitted payload round-trips through the Pydantic model, including `type`."""
         org_id = uuid4()
         task_id = uuid4()
-        event_data = TaskProgressEvent(task_id=task_id, completed_steps=3)
+        event_data = TaskProgressEvent(type=TASK_PROGRESS, task_id=task_id, completed_steps=3)
 
         mock_sio = AsyncMock()
         with patch("fastapi_template.realtime.events.get_sio", return_value=mock_sio):
@@ -417,3 +423,7 @@ class TestRealtimeSchemaEndpoint:
         assert schemas["TaskProgressEvent"]["properties"]["type"]["const"] == TASK_PROGRESS
         assert schemas["TaskCompletedEvent"]["properties"]["type"]["const"] == TASK_COMPLETED
         assert schemas["TaskFailedEvent"]["properties"]["type"]["const"] == TASK_FAILED
+        assert "type" in schemas["TaskStatusEvent"]["required"]
+        assert "type" in schemas["TaskProgressEvent"]["required"]
+        assert "type" in schemas["TaskCompletedEvent"]["required"]
+        assert "type" in schemas["TaskFailedEvent"]["required"]

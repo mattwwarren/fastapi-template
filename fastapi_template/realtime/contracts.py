@@ -27,7 +27,7 @@ class TaskStatusEvent(BaseModel):
     ``"task_status_changed"``.
     """
 
-    type: Literal["task_status_changed"] = "task_status_changed"
+    type: Literal["task_status_changed"]
     task_id: UUID
     task_name: str
     status: str
@@ -45,7 +45,7 @@ class TaskProgressEvent(BaseModel):
     and is always ``"task_progress"``.
     """
 
-    type: Literal["task_progress"] = "task_progress"
+    type: Literal["task_progress"]
     task_id: UUID
     completed_steps: int
     total_steps: int | None = None
@@ -59,7 +59,7 @@ class TaskCompletedEvent(BaseModel):
     and is always ``"task_completed"``.
     """
 
-    type: Literal["task_completed"] = "task_completed"
+    type: Literal["task_completed"]
     task_id: UUID
     task_name: str
     result_url: str | None = None
@@ -73,7 +73,7 @@ class TaskFailedEvent(BaseModel):
     and is always ``"task_failed"``.
     """
 
-    type: Literal["task_failed"] = "task_failed"
+    type: Literal["task_failed"]
     task_id: UUID
     task_name: str
     error_detail: str | None = None
