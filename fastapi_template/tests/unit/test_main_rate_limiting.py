@@ -18,9 +18,7 @@ class TestRateLimitStorageUri:
         assert result is None
 
     def test_returns_redis_url_when_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(
-            "fastapi_template.main.settings.redis_url", "redis://user:pw@localhost:6379/0"
-        )
+        monkeypatch.setattr("fastapi_template.main.settings.redis_url", "redis://user:pw@localhost:6379/0")
 
         result = _rate_limit_storage_uri()
 
@@ -39,9 +37,7 @@ class TestRateLimitStorageUri:
     def test_logs_info_with_redacted_url_when_redis_url_set(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
-        monkeypatch.setattr(
-            "fastapi_template.main.settings.redis_url", "redis://user:pw@localhost:6379/0"
-        )
+        monkeypatch.setattr("fastapi_template.main.settings.redis_url", "redis://user:pw@localhost:6379/0")
 
         with caplog.at_level(logging.INFO, logger="fastapi_template.main"):
             _rate_limit_storage_uri()

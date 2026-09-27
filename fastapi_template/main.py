@@ -170,6 +170,7 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],  # Explicit list
 )
 
+
 # Rate Limiting Middleware
 # Protects against brute force attacks and DoS by limiting requests per IP.
 # Default limits: 100 requests/minute, 2000 requests/hour
