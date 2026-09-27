@@ -260,7 +260,7 @@ limiter = Limiter(
     default_limits=["100/minute", "2000/hour"],
     storage_uri=_rate_limit_storage_uri(),
     # slowapi annotates these options as str-only, but redis-py requires numeric values.
-    storage_options=_rate_limit_storage_options(),  # type: ignore[arg-type]
+    storage_options=_rate_limit_storage_options(),
     in_memory_fallback=["100/minute", "2000/hour"],
     in_memory_fallback_enabled=True,
 )

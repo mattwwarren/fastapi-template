@@ -93,7 +93,7 @@ class TestLimiterWiring:
             key_func=key_func,
             default_limits=["1/minute"],
             storage_uri="redis://127.0.0.1:1/0",
-            storage_options=outage_storage_options,  # type: ignore[arg-type]
+            storage_options=outage_storage_options,
             in_memory_fallback=["1/minute"],
             in_memory_fallback_enabled=True,
         )
@@ -141,7 +141,7 @@ class TestLimiterWiring:
             key_func=lambda request: request.client.host if request.client else "client",
             default_limits=["1/minute"],
             storage_uri="redis://127.0.0.1:1/0",
-            storage_options=outage_storage_options,  # type: ignore[arg-type]
+            storage_options=outage_storage_options,
             in_memory_fallback=["1/minute"],
             in_memory_fallback_enabled=True,
         )
