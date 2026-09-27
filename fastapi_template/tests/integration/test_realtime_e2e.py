@@ -209,6 +209,7 @@ class TestRealtimeRoundTrip:
         assert len(collector.events) == 1
         name, data = collector.events[0]
         assert name == TASK_COMPLETED
+        assert data["type"] == TASK_COMPLETED
         received = TaskCompletedEvent.model_validate(data)
         assert received == event
 
@@ -321,6 +322,7 @@ class TestRealtimeRoundTrip:
         await collector.wait()
 
         _, data = collector.events[0]
+        assert data["type"] == TASK_FAILED
         # Reconstruct the model from the received dict
         received = TaskFailedEvent.model_validate(data)
         assert received == original

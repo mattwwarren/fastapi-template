@@ -16,11 +16,16 @@ from uuid import uuid4
 import pytest
 import socketio
 from httpx import ASGITransport, AsyncClient
+from pydantic import ValidationError
 
 import fastapi_template.realtime.server as server_mod
 from fastapi_template.api.realtime_schemas import get_realtime_event_catalog
 from fastapi_template.main import app
 from fastapi_template.realtime.contracts import (
+    TASK_COMPLETED,
+    TASK_FAILED,
+    TASK_PROGRESS,
+    TASK_STATUS_CHANGED,
     TaskCompletedEvent,
     TaskFailedEvent,
     TaskProgressEvent,
@@ -75,6 +80,7 @@ class TestTaskStatusEvent:
         assert dumped["completed_steps"] == 2
         assert dumped["status_message"] == "Processing page 2"
         assert dumped["error_detail"] is None
+        assert dumped["type"] == TASK_STATUS_CHANGED
 
 
 class TestTaskProgressEvent:
@@ -90,6 +96,7 @@ class TestTaskProgressEvent:
         assert dumped["completed_steps"] == 3
         assert dumped["total_steps"] is None
         assert dumped["status_message"] is None
+        assert dumped["type"] == TASK_PROGRESS
 
 
 class TestTaskCompletedEvent:
@@ -111,6 +118,7 @@ class TestTaskCompletedEvent:
         assert dumped["task_name"] == "generate_report"
         assert dumped["result_url"] == "https://storage.example.com/reports/abc.pdf"
         assert dumped["tenant_id"] == str(tenant_id)
+        assert dumped["type"] == TASK_COMPLETED
 
 
 class TestTaskFailedEvent:
@@ -130,6 +138,7 @@ class TestTaskFailedEvent:
         assert event_no_error.error_detail is None
         dumped = event_no_error.model_dump(mode="json")
         assert dumped["error_detail"] is None
+        assert dumped["type"] == TASK_FAILED
 
         # With error_detail
         event_with_error = TaskFailedEvent(
@@ -139,6 +148,54 @@ class TestTaskFailedEvent:
             tenant_id=tenant_id,
         )
         assert event_with_error.error_detail == "Connection timeout after 30s"
+
+
+class TestEventDiscriminatorRejectsMismatch:
+    """Constructing an event with a mismatched `type` literal raises ValidationError."""
+
+    def test_task_status_event_rejects_mismatch(self) -> None:
+        with pytest.raises(ValidationError):
+            TaskStatusEvent.model_validate(
+                {
+                    "type": "wrong_type",
+                    "task_id": str(uuid4()),
+                    "task_name": "process_document",
+                    "status": "running",
+                    "tenant_id": str(uuid4()),
+                }
+            )
+
+    def test_task_progress_event_rejects_mismatch(self) -> None:
+        with pytest.raises(ValidationError):
+            TaskProgressEvent.model_validate(
+                {
+                    "type": "wrong_type",
+                    "task_id": str(uuid4()),
+                    "completed_steps": 1,
+                }
+            )
+
+    def test_task_completed_event_rejects_mismatch(self) -> None:
+        with pytest.raises(ValidationError):
+            TaskCompletedEvent.model_validate(
+                {
+                    "type": "wrong_type",
+                    "task_id": str(uuid4()),
+                    "task_name": "generate_report",
+                    "tenant_id": str(uuid4()),
+                }
+            )
+
+    def test_task_failed_event_rejects_mismatch(self) -> None:
+        with pytest.raises(ValidationError):
+            TaskFailedEvent.model_validate(
+                {
+                    "type": "wrong_type",
+                    "task_id": str(uuid4()),
+                    "task_name": "import_data",
+                    "tenant_id": str(uuid4()),
+                }
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -309,6 +366,21 @@ class TestEmitToOrg:
             # Should not raise
             await emit_to_org(org_id, "task_status_changed", event_data)
 
+    @pytest.mark.asyncio
+    async def test_emit_to_org_payload_validates_against_schema(self) -> None:
+        """The emitted payload round-trips through the Pydantic model, including `type`."""
+        org_id = uuid4()
+        task_id = uuid4()
+        event_data = TaskProgressEvent(task_id=task_id, completed_steps=3)
+
+        mock_sio = AsyncMock()
+        with patch("fastapi_template.realtime.events.get_sio", return_value=mock_sio):
+            await emit_to_org(org_id, TASK_PROGRESS, event_data)
+
+        emitted_payload = mock_sio.emit.call_args.args[1]
+        assert emitted_payload["type"] == TASK_PROGRESS
+        assert TaskProgressEvent.model_validate(emitted_payload) == event_data
+
 
 # ---------------------------------------------------------------------------
 # Schema endpoint tests
@@ -340,3 +412,8 @@ class TestRealtimeSchemaEndpoint:
         assert "TaskCompletedEvent" in schemas
         assert "TaskFailedEvent" in schemas
         assert "RealtimeEventCatalogResponse" in schemas
+
+        assert schemas["TaskStatusEvent"]["properties"]["type"]["const"] == TASK_STATUS_CHANGED
+        assert schemas["TaskProgressEvent"]["properties"]["type"]["const"] == TASK_PROGRESS
+        assert schemas["TaskCompletedEvent"]["properties"]["type"]["const"] == TASK_COMPLETED
+        assert schemas["TaskFailedEvent"]["properties"]["type"]["const"] == TASK_FAILED
