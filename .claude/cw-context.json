@@ -1,0 +1,84 @@
+{
+  "schema_version": 9,
+  "session_id": "2efa4f69",
+  "session_name": "fastapi-template/auto-dev/52",
+  "client": "fastapi-template",
+  "lane": "default",
+  "purpose": "impl",
+  "ticket_id": "52",
+  "headless": false,
+  "worktree_path": "/home/matthew/.cw/wt/78ee907e/dev-52",
+  "workspace_path": "/home/matthew/workspace/templates/fastapi-template",
+  "agent_spawn_stamp": {
+    "unresolved_count": 0,
+    "last_stamped_at": null
+  },
+  "attempt": 4,
+  "wall_clock_budget_seconds": null,
+  "stage_started_at": "2026-09-27T05:23:06.119280+00:00",
+  "expected_sentinel_schema_ref": {
+    "command": "cw schema show auto-dev-result --format=tldr",
+    "model": "AutoDevResult",
+    "version": 8
+  },
+  "queue_metadata": {
+    "scope_hint": null,
+    "plan_source": "generated",
+    "headless_timeout_override": null,
+    "regressed_into_stage": null,
+    "pending_operator_comment": false,
+    "plan_approved_at": null,
+    "plan_approved_fingerprint": null,
+    "scope_drift_approved_extra_files": null,
+    "scope_drift_approved_head": null
+  },
+  "world_state_snapshot": {
+    "origin_main_sha_at_spawn": "e8b02358d546ff04677e9cba8ef63cefb22b5e4f",
+    "origin_main_branch": "main",
+    "prior_attempts_summary": [
+      {
+        "status": "ambiguities_pending_resolution",
+        "stage_reached": "stage1_plan",
+        "blocker_reason": null,
+        "blocker_details": "",
+        "friction_highlights": [
+          "consolidated park: 2 ambiguities, 0 premises, 1 advisory findings, scope small",
+          "plan soundness reviewer WARN: ARCHITECTURE.md has no numbered \u00a77/\u00a78 sections \u2014 future Tier 1 findings unreachable until a human adds them (non-blocking)",
+          "blocking findings posted: none (advisory-only run, no MUST_FIX)"
+        ]
+      },
+      {
+        "status": "stage_complete",
+        "stage_reached": "stage1_plan",
+        "blocker_reason": null,
+        "blocker_details": "",
+        "friction_highlights": [
+          "resumed plan from .cw/plan-draft.md \u2014 prior blocked/parked attempt",
+          "plan-stage item settled: A1 \u2192 ADOPTED \u2014 round 1",
+          "plan-stage item settled: A2 \u2192 ADOPTED \u2014 round 1",
+          "self-verified premise: setex is client-side-deprecated only in redis-py 8, not a server-side rejection \u2014 confirmed via redis-py source inspection (@deprecated_function decorator, SETEX unchanged since Redis 2.6.12)",
+          "self-verified premise: calling setex raises DeprecationWarning not an exception \u2014 confirmed via -W error::DeprecationWarning repro",
+          "self-verified premise: no filterwarnings/-W error/simplefilter config exists in pyproject.toml or conftest.py \u2014 confirmed via grep, no matches",
+          "self-verified premise: uv release <version>-python3.13-alpine tag exists on ghcr.io/astral-sh/uv \u2014 confirmed via GitHub releases API (latest 0.12.19) plus ghcr.io manifest query",
+          "plan reviewer SHOULD_FIX (Format-Only): ci.yml Touch-point Contract citation range off by one line (114-118 should be 115-118) and whitespace-normalized quotes \u2014 non-blocking, substance independently re-verified accurate",
+          "plan soundness reviewer WARN: ARCHITECTURE.md has no numbered \u00a77/\u00a78 sections \u2014 Tier 1 structurally unavailable until a human codifies them (non-blocking)"
+        ]
+      },
+      {
+        "status": "stage_complete",
+        "stage_reached": "stage2_impl",
+        "blocker_reason": null,
+        "blocker_details": "",
+        "friction_highlights": [
+          "pre-mutation guard invocation used `python` which is absent on this host's PATH (only `python3` exists) -- rerun with python3, exit 0, genuine main-checkout check passed cleanly (not a real BLOCK signal, an interpreter-name gap)",
+          "impl_scope_growth: Dockerfile -- check_plan_scope_conformance.py flagged it as an extra file (plan_file_count parsed as 2, not 3) but triggered=false, within allowed_extra=5; Dockerfile is explicitly in plan.md's Files Modified list, this is a plan-doc parser quirk not real scope drift",
+          "orchestrator gate 3 (independent integration-test re-run) had its detached gate worktree /var/tmp/cw-gate-wt-<session> deleted by an external process ~9-10min into the run, after all 294 tests had already printed PASSED -- recreated the gate worktree and reran cleanly (294 passed, matching the impl agent's own reported count exactly); this machine runs many concurrent auto-dev/cw sessions sharing /var/tmp, flagging as a shared-host collision risk on the fixed cw-gate-wt-$CW_SESSION path convention, not a real test failure",
+          "the Orientation step's live-fetched comments cache at /tmp/impl-comments-$CW_SESSION.json was clobbered mid-session by an unrelated concurrent session's write (content for ticket #11/mobile-template) -- rewritten with ticket #52's correct fetched comments before proceeding; .cw/context.json (the authoritative copy) was written separately and unaffected",
+          "impl agent found and cleared 4 weeks-stale pytest-docker coordination marker files under /tmp/pytest-of-matthew/ (from unrelated prior worktree sessions) that were causing spurious connection-refused errors on the first baseline attempt -- flagging as debt per Campground Rule: fastapi_template/tests/conftest.py's tmp_path_factory resolves to an OS-wide /tmp/pytest-of-<user>/ dir shared across every worktree/session for this user, not scoped per-repo",
+          "raw `docker build .` is denied by this repo's DevSpace abstraction policy (.claude/settings.json) -- impl agent used the documented substitute `devspace build` instead, which passed",
+          "discovered but did not touch: GETTING-STARTED.md:84 (postgres:16) and QUICKSTART.md:38,212 (postgres:15) are stale doc examples already inconsistent with the repo's actual postgres:18(.1)-alpine -- candidate for a separate doc-debt ticket"
+        ]
+      }
+    ]
+  }
+}
