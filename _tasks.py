@@ -133,7 +133,14 @@ def main() -> int:
     # Step 3: Install pre-commit hooks
     install_precommit()
 
-    # Final summary (Step 4/4)
+    # Step 4: Run pre-commit on all files to fix initial lint issues
+    run_precommit_all()
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())nal summary (Step 4/4)
     log_step("Step 4/4: Setup Complete")
     print("Your project is ready for development!")
 
