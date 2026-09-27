@@ -231,14 +231,6 @@ class TestUpdateOrganization:
         await session.commit()
         await session.refresh(org)
 
-        # DB-managed timestamps are populated and timezone-aware after refresh.
-        # Guards the models/base.py Field(...) call-overload ignores from masking a real
-        # annotation mistake on created_at/updated_at.
-        assert org.created_at is not None
-        assert org.updated_at is not None
-        assert org.created_at.tzinfo is not None
-        assert org.updated_at.tzinfo is not None
-
         original_created = org.created_at
 
         payload = OrganizationUpdate()  # No fields set
@@ -248,6 +240,23 @@ class TestUpdateOrganization:
         # Name unchanged because not in update
         assert result.name == "Original"
         assert result.created_at == original_created
+
+    @pytest.mark.asyncio
+    async def test_organization_timestamps_are_timezone_aware(self, session: AsyncSession) -> None:
+        """DB-managed timestamps are populated and timezone-aware after refresh.
+
+        Guards the models/base.py Field(...) call-overload ignores from masking
+        a real annotation mistake on created_at/updated_at.
+        """
+        org = Organization(name="Original")
+        session.add(org)
+        await session.commit()
+        await session.refresh(org)
+
+        assert org.created_at is not None
+        assert org.updated_at is not None
+        assert org.created_at.tzinfo is not None
+        assert org.updated_at.tzinfo is not None
 
 
 class TestDeleteOrganization:
