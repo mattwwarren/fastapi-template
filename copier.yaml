@@ -6,6 +6,7 @@ _exclude:
   # Template-maintainer tooling config (cw / auto-dev tracker pin), not for generated projects
   - ".claude/project-config.yaml"
   - "scripts/templatize.sh"
+  - "tests/test_tasks.py"
   - ".git"
   - ".git/**"
   - ".templatized"
