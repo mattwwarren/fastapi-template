@@ -9,7 +9,7 @@ A production-ready FastAPI microservice template with async database access, mul
 - Alembic migrations with drift detection in tests
 - Postgres 18 (dev/test), asyncpg driver
 - ECS JSON logging via `logging.yaml`
-- `/health`, `/ping`, and `/metrics` endpoints
+- `/health`, `/healthz`, `/ping`, and `/metrics` endpoints
 - Pagination via `fastapi-pagination`
 - Local Kubernetes dev with k3d + DevSpace
 - Non-root container image
@@ -163,6 +163,7 @@ alembic revision --autogenerate -m "your message"
 ## API endpoints
 
 - `GET /health`
+- `GET /healthz`
 - `GET /ping`
 - `GET /organizations`
 - `POST /organizations`
@@ -186,6 +187,8 @@ ordering by `created_at`.
 
 - `/health` validates DB connectivity with a short timeout and returns 503 on
   failure.
+- `/healthz` is a DB-independent liveness check for the Kubernetes
+  livenessProbe — always returns 200 if the process is responsive.
 - `/metrics` exports Prometheus metrics (intended for internal networking only).
 
 ## Tests

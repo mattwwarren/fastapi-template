@@ -63,8 +63,10 @@ async def create_user_endpoint(
     # Send welcome email in background (non-blocking, fire-and-forget)
     # RUF006: Store task reference. Task lifecycle is managed by event loop;
     # variable prevents premature garbage collection in CPython.
-    if user.id is not None:
-        asyncio.create_task(send_welcome_email_task(user.id, user.email))  # noqa: RUF006
+    if user.id is None:
+        user_id_error_msg = "User ID not assigned after commit"
+        raise RuntimeError(user_id_error_msg)
+    asyncio.create_task(send_welcome_email_task(user.id, user.email))  # noqa: RUF006
 
     # Load organizations for the newly created user (includes tenant's org)
     organizations = await list_organizations_for_user(session, user.id)

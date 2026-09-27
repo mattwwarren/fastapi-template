@@ -6,9 +6,11 @@ current, correct behaviour (user/org/owner-membership creation and idempotency)
 so the ``col()`` typing wraps applied to the handler's queries can be verified
 as pure no-ops.
 
-Uses the plain ``client`` fixture (not ``authenticated_client``): the handler
-depends only on ``payload``/``session`` and the webhook path is not in the auth
-allowlist, so the real auth middleware would 401 before reaching the handler.
+Uses the plain ``client`` fixture (not ``authenticated_client``): this is an
+admin/system webhook, intentionally unauthenticated by design, and the
+handler depends only on ``payload``/``session``. ``AuthMiddleware`` is also
+disabled by default in this template (see ``main.py``), so no 401 currently
+occurs regardless.
 """
 
 from http import HTTPStatus

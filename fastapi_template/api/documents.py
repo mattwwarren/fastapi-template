@@ -25,12 +25,13 @@ to a presigned URL for direct download, reducing load on the application server.
 
 import time
 from collections.abc import Iterator
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy import select
+from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col
 
 from fastapi_template.core.activity_logging import ActivityAction, log_activity_decorator
@@ -237,7 +238,7 @@ async def download_document(
     stmt = add_tenant_filter(
         stmt,
         tenant,
-        Document.organization_id,  # type: ignore[arg-type]
+        cast(ColumnElement[UUID], col(Document.organization_id)),
     )
 
     result = await session.execute(stmt)
@@ -260,7 +261,7 @@ async def download_document(
     ):
         try:
             download_url = await storage_service.get_download_url(
-                document_id=document.id,
+                document_id=document_id,
                 organization_id=document.organization_id,
                 expiry_seconds=3600,  # 1 hour expiry
             )
@@ -275,7 +276,7 @@ async def download_document(
     # For local storage, stream file content directly
     try:
         file_data = await storage_service.download(
-            document_id=document.id,
+            document_id=document_id,
             organization_id=document.organization_id,
         )
         if file_data is None:
@@ -336,7 +337,7 @@ async def delete_document(
     stmt = add_tenant_filter(
         stmt,
         tenant,
-        Document.organization_id,  # type: ignore[arg-type]
+        cast(ColumnElement[UUID], col(Document.organization_id)),
     )
 
     result = await session.execute(stmt)
@@ -352,7 +353,7 @@ async def delete_document(
     # Delete from object storage first
     try:
         await storage_service.delete(
-            document_id=document.id,
+            document_id=document_id,
             organization_id=document.organization_id,
         )
     except StorageError as e:

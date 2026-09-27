@@ -39,6 +39,7 @@ class TestGetOrganization:
         await session.commit()
         await session.refresh(org)
 
+        assert org.id is not None
         result = await get_organization(session, org.id)
 
         assert result is not None
@@ -64,6 +65,8 @@ class TestGetOrganization:
         await session.flush()
 
         # Create membership
+        assert user.id is not None
+        assert org.id is not None
         membership = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add(membership)
         await session.commit()
@@ -83,6 +86,8 @@ class TestGetOrganization:
         await session.commit()
 
         # User is NOT a member - should not find org
+        assert org.id is not None
+        assert user.id is not None
         result = await get_organization(session, org.id, user_id=user.id)
         assert result is None
 
@@ -158,6 +163,8 @@ class TestListOrganizations:
         await session.flush()
 
         # Membership only for org1
+        assert user.id is not None
+        assert org1.id is not None
         membership = Membership(user_id=user.id, organization_id=org1.id, role=MembershipRole.MEMBER)
         session.add(membership)
         await session.commit()
@@ -186,6 +193,21 @@ class TestCreateOrganization:
 
         assert result.id is not None
         assert result.name == payload.name
+
+    def test_models_construct_without_db_managed_fields(self) -> None:
+        """TimestampedTable models construct without id/created_at/updated_at.
+
+        These columns are DB-generated (models/base.py), so they must be
+        omittable at construction and read back as None until flush/refresh.
+        """
+        org = Organization(name="Construct Org")
+        user = User(name="Construct User", email="construct@example.com")
+        membership = Membership(user_id=uuid4(), organization_id=uuid4(), role=MembershipRole.MEMBER)
+
+        for instance in (org, user, membership):
+            assert instance.id is None
+            assert instance.created_at is None
+            assert instance.updated_at is None
 
     @pytest.mark.asyncio
     async def test_create_organization_increments_metric(self, session: AsyncSession) -> None:
@@ -231,14 +253,6 @@ class TestUpdateOrganization:
         await session.commit()
         await session.refresh(org)
 
-        # DB-managed timestamps are populated and timezone-aware after refresh.
-        # Guards the models/base.py Field(...) call-overload ignores from masking a real
-        # annotation mistake on created_at/updated_at.
-        assert org.created_at is not None
-        assert org.updated_at is not None
-        assert org.created_at.tzinfo is not None
-        assert org.updated_at.tzinfo is not None
-
         original_created = org.created_at
 
         payload = OrganizationUpdate()  # No fields set
@@ -248,6 +262,23 @@ class TestUpdateOrganization:
         # Name unchanged because not in update
         assert result.name == "Original"
         assert result.created_at == original_created
+
+    @pytest.mark.asyncio
+    async def test_organization_timestamps_are_timezone_aware(self, session: AsyncSession) -> None:
+        """DB-managed timestamps are populated and timezone-aware after refresh.
+
+        Guards the models/base.py Field(...) call-overload ignores from masking
+        a real annotation mistake on created_at/updated_at.
+        """
+        org = Organization(name="Original")
+        session.add(org)
+        await session.commit()
+        await session.refresh(org)
+
+        assert org.created_at is not None
+        assert org.updated_at is not None
+        assert org.created_at.tzinfo is not None
+        assert org.updated_at.tzinfo is not None
 
 
 class TestDeleteOrganization:
@@ -260,6 +291,7 @@ class TestDeleteOrganization:
         session.add(org)
         await session.commit()
         await session.refresh(org)
+        assert org.id is not None
         org_id = org.id
 
         await delete_organization(session, org)
@@ -278,7 +310,10 @@ class TestDeleteOrganization:
         session.add_all([org, user1, user2])
         await session.flush()
 
+        assert user1.id is not None
+        assert org.id is not None
         m1 = Membership(user_id=user1.id, organization_id=org.id, role=MembershipRole.OWNER)
+        assert user2.id is not None
         m2 = Membership(user_id=user2.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add_all([m1, m2])
         await session.commit()
@@ -317,7 +352,10 @@ class TestListUsersForOrganization:
         await session.flush()
 
         # Create memberships
+        assert user1.id is not None
+        assert org.id is not None
         m1 = Membership(user_id=user1.id, organization_id=org.id, role=MembershipRole.OWNER)
+        assert user2.id is not None
         m2 = Membership(user_id=user2.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add_all([m1, m2])
         await session.commit()
@@ -336,6 +374,7 @@ class TestListUsersForOrganization:
         session.add(org)
         await session.commit()
 
+        assert org.id is not None
         result = await list_users_for_organization(session, org.id)
 
         assert result == []
@@ -365,10 +404,13 @@ class TestListUsersForOrganizations:
         session.add(user)
         await session.flush()
 
+        assert user.id is not None
+        assert org1.id is not None
         membership = Membership(user_id=user.id, organization_id=org1.id, role=MembershipRole.MEMBER)
         session.add(membership)
         await session.commit()
 
+        assert org2.id is not None
         result = await list_users_for_organizations(session, [org1.id, org2.id])
 
         # Should have keys for both organizations
@@ -394,7 +436,9 @@ class TestListUsersForOrganizations:
         await session.flush()
 
         # Create memberships for all users
+        assert org.id is not None
         for user in users:
+            assert user.id is not None
             m = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
             session.add(m)
         await session.commit()
