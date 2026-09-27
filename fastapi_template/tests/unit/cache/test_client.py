@@ -182,8 +182,8 @@ class TestCacheSet:
 
         assert result is False
 
-    async def test_setex_error_counts_error(self, redis_mock: AsyncMock) -> None:
-        redis_mock.setex.side_effect = ConnectionError("down")
+    async def test_set_error_counts_error(self, redis_mock: AsyncMock) -> None:
+        redis_mock.set.side_effect = ConnectionError("down")
         before = _errors("user", "set")
 
         await cache_set(redis_mock, "user", "1", _Sample(id=1, name="a"))
