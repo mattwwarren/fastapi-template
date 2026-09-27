@@ -114,9 +114,7 @@ class TestLimiterWiring:
         with pytest.raises(RateLimitExceeded):
             outage_limiter._check_request_limit(Request(scope), endpoint)
 
-    async def test_redis_outage_falls_back_through_async_middleware(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_redis_outage_falls_back_through_async_middleware(self, monkeypatch: pytest.MonkeyPatch) -> None:
         class UnavailableStorage(MemoryStorage):
             def incr(self, key: str, expiry: float, amount: int = 1) -> int:
                 raise ConnectionError
