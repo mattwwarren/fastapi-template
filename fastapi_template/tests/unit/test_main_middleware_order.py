@@ -9,13 +9,12 @@ from __future__ import annotations
 import importlib
 
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi.middleware import SlowAPIMiddleware
 
 from fastapi_template import main as main_module
 from fastapi_template.core.logging import LoggingMiddleware
 
 
-def test_active_middleware_executes_logging_then_slowapi_then_cors() -> None:
+def test_active_middleware_executes_logging_then_ratelimit_then_cors() -> None:
     """Starlette executes middleware in reverse of add order.
 
     Reloads main.py for a fresh FastAPI instance rather than importing the
@@ -27,6 +26,6 @@ def test_active_middleware_executes_logging_then_slowapi_then_cors() -> None:
     fresh_main = importlib.reload(main_module)
     assert [m.cls for m in fresh_main.app.user_middleware] == [
         LoggingMiddleware,
-        SlowAPIMiddleware,
+        fresh_main.AsyncRateLimitMiddleware,
         CORSMiddleware,
     ]
