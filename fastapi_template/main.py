@@ -7,7 +7,7 @@ FastAPI middleware executes in REVERSE order of addition:
 - First added middleware = LAST to process requests
 
 Current middleware stack (request flow):
-1. SlowAPIMiddleware (rate limiting) - added last, executes first
+1. SlowAPI rate limiting middleware - added last, executes first
 2. LoggingMiddleware - added second-to-last
 3. TenantIsolationMiddleware - added third
 4. AuthMiddleware - added fourth
@@ -32,6 +32,7 @@ Uncomment sections as needed for your deployment.
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from inspect import iscoroutinefunction
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -41,9 +42,12 @@ from fastapi_pagination import add_pagination
 from pydantic import ValidationError
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
+from slowapi.middleware import _check_limits, _find_route_handler, _should_exempt
 from slowapi.util import get_remote_address
 from sqlalchemy import text
+from starlette.concurrency import run_in_threadpool
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import Response
 
 from fastapi_template.api.admin import router as admin_internal_router
 from fastapi_template.api.admin import webhooks_router as admin_webhooks_router
@@ -215,20 +219,54 @@ def _rate_limit_storage_uri() -> str | None:
     return settings.redis_url
 
 
+class AsyncRateLimitMiddleware(BaseHTTPMiddleware):
+    """Run slowapi's synchronous storage checks outside the event loop."""
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        app = request.app
+        limiter: Limiter = app.state.limiter
+
+        if not limiter.enabled:
+            return await call_next(request)
+
+        handler = _find_route_handler(app.routes, request.scope)
+        if _should_exempt(limiter, handler):
+            return await call_next(request)
+
+        exception_handler, should_inject_headers, exc = await run_in_threadpool(
+            _check_limits, limiter, request, handler, app
+        )
+        if exception_handler is not None and exc is not None:
+            if iscoroutinefunction(exception_handler):
+                return await exception_handler(request, exc)
+            return exception_handler(request, exc)
+
+        response = await call_next(request)
+        if should_inject_headers:
+            response = limiter._inject_headers(response, request.state.view_rate_limit)
+        return response
+
+
+def _rate_limit_storage_options() -> dict[str, int]:
+    """Return numeric Redis socket timeouts required by redis-py."""
+    return {
+        "socket_connect_timeout": settings.redis_socket_connect_timeout,
+        "socket_timeout": settings.redis_socket_timeout,
+    }
+
+
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["100/minute", "2000/hour"],
     storage_uri=_rate_limit_storage_uri(),
-    storage_options={
-        "socket_connect_timeout": settings.redis_socket_connect_timeout,
-        "socket_timeout": settings.redis_socket_timeout,
-    },
+    # slowapi annotates these options as str-only, but redis-py requires numeric values.
+    storage_options=_rate_limit_storage_options(),  # type: ignore[arg-type]
     in_memory_fallback=["100/minute", "2000/hour"],
     in_memory_fallback_enabled=True,
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
-app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(AsyncRateLimitMiddleware)
 
 # Structured Logging Middleware
 # Automatically adds request_id, user_id, org_id to all logs
