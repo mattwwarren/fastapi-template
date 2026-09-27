@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:alpine
+FROM ghcr.io/astral-sh/uv:0.12.19-python3.13-alpine@sha256:cc4a74f7218ca909153842816144c559240745d57f91bb034cffea81ab1b2922
 
 ENV PYTHONUNBUFFERED=1 \
     UV_NO_DEV=1 \
