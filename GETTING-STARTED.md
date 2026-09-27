@@ -65,10 +65,13 @@ cp dotenv.example .env
 # 2. Install dependencies (if not done automatically)
 uv sync
 
-# 3. Install pre-commit hooks (if not done automatically)
+# 3. Initialize git (required before pre-commit can install hooks)
+git init
+
+# 4. Install pre-commit hooks (if not done automatically)
 pre-commit install
 
-# 4. Start development server
+# 5. Start development server
 uv run fastapi dev my_new_service/main.py
 ```
 

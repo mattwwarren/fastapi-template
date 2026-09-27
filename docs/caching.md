@@ -99,6 +99,7 @@ from fastapi_template.core.tenants import TenantDep
 @cached("user", tenant_param="tenant", id_param="user_id", ttl=1800, model_class=User)
 async def get_user(
     session: AsyncSession,
+    *,                  # id/tenant/redis MUST be keyword-only
     user_id: UUID,
     tenant: TenantDep,  # resolved for the cache key
     redis: RedisDep,    # required parameter
@@ -113,6 +114,12 @@ bare organization id (threaded as `organization_id=`). If either the id or the
 tenant kwarg is missing, the decorator logs a warning and calls through
 **uncached** — caching is a performance optimization, not a security boundary,
 so it fails open at the decorator-ergonomics level.
+
+Because the decorator reads these values from keyword arguments only, a
+positional call would silently bypass the cache. To prevent that, `id_param`,
+`tenant_param` and `redis` — when present in the signature — must be declared
+**keyword-only** (after a bare `*`). Decorating a function that declares any of
+them as positional-or-keyword raises `TypeError` at import time.
 
 ### Pattern 3: Cache Invalidation on Updates
 
@@ -219,7 +226,11 @@ Services can share cache entries by using consistent key formats:
 ### Prometheus Metrics
 
 - `cache_hits_total{resource_type}` — total cache hits by resource type
-- `cache_misses_total{resource_type}` — total cache misses by resource type
+- `cache_misses_total{resource_type}` — total genuine cache misses (key absent)
+  by resource type
+- `cache_errors_total{resource_type, operation}` — total Redis backend or
+  deserialization failures by resource type and operation (`get`, `set`,
+  `delete`)
 - `cache_operation_duration_seconds{operation}` — operation latency
   (`get`, `set`, `delete`)
 
@@ -238,20 +249,50 @@ sum(rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
 histogram_quantile(0.95, cache_operation_duration_seconds_bucket{operation="get"})
 ```
 
-A deserialization failure or a Redis error is counted as a **miss** (never
-raised), so the hit-rate metric also reflects degraded-cache conditions.
+**Cache error rate by operation:**
+
+```promql
+sum by (operation) (rate(cache_errors_total[5m]))
+```
+
+Errors are never raised to the caller, but they are **not** counted as misses:
+a genuine miss (key absent) increments `cache_misses_total`, while a Redis
+error or a deserialization failure increments `cache_errors_total`. The hit
+rate therefore measures cache effectiveness, and a degraded backend shows up
+separately in the error rate instead of silently depressing the hit rate.
 
 ## Graceful Degradation
 
 Every cache operation tolerates a `None` client and swallows Redis errors:
 
-- `cache_get` → returns `None` (treated as a miss)
+- `cache_get` → returns `None` (the caller falls back as on a miss)
 - `cache_set` → returns `False`
 - `cache_delete` → returns `False`
 
 This means callers can wrap reads/writes in caching unconditionally; when Redis
 is unset or down, the application transparently falls back to its source of
 truth (typically the database).
+
+## Data Classification & PII
+
+Caching is **not** a data-classification boundary (see ARCHITECTURE.md,
+Invariant 10). `@cached` and `cache_set` serialize a model to plaintext JSON in
+Redis, so every field on the cached model — including any PII or other
+sensitive personal data — lands in Redis as-is. Adding caching to a model does
+not change what protections its sensitive fields need.
+
+There is currently **no** field- or model-level exclusion mechanism: nothing in
+the cache layer will stop you from caching a PII-bearing model. Until automated
+enforcement exists (tracked in #61), apply this rule of thumb:
+
+- **Don't cache raw PII-bearing models.** If a model carries sensitive fields,
+  either apply the same at-rest controls in Redis that the data needs in
+  Postgres, or keep it out of the cache entirely.
+- **Cache a derived or redacted projection instead.** Define a narrower
+  Pydantic model containing only the non-sensitive fields the hot path needs,
+  and cache that.
+- **Treat the cache TTL as retention.** Cached copies persist until expiry or
+  invalidation — factor that into any data-retention or erasure obligations.
 
 ## Testing
 
@@ -271,3 +312,7 @@ the Postgres-autouse opt-out pattern:
 ```bash
 uv run pytest fastapi_template/tests/integration/test_cache_e2e.py -m integration
 ```
+
+`test_cache_lifespan_integration.py` additionally runs a probe app through the
+real application lifespan to prove `RedisDep` resolves a live client inside an
+actual request (and `None` when `REDIS_URL` is unset or after shutdown).

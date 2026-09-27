@@ -153,6 +153,12 @@ cache_misses_total = Counter(
     ["resource_type"],
 )
 
+cache_errors_total = Counter(
+    "cache_errors_total",
+    "Total number of cache backend/serialization errors by resource type and operation",
+    ["resource_type", "operation"],
+)
+
 cache_operation_duration_seconds = Histogram(
     "cache_operation_duration_seconds",
     "Cache operation duration in seconds by operation",
