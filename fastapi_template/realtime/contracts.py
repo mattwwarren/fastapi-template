@@ -7,20 +7,27 @@ so ``openapi-typescript`` can generate TypeScript types automatically.
 
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
 
 # Event name constants -- used as the first argument to ``sio.emit()``.
-TASK_STATUS_CHANGED = "task_status_changed"
-TASK_PROGRESS = "task_progress"
-TASK_COMPLETED = "task_completed"
-TASK_FAILED = "task_failed"
+TASK_STATUS_CHANGED: Literal["task_status_changed"] = "task_status_changed"
+TASK_PROGRESS: Literal["task_progress"] = "task_progress"
+TASK_COMPLETED: Literal["task_completed"] = "task_completed"
+TASK_FAILED: Literal["task_failed"] = "task_failed"
 
 
 class TaskStatusEvent(BaseModel):
-    """Emitted when a task's status changes."""
+    """Emitted when a task's status changes.
 
+    `type` discriminates this event in a union of Task*Event payloads
+    (e.g. for ``openapi-typescript`` consumers) and is always
+    ``"task_status_changed"``.
+    """
+
+    type: Literal["task_status_changed"]
     task_id: UUID
     task_name: str
     status: str
@@ -32,8 +39,13 @@ class TaskStatusEvent(BaseModel):
 
 
 class TaskProgressEvent(BaseModel):
-    """Emitted on step completion within a running task."""
+    """Emitted on step completion within a running task.
 
+    `type` discriminates this event in a union of Task*Event payloads
+    and is always ``"task_progress"``.
+    """
+
+    type: Literal["task_progress"]
     task_id: UUID
     completed_steps: int
     total_steps: int | None = None
@@ -41,8 +53,13 @@ class TaskProgressEvent(BaseModel):
 
 
 class TaskCompletedEvent(BaseModel):
-    """Emitted when a task finishes successfully."""
+    """Emitted when a task finishes successfully.
 
+    `type` discriminates this event in a union of Task*Event payloads
+    and is always ``"task_completed"``.
+    """
+
+    type: Literal["task_completed"]
     task_id: UUID
     task_name: str
     result_url: str | None = None
@@ -50,8 +67,13 @@ class TaskCompletedEvent(BaseModel):
 
 
 class TaskFailedEvent(BaseModel):
-    """Emitted when a task fails permanently."""
+    """Emitted when a task fails permanently.
 
+    `type` discriminates this event in a union of Task*Event payloads
+    and is always ``"task_failed"``.
+    """
+
+    type: Literal["task_failed"]
     task_id: UUID
     task_name: str
     error_detail: str | None = None
