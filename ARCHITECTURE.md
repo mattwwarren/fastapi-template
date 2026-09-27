@@ -116,7 +116,9 @@ Verified request flow for the active stack:
 2. **SlowAPIMiddleware** — per-IP rate limiting (current limits: see the
    `Limiter` config in `main.py`). Storage backend follows the `REDIS_URL`
    convention: set → Redis-backed, shared across replicas/workers; unset →
-   in-process memory (per-worker only), with a startup warning.
+   in-process memory (per-worker only), with a startup warning. Redis outages
+   use slowapi's in-process fallback with the same default limits after the
+   configured socket timeouts expire.
 3. **CORSMiddleware** — explicit method/header lists, configured origins
 4. Route handler, with dependencies injected
 

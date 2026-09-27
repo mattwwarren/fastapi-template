@@ -18,8 +18,9 @@ Response flow is the reverse (CORS first, SlowAPI last).
 Performance Implications
 ------------------------
 - CORS: Minimal overhead, only affects preflight requests
-- Rate Limiting: Redis lookup per request when REDIS_URL is set (~1-2ms);
-  in-process memory otherwise (per-worker, not shared across replicas)
+- Rate Limiting: Redis lookup per request when REDIS_URL is set (~1-2ms),
+  bounded by Redis socket timeouts and falling back to in-process memory on
+  outage; in-process memory otherwise (per-worker, not shared across replicas)
 - Structured Logging: ContextVar operations, negligible overhead (<0.1ms)
 - Authentication: JWT validation (~5-10ms for RS256)
 - Tenant Isolation: Database lookup if not cached (~5-20ms)
@@ -183,7 +184,9 @@ app.add_middleware(
 #   RATE_LIMIT_PER_HOUR=2000 (default)
 #
 # Storage backend follows REDIS_URL: set -> Redis-backed (shared across
-# replicas/workers); unset -> in-process memory (per-worker only).
+# replicas/workers); unset -> in-process memory (per-worker only). Redis
+# outages use slowapi's in-process fallback with the same default limits after
+# the configured socket timeouts expire.
 #
 # Per-endpoint limits can override defaults:
 #   @router.get("/sensitive-endpoint")
@@ -216,6 +219,12 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["100/minute", "2000/hour"],
     storage_uri=_rate_limit_storage_uri(),
+    storage_options={
+        "socket_connect_timeout": settings.redis_socket_connect_timeout,
+        "socket_timeout": settings.redis_socket_timeout,
+    },
+    in_memory_fallback=["100/minute", "2000/hour"],
+    in_memory_fallback_enabled=True,
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]

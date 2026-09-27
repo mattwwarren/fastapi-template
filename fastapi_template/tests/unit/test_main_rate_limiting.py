@@ -5,7 +5,12 @@ from __future__ import annotations
 import logging
 
 import pytest
+from fastapi import Request
+from limits.storage.memory import MemoryStorage
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
 
+from fastapi_template.core.config import settings
 from fastapi_template.main import _rate_limit_storage_uri, limiter
 
 
@@ -53,3 +58,52 @@ class TestLimiterWiring:
         helper, not a second hand-rolled expression (R3-style guard, mirrors
         test_client.py's test_wires_pool_timeout_into_blocking_pool)."""
         assert limiter._storage_uri == _rate_limit_storage_uri()
+
+    def test_redis_timeout_and_in_memory_fallback_are_configured(self) -> None:
+        assert limiter._storage_options == {
+            "socket_connect_timeout": settings.redis_socket_connect_timeout,
+            "socket_timeout": settings.redis_socket_timeout,
+        }
+        assert limiter._storage_options["socket_connect_timeout"] > 0
+        assert limiter._storage_options["socket_timeout"] > 0
+        assert limiter._in_memory_fallback_enabled is True
+        assert len(limiter._in_memory_fallback) == 2
+
+    def test_redis_outage_falls_back_to_in_memory_limits(self) -> None:
+        class UnavailableStorage(MemoryStorage):
+            def incr(self, key: str, expiry: int, amount: int = 1) -> int:
+                raise ConnectionError
+
+            def check(self) -> bool:
+                return False
+
+        def key_func(request: Request) -> str:
+            return request.client.host if request.client else "client"
+
+        def endpoint(_request: Request) -> None:
+            return None
+
+        outage_limiter = Limiter(
+            key_func=key_func,
+            default_limits=["1/minute"],
+            storage_uri="redis://127.0.0.1:1/0",
+            storage_options={"socket_connect_timeout": 0.01, "socket_timeout": 0.01},
+            in_memory_fallback=["1/minute"],
+            in_memory_fallback_enabled=True,
+        )
+        unavailable_storage = UnavailableStorage()
+        outage_limiter._storage = unavailable_storage
+        outage_limiter._limiter.storage = unavailable_storage
+        scope = {
+            "type": "http",
+            "path": "/health",
+            "method": "GET",
+            "client": ("127.0.0.1", 1234),
+            "headers": [],
+        }
+
+        outage_limiter._check_request_limit(Request(scope), endpoint)
+
+        assert outage_limiter._storage_dead is True
+        with pytest.raises(RateLimitExceeded):
+            outage_limiter._check_request_limit(Request(scope), endpoint)
