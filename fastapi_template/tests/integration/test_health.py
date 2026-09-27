@@ -26,8 +26,30 @@ async def test_health_success(client: AsyncClient) -> None:
     assert response.json() == {"status": "ok"}
 
 
+@pytest.mark.asyncio
+async def test_healthz_success(client: AsyncClient) -> None:
+    """Liveness endpoint returns ok status without touching the database."""
+    response = await client.get("/healthz")
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == {"status": "ok"}
+
+
 class TestHealthErrorPaths:
     """Test error handling paths in health endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_healthz_returns_200_when_health_returns_503(self, client: AsyncClient) -> None:
+        """Liveness stays healthy while readiness fails on a dead database."""
+        with patch("fastapi_template.api.health.asyncio.wait_for") as mock_wait:
+            mock_wait.side_effect = OperationalError(None, None, Exception("connection refused"))
+
+            healthz_response = await client.get("/healthz")
+            health_response = await client.get("/health")
+
+            assert healthz_response.status_code == HTTPStatus.OK
+            assert healthz_response.json() == {"status": "ok"}
+            assert health_response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
 
     @pytest.mark.asyncio
     async def test_health_returns_503_on_timeout(self, client: AsyncClient) -> None:

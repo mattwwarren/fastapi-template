@@ -25,3 +25,16 @@ def test_fastapi_at_least_0_139() -> None:
 def test_starlette_at_least_1_0() -> None:
     """Installed starlette must be >= 1.0.0 (issue #21 floor)."""
     assert Version(version("starlette")) >= Version("1.0.0")
+
+
+def test_ruff_below_0_16() -> None:
+    """Installed ruff must stay on the 0.15.x line (issue #49 floor+ceiling).
+
+    ruff 0.16 stabilizes PLR0917 (too-many-positional-arguments) out of
+    preview, which this template's pytest fixtures/factories intentionally
+    exceed. This is a stopgap ceiling, not a permanent one: issue #50
+    (safe dependency sweep) is responsible for lifting it to ruff 0.16.x
+    once the two PLR0917 sites in tests/conftest.py and the 0.16
+    formatter are handled there.
+    """
+    assert Version("0.15.22") <= Version(version("ruff")) < Version("0.16.0")

@@ -844,8 +844,8 @@ archived_activity_logs = Table(
     Column('user_id', UUID),
     Column('action', String(50)),
     # ... same columns as ActivityLog
-    Column('created_at', DateTime),
-    Column('archived_at', DateTime, default=datetime.utcnow),
+    Column('created_at', DateTime(timezone=True)),
+    Column('archived_at', DateTime(timezone=True), default=lambda: datetime.now(UTC)),
 )
 ```
 

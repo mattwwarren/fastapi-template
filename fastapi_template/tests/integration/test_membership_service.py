@@ -39,11 +39,14 @@ class TestGetMembership:
         session.add_all([user, org])
         await session.flush()
 
+        assert user.id is not None
+        assert org.id is not None
         membership = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add(membership)
         await session.commit()
         await session.refresh(membership)
 
+        assert membership.id is not None
         result = await get_membership(session, membership.id)
 
         assert result is not None
@@ -78,6 +81,8 @@ class TestListMemberships:
             new_user = User(name="List User Extra", email=f"listextra-{uuid4()}@example.com")
             session.add(new_user)
             await session.flush()
+            assert new_user.id is not None
+            assert org.id is not None
             m = Membership(user_id=new_user.id, organization_id=org.id, role=MembershipRole.MEMBER)
             session.add(m)
         await session.commit()
@@ -100,6 +105,8 @@ class TestListMemberships:
             user = User(name=f"Offset User {i}", email=f"offset-{i}-{uuid4()}@example.com")
             session.add(user)
             await session.flush()
+            assert user.id is not None
+            assert org.id is not None
             m = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
             session.add(m)
         await session.commit()
@@ -126,6 +133,8 @@ class TestListMemberships:
             user = User(name=f"Limit User {i}", email=f"limit-{i}-{uuid4()}@example.com")
             session.add(user)
             await session.flush()
+            assert user.id is not None
+            assert org.id is not None
             m = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
             session.add(m)
         await session.commit()
@@ -154,6 +163,8 @@ class TestCreateMembership:
         session.add_all([user, org])
         await session.flush()
 
+        assert user.id is not None
+        assert org.id is not None
         payload = MembershipCreate(user_id=user.id, organization_id=org.id)
 
         result = await create_membership(session, payload)
@@ -172,6 +183,8 @@ class TestCreateMembership:
         session.add_all([user, org])
         await session.flush()
 
+        assert user.id is not None
+        assert org.id is not None
         payload = MembershipCreate(user_id=user.id, organization_id=org.id, role=MembershipRole.OWNER)
 
         result = await create_membership(session, payload)
@@ -193,6 +206,8 @@ class TestCreateMembership:
         session.add_all([user, org])
         await session.flush()
 
+        assert user.id is not None
+        assert org.id is not None
         payload = MembershipCreate(user_id=user.id, organization_id=org.id)
         await create_membership(session, payload)
         await session.commit()
@@ -216,6 +231,8 @@ class TestCreateMembership:
         session.add_all([user, org])
         await session.flush()
 
+        assert user.id is not None
+        assert org.id is not None
         payload = MembershipCreate(user_id=user.id, organization_id=org.id)
         await create_membership(session, payload)
         await session.commit()
@@ -237,6 +254,8 @@ class TestUpdateMembership:
         session.add_all([user, org])
         await session.flush()
 
+        assert user.id is not None
+        assert org.id is not None
         membership = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add(membership)
         await session.commit()
@@ -258,6 +277,8 @@ class TestUpdateMembership:
         session.add_all([user, org])
         await session.flush()
 
+        assert user.id is not None
+        assert org.id is not None
         membership = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add(membership)
         await session.commit()
@@ -283,10 +304,13 @@ class TestDeleteMembership:
         session.add_all([user, org])
         await session.flush()
 
+        assert user.id is not None
+        assert org.id is not None
         membership = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add(membership)
         await session.commit()
         await session.refresh(membership)
+        assert membership.id is not None
         membership_id = membership.id
 
         rows_deleted = await delete_membership(session, membership)
@@ -305,6 +329,8 @@ class TestDeleteMembership:
         session.add_all([user, org])
         await session.flush()
 
+        assert user.id is not None
+        assert org.id is not None
         membership = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add(membership)
         await session.commit()
@@ -336,6 +362,8 @@ class TestDeleteMembership:
         session.add_all([user, org])
         await session.flush()
 
+        assert user.id is not None
+        assert org.id is not None
         membership = Membership(user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER)
         session.add(membership)
         await session.commit()
@@ -352,6 +380,7 @@ class TestDeleteMembership:
 
         # Second delete returns 0 (already deleted)
         # Create a new membership object pointing to same ID but already deleted
+        assert membership.id is not None
         ghost_membership = Membership(
             id=membership.id, user_id=user.id, organization_id=org.id, role=MembershipRole.MEMBER
         )

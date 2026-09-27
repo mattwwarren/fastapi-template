@@ -76,7 +76,7 @@ async def test_cache_hit_short_circuits(redis_mock: AsyncMock) -> None:
 
     assert result == _Sample(id=1, name="alice")
     assert calls == []  # wrapped function body never executed
-    redis_mock.setex.assert_not_called()
+    redis_mock.set.assert_not_called()
 
 
 async def test_cache_miss_calls_and_populates(redis_mock: AsyncMock) -> None:
@@ -87,7 +87,7 @@ async def test_cache_miss_calls_and_populates(redis_mock: AsyncMock) -> None:
 
     assert result == _Sample(id=1, name="alice")
     assert calls == [1]
-    redis_mock.setex.assert_awaited_once()
+    redis_mock.set.assert_awaited_once()
 
 
 async def test_none_result_not_cached(redis_mock: AsyncMock) -> None:
@@ -100,7 +100,7 @@ async def test_none_result_not_cached(redis_mock: AsyncMock) -> None:
     result = await get_user(tenant=_tenant(), user_id="1", redis=redis_mock)
 
     assert result is None
-    redis_mock.setex.assert_not_called()
+    redis_mock.set.assert_not_called()
 
 
 async def test_redis_none_flows_cleanly() -> None:
@@ -125,7 +125,7 @@ async def test_organization_id_as_tenant_value(redis_mock: AsyncMock) -> None:
 
     assert result == _Sample(id=1, name="alice")
     assert calls == [1]
-    redis_mock.setex.assert_awaited_once()
+    redis_mock.set.assert_awaited_once()
 
 
 async def test_explicit_ttl_forwarded(redis_mock: AsyncMock) -> None:
@@ -139,7 +139,8 @@ async def test_explicit_ttl_forwarded(redis_mock: AsyncMock) -> None:
 
     await get_user(tenant=_tenant(), user_id="1", redis=redis_mock)
 
-    _key, ttl, _data = redis_mock.setex.call_args.args
+    _key, _data = redis_mock.set.call_args.args
+    ttl = redis_mock.set.call_args.kwargs["ex"]
     assert ttl == 123
 
 

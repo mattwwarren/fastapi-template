@@ -29,8 +29,8 @@ def redis_mock() -> AsyncMock:
 
     A plain AsyncMock is used (not ``spec=Redis``) because redis-py's client
     methods are not ``async def`` at the class level, so ``spec`` would make
-    ``get``/``setex``/``delete`` synchronous child mocks that cannot be
-    awaited. Every accessed attribute (``get``, ``setex``, ``delete``,
+    ``get``/``set``/``delete`` synchronous child mocks that cannot be
+    awaited. Every accessed attribute (``get``, ``set``, ``delete``,
     ``ping``, ``aclose``) is therefore an awaitable AsyncMock that individual
     tests configure with return values / side effects.
     """
