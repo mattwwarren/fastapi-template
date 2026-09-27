@@ -34,3 +34,7 @@ docs/_build/
 
 # Templatization output
 .templatized/
+
+# cw session-scratch state (local worktree paths, session ids — never commit)
+.claude/cw-context.json
+.claude/cw-context.json.lock

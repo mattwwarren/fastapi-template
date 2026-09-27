@@ -41,6 +41,9 @@ async def create_org(
     tenant: TenantDep,
 ) -> OrganizationRead:
     organization = await create_organization(session, payload)
+    if organization.id is None:
+        organization_id_error_msg = "Organization ID not assigned after flush"
+        raise RuntimeError(organization_id_error_msg)
 
     # Create OWNER membership for the creating user
     membership = Membership(
