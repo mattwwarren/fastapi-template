@@ -261,6 +261,8 @@ infrastructure**, not mocks of our own code:
 
 ## Invariants (the short list)
 
+See also §7 Principles and §8 Anti-patterns below for the reasoning behind these invariants and additional guidance not captured as hard rules.
+
 1. Async-only, end to end — API, DB (asyncpg), HTTP client, cache.
 2. Endpoints commit; services flush; `get_session` rolls back.
 3. Every table extends `TimestampedTable`; UUIDs and timestamps are
@@ -282,3 +284,17 @@ infrastructure**, not mocks of our own code:
     the same at-rest controls it would need in Postgres, or exclude it from
     caching — there is currently no automated field-level exclusion
     mechanism (see `docs/caching.md`; automated enforcement tracked in #61).
+
+## 7. Principles
+
+1. **Single Postgres driver in the runtime path.** The application talks to Postgres exclusively via `asyncpg` (`pyproject.toml`: `"asyncpg>=0.31.0"`, used through the async SQLAlchemy engine in `fastapi_template/db/`); `psycopg[binary]` is a dev-only dependency used solely by `fastapi_template/tests/conftest.py` for synchronous per-worker test-database setup. Keeping a single driver in the request path avoids two connection-pooling/error-handling models coexisting in production code. (Relates to Invariant 1.)
+2. **Generated primitives are refreshed via CLI, never hand-edited.** `alembic/CLAUDE.md` states migration files are generated artifacts, never hand-edited — use the migration-creator agent or `devspace run alembic-revision`, enforced by `.claude/settings.json` deny rules. Regenerating via `alembic revision --autogenerate` keeps the artifact in sync with `SQLModel.metadata` instead of drifting from hand-patches. (Extends Invariant 4.)
+3. **Dependency ceilings carry an expiry, not just a floor.** `pyproject.toml`'s dev group pins `"ruff>=0.15.22,<0.16"` with a `# Why:` comment naming the tracking issue (#50) and the condition that lifts the ceiling. A ceiling without a named tracking issue and removal condition becomes permanent by default; this one is reviewable and closable.
+4. **Generated output is CI-regenerated, never hand-maintained.** The `copier` branch is produced by `scripts/templatize.sh` and republished by `.github/workflows/publish-template.yml`; `.github/workflows/validate-template.yml` regenerates and boots the template across the supported config matrix on every relevant push/PR. Production instances track drift explicitly via `.copier-answers.yml`'s `_commit` field (see `INSTANCES.md`'s "Drift Checking" section) rather than silently diverging.
+
+## 8. Anti-patterns
+
+1. **Adding a second synchronous Postgres driver to runtime code.** Do not import `psycopg` (or any sync driver) outside `fastapi_template/tests/`; runtime code goes through the async engine only. (Mirrors Principle 1; relates to Invariant 1.)
+2. **Hand-editing `alembic/versions/*.py`.** Enforced by `.claude/settings.json` deny rules; a hand-edited migration can pass locally while silently diverging from `SQLModel.metadata`, which `pytest-alembic` and `fastapi_template/tests/integration/test_migrations.py` exist to catch. (Mirrors Principle 2; extends Invariant 4.)
+3. **Bumping a dependency ceiling without a tracking issue or expiry condition.** Follow the pattern at `pyproject.toml`'s ruff ceiling: state the reason and the issue that removes it. (Mirrors Principle 3.)
+4. **Hand-editing the generated `copier` branch or `.templatized/` output.** Both are build artifacts; direct edits are silently overwritten on the next publish and mask real drift instead of surfacing it through `validate-template.yml`. (Mirrors Principle 4.)
