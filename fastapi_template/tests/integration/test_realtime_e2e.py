@@ -168,7 +168,9 @@ class TestRealtimeRoundTrip:
     """Full pub/sub round-trip via Redis."""
 
     @pytest.fixture
-    async def server_stack(self, redis_url: str) -> AsyncGenerator[tuple[int, socketio.AsyncServer]]:
+    async def server_stack(
+        self, redis_url: str
+    ) -> AsyncGenerator[tuple[int, socketio.AsyncServer], None]:  # noqa: UP043
         """Start a test Socket.IO server backed by Redis."""
         port = _find_free_port()
         app, sio = _build_server_app(redis_url)
