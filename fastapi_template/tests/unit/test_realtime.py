@@ -40,7 +40,7 @@ from fastapi_template.realtime.server import get_sio, init_sio
 
 
 @pytest.fixture(autouse=True)
-def _reset_sio() -> Generator[None, None, None]:
+def _reset_sio() -> Generator[None]:
     """Reset Socket.IO module state between tests."""
     server_mod._sio = None
     server_mod._sio_app = None
