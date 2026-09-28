@@ -3,7 +3,8 @@
 Tests cover:
 - JWT algorithm validation (field_validator)
 - CORS allowed origins parsing and caching
-- Configuration validation (auth, storage, production)
+- Configuration validation (auth, storage, production, OpenTelemetry)
+- OpenTelemetry tracing settings
 """
 
 from __future__ import annotations
@@ -436,3 +437,86 @@ class TestValidateConfig:
 
         # Cognito uses JWKS, so no warning about missing JWT_PUBLIC_KEY
         assert not any("JWT_PUBLIC_KEY" in w for w in warnings)
+
+    def test_otel_enabled_warns_missing_exporter_endpoint(
+        self,
+        test_settings_factory: Callable[..., Settings],
+    ) -> None:
+        """OTel enabled without an exporter endpoint should return a warning."""
+        settings = test_settings_factory(otel_enabled=True, otel_exporter_endpoint=None)
+
+        warnings = settings.validate_config()
+
+        assert any("OTEL_EXPORTER_OTLP_ENDPOINT" in w for w in warnings)
+
+    def test_otel_enabled_with_endpoint_no_warning(
+        self,
+        test_settings_factory: Callable[..., Settings],
+    ) -> None:
+        """OTel enabled with an exporter endpoint should not warn."""
+        settings = test_settings_factory(
+            otel_enabled=True,
+            otel_exporter_endpoint="http://otel-collector:4317",
+        )
+
+        warnings = settings.validate_config()
+
+        assert not any("OTEL_EXPORTER_OTLP_ENDPOINT" in w for w in warnings)
+
+    def test_otel_disabled_never_warns(
+        self,
+        test_settings_factory: Callable[..., Settings],
+    ) -> None:
+        """OTel disabled should never trigger the exporter endpoint check."""
+        settings = test_settings_factory(otel_enabled=False, otel_exporter_endpoint=None)
+
+        warnings = settings.validate_config()
+
+        assert not any("OTEL_EXPORTER_OTLP_ENDPOINT" in w for w in warnings)
+
+
+class TestOtelConfig:
+    """Tests for OpenTelemetry tracing configuration fields."""
+
+    def test_otel_enabled_defaults_to_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """otel_enabled defaults to False when OTEL_ENABLED is unset."""
+        monkeypatch.delenv("OTEL_ENABLED", raising=False)
+
+        settings = Settings()
+
+        assert settings.otel_enabled is False
+
+    def test_otel_exporter_endpoint_defaults_to_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """otel_exporter_endpoint defaults to None when unset."""
+        monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+
+        settings = Settings()
+
+        assert settings.otel_exporter_endpoint is None
+
+    def test_otel_settings_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Both OTel settings are read from their environment variable aliases."""
+        monkeypatch.setenv("OTEL_ENABLED", "true")
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4317")
+
+        settings = Settings()
+
+        assert settings.otel_enabled is True
+        assert settings.otel_exporter_endpoint == "http://otel-collector:4317"
+
+    def test_otel_settings_from_factory(self, test_settings_factory: Callable[..., Settings]) -> None:
+        """Both OTel settings are overridable through the test settings factory."""
+        settings = test_settings_factory(
+            otel_enabled=True,
+            otel_exporter_endpoint="http://otel-collector:4317",
+        )
+
+        assert settings.otel_enabled is True
+        assert settings.otel_exporter_endpoint == "http://otel-collector:4317"
+
+    def test_otel_enabled_rejects_non_bool(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """otel_enabled is a typed bool and rejects non-coercible values."""
+        monkeypatch.setenv("OTEL_ENABLED", "not-a-bool")
+
+        with pytest.raises(ValidationError):
+            Settings()
