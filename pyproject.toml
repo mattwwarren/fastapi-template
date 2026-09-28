@@ -136,6 +136,11 @@ follow_imports = "skip"
 module = ["socketio.*"]
 ignore_missing_imports = true
 
+# OpenTelemetry - optional 'otel' extra; absent from the base install
+[[tool.mypy.overrides]]
+module = ["opentelemetry.*"]
+ignore_missing_imports = true
+
 [tool.coverage.run]
 source = ["fastapi_template"]
 # Required for accurate coverage with FastAPI + async SQLAlchemy
@@ -160,6 +165,7 @@ asyncio_mode = "auto"
 testpaths = ["fastapi_template/tests"]
 markers = [
     "integration: requires Docker services (Redis, Postgres)",
+    "otel: requires the 'otel' optional dependency group installed",
 ]
 
 [project.optional-dependencies]
@@ -169,6 +175,14 @@ azure = ["azure-storage-blob>=12.30.0"]
 aws = ["aioboto3>=15.5.0"]
 gcs = ["google-cloud-storage>=3.13.0"]
 # Install all cloud providers: pip install .[azure,aws,gcs]
+# OpenTelemetry distributed tracing (enable with OTEL_ENABLED=true)
+otel = [
+  "opentelemetry-sdk>=1.45.0",
+  "opentelemetry-instrumentation-fastapi>=0.66b0",
+  "opentelemetry-instrumentation-sqlalchemy>=0.66b0",
+  "opentelemetry-instrumentation-httpx>=0.66b0",
+  "opentelemetry-exporter-otlp>=1.45.0",
+]
 
 [dependency-groups]
 dev = [
