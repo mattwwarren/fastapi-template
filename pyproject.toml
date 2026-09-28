@@ -34,7 +34,7 @@ packages = ["fastapi_template"]
 line-length = 119
 src = ["fastapi_template"]
 show-fixes = true
-extend-exclude = ["stubs", "alembic/versions/*"]
+extend-exclude = ["stubs", "alembic/versions/*", "*.md"]
 
 [tool.ruff.lint]
 # Extended rule set for production-grade code quality:
@@ -202,10 +202,7 @@ dev = [
   "pytest-cov>=7.1.0",
   "pytest-docker>=3.2.5",
   "pytest-xdist>=3.8.0",
-  # Why: ceiling until #50 lifts to ruff 0.16.x (0.16 stabilizes PLR0917 out
-  # of preview; #50 fixes the two new PLR0917 sites and applies the 0.16
-  # formatter as part of its dependency sweep).
-  "ruff>=0.15.22,<0.16",
+  "ruff>=0.16.9",
   "sphinx>=9.1.0",
   "myst-parser>=5.1.0",
   "types-aioboto3>=15.5.0",
