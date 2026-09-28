@@ -194,6 +194,18 @@ class Settings(BaseSettings):
         description="Enable automatic request context logging (user_id, org_id, request_id)",
     )
 
+    # OpenTelemetry tracing configuration (requires: pip install .[otel])
+    otel_enabled: bool = Field(
+        default=False,
+        alias="OTEL_ENABLED",
+        description="Enable OpenTelemetry distributed tracing (requires the 'otel' extra)",
+    )
+    otel_exporter_endpoint: str | None = Field(
+        default=None,
+        alias="OTEL_EXPORTER_OTLP_ENDPOINT",
+        description="OTLP gRPC collector endpoint for exported spans (e.g. http://otel-collector:4317)",
+    )
+
     # Storage configuration
     storage_provider: StorageProvider = Field(
         default=StorageProvider.LOCAL,
@@ -353,6 +365,13 @@ class Settings(BaseSettings):
         if self.sqlalchemy_echo:
             warnings.append("SQLALCHEMY_ECHO=true in production (verbose SQL logging)")
 
+    def _validate_otel_config(self, warnings: list[str]) -> None:
+        """Validate OpenTelemetry tracing configuration."""
+        if self.otel_enabled and not self.otel_exporter_endpoint:
+            warnings.append(
+                "OTEL_ENABLED=true but OTEL_EXPORTER_OTLP_ENDPOINT not set - spans are recorded but not exported"
+            )
+
     def validate_config(self) -> list[str]:
         """Validate configuration for production readiness.
 
@@ -385,6 +404,7 @@ class Settings(BaseSettings):
         self._validate_auth_config(errors, warnings)
         self._validate_storage_config(errors)
         self._validate_production_config(warnings)
+        self._validate_otel_config(warnings)
 
         if errors:
             error_summary = "; ".join(errors)
