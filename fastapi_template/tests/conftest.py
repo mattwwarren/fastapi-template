@@ -104,6 +104,7 @@ def docker_compose_project_name(tmp_path_factory: pytest.TempPathFactory) -> str
 
 @pytest.fixture(scope="session")
 def docker_services(  # noqa: PLR0913 - pytest fixture params can't be restructured
+    *,
     docker_compose_command: str,
     docker_compose_file: str,
     docker_compose_project_name: str,
@@ -871,6 +872,7 @@ def mock_http_client_factory() -> Generator[Any]:
     """
 
     def _create_mock(  # noqa: PLR0913 - factory needs all params for flexibility
+        *,
         get_response: dict[str, Any] | None = None,
         post_response: dict[str, Any] | None = None,
         get_status: int = 200,
