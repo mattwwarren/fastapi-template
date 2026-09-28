@@ -27,14 +27,15 @@ def test_starlette_at_least_1_0() -> None:
     assert Version(version("starlette")) >= Version("1.0.0")
 
 
-def test_ruff_below_0_16() -> None:
-    """Installed ruff must stay on the 0.15.x line (issue #49 floor+ceiling).
+def test_ruff_at_least_0_16() -> None:
+    """Installed ruff must be >= 0.16.9 (issue #60 floor).
 
-    ruff 0.16 stabilizes PLR0917 (too-many-positional-arguments) out of
-    preview, which this template's pytest fixtures/factories intentionally
-    exceed. This is a stopgap ceiling, not a permanent one: issue #50
-    (safe dependency sweep) is responsible for lifting it to ruff 0.16.x
-    once the two PLR0917 sites in tests/conftest.py and the 0.16
-    formatter are handled there.
+    Issue #50 pinned a temporary `<0.16` ceiling because ruff 0.16 stabilizes
+    PLR0917 (too-many-positional-arguments) out of preview, which two of this
+    template's pytest fixtures/factories exceeded. Issue #60 lifts that
+    ceiling: the two PLR0917 sites in tests/conftest.py are refactored to
+    keyword-only params, and the newly-stabilized Markdown formatter is
+    excluded via `extend-exclude`. This floor-only test replaces the retired
+    ceiling test and guards against an accidental downgrade below the pin.
     """
-    assert Version("0.15.22") <= Version(version("ruff")) < Version("0.16.0")
+    assert Version(version("ruff")) >= Version("0.16.9")
