@@ -11,8 +11,9 @@ Requires Docker Redis (started by tests/docker-compose.yml).
 
 import asyncio
 import socket as stdlib_socket
-from collections.abc import Callable, Coroutine
+from collections.abc import AsyncGenerator, Callable, Coroutine
 from typing import Any
+from uuid import UUID
 
 import pytest
 import socketio
@@ -43,6 +44,8 @@ async def default_auth_user_in_org() -> None:
 ORG_A = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 ORG_B = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
 TASK_ID = "cccccccc-cccc-cccc-cccc-cccccccccccc"
+ORG_A_UUID = UUID(ORG_A)
+TASK_ID_UUID = UUID(TASK_ID)
 
 # Seconds to wait for events
 EVENT_TIMEOUT = 5.0
@@ -72,7 +75,7 @@ def _build_server_app(redis_url: str) -> tuple[socketio.ASGIApp, socketio.AsyncS
         engineio_logger=False,
     )
 
-    @sio.event
+    @sio.event  # type: ignore[untyped-decorator]  # python-socketio ships no py.typed marker; AsyncServer.event() has no upstream type annotations
     async def connect(
         sid: str,
         environ: dict[str, Any],  # noqa: ARG001 - Required by python-socketio
@@ -85,7 +88,7 @@ def _build_server_app(redis_url: str) -> tuple[socketio.ASGIApp, socketio.AsyncS
             await sio.enter_room(sid, f"org:{org_id}")
         return True
 
-    @sio.event
+    @sio.event  # type: ignore[untyped-decorator]  # python-socketio ships no py.typed marker; AsyncServer.event() has no upstream type annotations
     async def disconnect(sid: str) -> None:
         pass
 
@@ -165,7 +168,7 @@ class TestRealtimeRoundTrip:
     """Full pub/sub round-trip via Redis."""
 
     @pytest.fixture
-    async def server_stack(self, redis_url):
+    async def server_stack(self, redis_url: str) -> AsyncGenerator[tuple[int, socketio.AsyncServer]]:
         """Start a test Socket.IO server backed by Redis."""
         port = _find_free_port()
         app, sio = _build_server_app(redis_url)
@@ -175,12 +178,14 @@ class TestRealtimeRoundTrip:
         await task
 
     @pytest.fixture
-    async def emitter(self, redis_url):
+    async def emitter(self, redis_url: str) -> socketio.AsyncServer:
         """Create a write-only emitter backed by the same Redis."""
         mgr = socketio.AsyncRedisManager(redis_url, write_only=True)
         return socketio.AsyncServer(async_mode="asgi", client_manager=mgr)
 
-    async def test_emitter_to_client_round_trip(self, server_stack, emitter):
+    async def test_emitter_to_client_round_trip(
+        self, server_stack: tuple[int, socketio.AsyncServer], emitter: socketio.AsyncServer
+    ) -> None:
         """Event emitted by write-only server reaches a connected client via Redis."""
         port, _sio = server_stack
         client = await _connect_client(port, ORG_A)
@@ -194,10 +199,10 @@ class TestRealtimeRoundTrip:
         # Emit from the write-only emitter (simulating worker)
         event = TaskCompletedEvent(
             type=TASK_COMPLETED,
-            task_id=TASK_ID,
+            task_id=TASK_ID_UUID,
             task_name="process_document",
             result_url="s3://bucket/result.pdf",
-            tenant_id=ORG_A,
+            tenant_id=ORG_A_UUID,
         )
         await emitter.emit(
             TASK_COMPLETED,
@@ -216,7 +221,9 @@ class TestRealtimeRoundTrip:
 
         await client.disconnect()
 
-    async def test_tenant_isolation(self, server_stack, emitter):
+    async def test_tenant_isolation(
+        self, server_stack: tuple[int, socketio.AsyncServer], emitter: socketio.AsyncServer
+    ) -> None:
         """Events for org A do NOT reach clients connected to org B."""
         port, _sio = server_stack
 
@@ -232,10 +239,10 @@ class TestRealtimeRoundTrip:
         # Emit to org A only
         event = TaskStatusEvent(
             type=TASK_STATUS_CHANGED,
-            task_id=TASK_ID,
+            task_id=TASK_ID_UUID,
             task_name="process_document",
             status="RUNNING",
-            tenant_id=ORG_A,
+            tenant_id=ORG_A_UUID,
         )
         await emitter.emit(
             TASK_STATUS_CHANGED,
@@ -257,7 +264,9 @@ class TestRealtimeRoundTrip:
         await client_a.disconnect()
         await client_b.disconnect()
 
-    async def test_multiple_events(self, server_stack, emitter):
+    async def test_multiple_events(
+        self, server_stack: tuple[int, socketio.AsyncServer], emitter: socketio.AsyncServer
+    ) -> None:
         """Multiple event types are delivered correctly."""
         port, _sio = server_stack
         client = await _connect_client(port, ORG_A)
@@ -270,10 +279,10 @@ class TestRealtimeRoundTrip:
         # Emit status change
         status_event = TaskStatusEvent(
             type=TASK_STATUS_CHANGED,
-            task_id=TASK_ID,
+            task_id=TASK_ID_UUID,
             task_name="etl_pipeline",
             status="RUNNING",
-            tenant_id=ORG_A,
+            tenant_id=ORG_A_UUID,
         )
         await emitter.emit(
             TASK_STATUS_CHANGED,
@@ -286,9 +295,9 @@ class TestRealtimeRoundTrip:
         collector._got_event.clear()
         completed_event = TaskCompletedEvent(
             type=TASK_COMPLETED,
-            task_id=TASK_ID,
+            task_id=TASK_ID_UUID,
             task_name="etl_pipeline",
-            tenant_id=ORG_A,
+            tenant_id=ORG_A_UUID,
         )
         await emitter.emit(
             TASK_COMPLETED,
@@ -303,7 +312,9 @@ class TestRealtimeRoundTrip:
 
         await client.disconnect()
 
-    async def test_pydantic_serialization_round_trip(self, server_stack, emitter):
+    async def test_pydantic_serialization_round_trip(
+        self, server_stack: tuple[int, socketio.AsyncServer], emitter: socketio.AsyncServer
+    ) -> None:
         """Pydantic model_dump(mode='json') payloads deserialize correctly on client."""
         port, _sio = server_stack
         client = await _connect_client(port, ORG_A)
@@ -313,10 +324,10 @@ class TestRealtimeRoundTrip:
 
         original = TaskFailedEvent(
             type=TASK_FAILED,
-            task_id=TASK_ID,
+            task_id=TASK_ID_UUID,
             task_name="import_csv",
             error_detail="ValueError: invalid column 'foo'",
-            tenant_id=ORG_A,
+            tenant_id=ORG_A_UUID,
         )
         await emitter.emit(
             TASK_FAILED,
@@ -334,7 +345,7 @@ class TestRealtimeRoundTrip:
 
         await client.disconnect()
 
-    async def test_no_auth_rejected(self, server_stack):
+    async def test_no_auth_rejected(self, server_stack: tuple[int, socketio.AsyncServer]) -> None:
         """Client without auth token is rejected."""
         port, _sio = server_stack
         client = socketio.AsyncClient(logger=False, engineio_logger=False)
