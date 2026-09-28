@@ -108,6 +108,10 @@ python_version = "3.13"
 warn_unused_ignores = true
 warn_redundant_casts = true
 warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+check_untyped_defs = true
 mypy_path = "stubs"
 exclude = [
     "alembic/versions/.*"
