@@ -68,6 +68,8 @@ async def test_health_request_emits_server_span_with_db_child_span(
     monkeypatch.setattr("fastapi_template.main.settings.database_url", database_url)
     monkeypatch.setattr("fastapi_template.main.settings.otel_enabled", True)
     monkeypatch.setattr("fastapi_template.main.settings.otel_exporter_endpoint", UNREACHABLE_OTLP_ENDPOINT)
+    # Bound the shutdown flush's export retries against the unreachable collector.
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_TIMEOUT", "1")
     request_engine = create_async_engine(database_url, poolclass=NullPool)
     monkeypatch.setattr(db_session, "engine", request_engine)
     monkeypatch.setattr(db_session, "async_session_maker", create_session_maker(request_engine))
@@ -89,9 +91,7 @@ async def test_health_request_emits_server_span_with_db_child_span(
         await request_engine.dispose()
 
     assert response.status_code == 200
-    server_spans = [
-        span for span in spans if span.kind == otel_trace.SpanKind.SERVER and "/health" in span.name
-    ]
+    server_spans = [span for span in spans if span.kind == otel_trace.SpanKind.SERVER and "/health" in span.name]
     assert len(server_spans) == 1
     server_span = server_spans[0]
     db_spans = [
