@@ -138,9 +138,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     else:
         logger.warning("Redis caching disabled - cache operations will be no-ops")
 
+    # Initialize OpenTelemetry tracing (optional - requires the 'otel' extra).
+    # Imported lazily so the base install never needs opentelemetry.
+    if settings.otel_enabled:
+        from fastapi_template.core.tracing import setup_tracing  # noqa: PLC0415
+
+        app.state.tracer_provider = setup_tracing(app)
+        logger.info("OpenTelemetry tracing enabled")
+    else:
+        app.state.tracer_provider = None
+
     yield
 
     # Shutdown: Clean up resources
+    if app.state.tracer_provider is not None:
+        from fastapi_template.core.tracing import shutdown_tracing  # noqa: PLC0415
+
+        shutdown_tracing(app, app.state.tracer_provider)
+        logger.info("OpenTelemetry tracing shut down")
     logger.info("Shutting down: draining database connection pool")
     await app.state.engine.dispose()
     if app.state.redis_client is not None:
