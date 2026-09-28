@@ -25,6 +25,8 @@ Complete reference for all environment variables and feature configuration optio
 | `MAX_FILE_SIZE_BYTES` | int | 52428800 | ❌ | Maximum file upload size (50MB default) |
 | `CORS_ORIGINS` | str | ["http://localhost:3000"] | ❌ | CORS allowed origins (JSON array) |
 | `REDIS_URL` | str | (none) | ❌ | Redis URL — shared by Socket.IO pub/sub and the cache backend; caching is enabled when set |
+| `OTEL_ENABLED` | bool | false | ❌ | Enable OpenTelemetry distributed tracing (requires `pip install .[otel]`) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | str | (none) | ❌ | OTLP gRPC collector endpoint; spans are exported only when set |
 
 ---
 
@@ -489,6 +491,33 @@ curl http://localhost:8000/metrics
 - `warning` - Warning messages
 - `error` - Error messages only
 - `critical` - Critical issues only
+
+### OpenTelemetry Tracing (Optional)
+
+Distributed tracing is off by default and its dependencies live in the
+optional `otel` extra, so the base install never needs OpenTelemetry.
+
+```bash
+pip install .[otel]          # or: uv sync --extra otel
+```
+
+```bash
+# .env
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317   # OTLP gRPC collector
+```
+
+**Span shape**: each HTTP request produces a FastAPI server span, with a child
+span for every database query (SQLAlchemy) and every outbound `httpx` call
+made while handling it. The service name on every span is `APP_NAME`.
+
+**Notes**:
+- If `OTEL_ENABLED=true` but `OTEL_EXPORTER_OTLP_ENDPOINT` is unset, startup
+  logs a configuration warning and spans are recorded but not exported.
+- Each app instance gets its own tracer provider; the process-global
+  OpenTelemetry provider is never set.
+- Tracing coexists with the Prometheus `/metrics` endpoint; neither depends
+  on the other.
 
 ---
 

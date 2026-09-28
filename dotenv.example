@@ -28,6 +28,16 @@ ACTIVITY_LOGGING_ENABLED=true
 ACTIVITY_LOG_RETENTION_DAYS=90
 
 # =============================================================================
+# OpenTelemetry Tracing
+# =============================================================================
+# Requires: pip install .[otel]
+# Emits a server span per request, a child span per DB query, and a client
+# span per outbound httpx call. Spans are exported over OTLP gRPC only when
+# OTEL_EXPORTER_OTLP_ENDPOINT is set.
+# OTEL_ENABLED=false
+# OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+
+# =============================================================================
 # File Uploads
 # =============================================================================
 MAX_FILE_SIZE_BYTES=52428800  # 50MB in bytes

@@ -161,6 +161,7 @@ class TestLifespanEvents:
             mock_settings.db_pool_pre_ping = True
             mock_settings.database_url = "postgresql://user:pass@host/db"
             mock_settings.sqlalchemy_echo = False
+            mock_settings.otel_enabled = False
 
             async with lifespan(mock_app):
                 pass

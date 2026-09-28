@@ -72,6 +72,8 @@ def test_settings_factory() -> Callable[..., Settings]:
             "cache_key_prefix": "",
             "request_id_header": "X-Request-ID",
             "include_request_context_in_logs": False,
+            "otel_enabled": False,
+            "otel_exporter_endpoint": None,
             "storage_provider": "local",
             "storage_local_path": "./uploads",
             "storage_azure_container": None,
