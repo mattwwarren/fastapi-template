@@ -7,7 +7,7 @@ Tests cover:
 - Schema catalog endpoint (OpenAPI integration)
 """
 
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Generator
 from http import HTTPStatus
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -40,7 +40,7 @@ from fastapi_template.realtime.server import get_sio, init_sio
 
 
 @pytest.fixture(autouse=True)
-def _reset_sio():
+def _reset_sio() -> Generator[None, None, None]:  # noqa: UP043
     """Reset Socket.IO module state between tests."""
     server_mod._sio = None
     server_mod._sio_app = None

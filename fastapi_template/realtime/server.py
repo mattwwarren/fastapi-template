@@ -73,7 +73,7 @@ def get_sio_app() -> socketio.ASGIApp:
 def _register_handlers(sio: socketio.AsyncServer) -> None:
     """Register Socket.IO event handlers."""
 
-    @sio.event
+    @sio.event  # type: ignore[untyped-decorator]  # python-socketio ships no py.typed marker; AsyncServer.event() has no upstream type annotations
     async def connect(
         sid: str,
         environ: dict[str, Any],  # noqa: ARG001 - Required by python-socketio handler signature
@@ -110,7 +110,7 @@ def _register_handlers(sio: socketio.AsyncServer) -> None:
         await sio.save_session(sid, {"user_id": claims.get("sub"), "org_id": org_id})
         return True
 
-    @sio.event
+    @sio.event  # type: ignore[untyped-decorator]  # python-socketio ships no py.typed marker; AsyncServer.event() has no upstream type annotations
     async def disconnect(sid: str) -> None:
         """Handle client disconnection."""
         LOGGER.info("socketio_disconnected", extra={"sid": sid})
