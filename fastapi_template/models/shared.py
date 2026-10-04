@@ -27,3 +27,5 @@ class UserInfo(SQLModel):
 
     # SQLModel expects SQLModelConfig but accepts ConfigDict at runtime
     model_config: ClassVar[ConfigDict] = ConfigDict(from_attributes=True)  # type: ignore[assignment]
+    # Contains PII (email) -- see ARCHITECTURE.md Invariant 10; enforced in cache_set
+    pii: ClassVar[bool] = True

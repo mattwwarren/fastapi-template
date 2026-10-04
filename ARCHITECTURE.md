@@ -282,8 +282,12 @@ See also §7 Principles and §8 Anti-patterns below for the reasoning behind the
     does not change what protections its sensitive fields need. Before
     caching a model containing PII or other sensitive personal data, apply
     the same at-rest controls it would need in Postgres, or exclude it from
-    caching — there is currently no automated field-level exclusion
-    mechanism (see `docs/caching.md`; automated enforcement tracked in #61).
+    caching. This is enforced in code: a model class that declares
+    `pii: ClassVar[bool] = True` is refused by `cache_set` (and so by
+    `@cached`), which raises `CachePiiViolationError` before Redis is touched
+    (see `docs/caching.md`; tests in
+    `fastapi_template/tests/unit/cache/test_client.py`). The marker is opt-in
+    and checked on the top-level cached object only.
 
 ## 7. Principles
 

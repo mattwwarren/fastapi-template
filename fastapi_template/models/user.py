@@ -38,6 +38,9 @@ class User(TimestampedTable, UserBase, table=True):
         ),
     )
 
+    # Contains PII (email) -- see ARCHITECTURE.md Invariant 10; enforced in cache_set
+    pii: ClassVar[bool] = True
+
 
 class UserCreate(UserBase):
     @field_validator("name")
@@ -73,6 +76,8 @@ class UserRead(UserBase):
 
     # SQLModel expects SQLModelConfig but accepts ConfigDict at runtime
     model_config: ClassVar[ConfigDict] = ConfigDict(from_attributes=True)  # type: ignore[assignment]
+    # Contains PII (email) -- see ARCHITECTURE.md Invariant 10; enforced in cache_set
+    pii: ClassVar[bool] = True
 
 
 class UserUpdate(SQLModel):

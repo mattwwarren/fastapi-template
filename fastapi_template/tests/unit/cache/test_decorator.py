@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from typing import ClassVar
 from unittest.mock import AsyncMock
 from uuid import UUID
 
@@ -10,6 +11,7 @@ import pytest
 from pydantic import BaseModel
 
 from fastapi_template.cache.decorator import cached
+from fastapi_template.cache.exceptions import CachePiiViolationError
 from fastapi_template.core.tenants import TenantContext
 from fastapi_template.models.membership import MembershipRole
 
@@ -20,6 +22,13 @@ USER_ID = UUID("22222222-2222-2222-2222-222222222222")
 class _Sample(BaseModel):
     id: int
     name: str
+
+
+class _PiiSample(BaseModel):
+    pii: ClassVar[bool] = True
+
+    id: int
+    ssn: str
 
 
 def _tenant() -> TenantContext:
@@ -152,6 +161,28 @@ async def test_hit_returns_typed_model(redis_mock: AsyncMock) -> None:
 
     assert isinstance(result, _Sample)
     assert result.id == 7
+
+
+async def test_pii_marked_result_raises_on_cache_write(redis_mock: AsyncMock) -> None:
+    """A pii=True result propagates CachePiiViolationError out of the decorated function.
+
+    Intentional: the violation is a programming error (ARCHITECTURE.md Invariant 10),
+    so it must fail loudly rather than be swallowed into a ``False`` cache write.
+    """
+    redis_mock.get.return_value = None
+    tenant_ctx = _tenant()
+    seen: list[tuple[object, str, object]] = []
+
+    @cached("user", tenant_param="tenant", id_param="user_id", model_class=_PiiSample)
+    async def get_user(*, tenant: object, user_id: str, redis: object) -> _PiiSample:
+        seen.append((tenant, user_id, redis))
+        return _PiiSample(id=int(user_id), ssn="123-45-6789")
+
+    with pytest.raises(CachePiiViolationError):
+        await get_user(tenant=tenant_ctx, user_id="1", redis=redis_mock)
+
+    assert seen == [(tenant_ctx, "1", redis_mock)]  # cache miss reached the wrapped body
+    redis_mock.set.assert_not_called()
 
 
 # --------------------------------------------------------------------------- #

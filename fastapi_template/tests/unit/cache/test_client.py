@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from pydantic import BaseModel
@@ -16,11 +18,15 @@ from fastapi_template.cache.client import (
     create_redis_client,
     get_redis,
 )
+from fastapi_template.cache.exceptions import CachePiiViolationError
+from fastapi_template.core.auth import CurrentUser
 from fastapi_template.core.metrics import (
     cache_errors_total,
     cache_hits_total,
     cache_misses_total,
 )
+from fastapi_template.models.shared import UserInfo
+from fastapi_template.models.user import User, UserRead
 
 ORG_ID = UUID("11111111-1111-1111-1111-111111111111")
 
@@ -28,6 +34,13 @@ ORG_ID = UUID("11111111-1111-1111-1111-111111111111")
 class _Sample(BaseModel):
     id: int
     name: str
+
+
+class _PiiSample(BaseModel):
+    pii: ClassVar[bool] = True
+
+    id: int
+    ssn: str
 
 
 def _hits(resource_type: str) -> float:
@@ -189,6 +202,81 @@ class TestCacheSet:
         await cache_set(redis_mock, "user", "1", _Sample(id=1, name="a"))
 
         assert _errors("user", "set") == before + 1
+
+
+# --------------------------------------------------------------------------- #
+# cache_set -- PII enforcement (ARCHITECTURE.md Invariant 10)
+# --------------------------------------------------------------------------- #
+class TestCacheSetPiiEnforcement:
+    async def test_pii_marked_model_raises_before_redis_write(self, redis_mock: AsyncMock) -> None:
+        with pytest.raises(CachePiiViolationError, match="_PiiSample"):
+            await cache_set(redis_mock, "user", "1", _PiiSample(id=1, ssn="123-45-6789"))
+
+        redis_mock.set.assert_not_called()
+
+    async def test_pii_marked_model_raises_even_when_redis_disabled(self) -> None:
+        """The check is not gated behind ``if not redis`` -- misuse surfaces in development too."""
+        with pytest.raises(CachePiiViolationError):
+            await cache_set(None, "user", "1", _PiiSample(id=1, ssn="123-45-6789"))
+
+    async def test_pii_violation_not_counted_as_cache_error(self, redis_mock: AsyncMock) -> None:
+        """A PII violation is a programming error, not degraded infrastructure."""
+        before = _errors("user", "set")
+
+        with pytest.raises(CachePiiViolationError):
+            await cache_set(redis_mock, "user", "1", _PiiSample(id=1, ssn="123-45-6789"))
+
+        assert _errors("user", "set") == before
+
+    async def test_unmarked_model_still_caches_normally(self, redis_mock: AsyncMock) -> None:
+        result = await cache_set(redis_mock, "user", "1", _Sample(id=1, name="a"))
+
+        assert result is True
+        redis_mock.set.assert_awaited_once()
+
+    async def test_real_user_model_raises_via_cache_set(self, redis_mock: AsyncMock) -> None:
+        user = User(email="pii@example.com", name="PII Test", kratos_identity_id=None)
+
+        with pytest.raises(CachePiiViolationError, match="User"):
+            await cache_set(redis_mock, "user", "1", user)
+
+        redis_mock.set.assert_not_called()
+
+    async def test_real_user_read_model_raises_via_cache_set(self, redis_mock: AsyncMock) -> None:
+        read = UserRead(
+            id=uuid4(),
+            email="pii@example.com",
+            name="PII Test",
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+
+        with pytest.raises(CachePiiViolationError, match="UserRead"):
+            await cache_set(redis_mock, "user", "1", read)
+
+        redis_mock.set.assert_not_called()
+
+    async def test_real_current_user_model_raises_via_cache_set(self, redis_mock: AsyncMock) -> None:
+        current_user = CurrentUser(id=uuid4(), email="pii@example.com")
+
+        with pytest.raises(CachePiiViolationError, match="CurrentUser"):
+            await cache_set(redis_mock, "user", "1", current_user)
+
+        redis_mock.set.assert_not_called()
+
+    async def test_real_user_info_model_raises_via_cache_set(self, redis_mock: AsyncMock) -> None:
+        info = UserInfo(
+            id=uuid4(),
+            email="pii@example.com",
+            name="PII Test",
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+
+        with pytest.raises(CachePiiViolationError, match="UserInfo"):
+            await cache_set(redis_mock, "user", "1", info)
+
+        redis_mock.set.assert_not_called()
 
 
 # --------------------------------------------------------------------------- #

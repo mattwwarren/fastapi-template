@@ -7,15 +7,17 @@ Examples:
     # Explicit caching
     from fastapi_template.cache import cache_get, cache_set, cache_delete
 
-    cached_user = await cache_get(redis, "user", user_id, User, tenant=tenant)
-    await cache_set(redis, "user", user_id, user_obj, ttl=1800, tenant=tenant)
+    # Cache a non-PII projection (e.g. UserSummary: id + name), never a
+    # pii=True model such as User -- cache_set raises CachePiiViolationError.
+    cached_summary = await cache_get(redis, "user", user_id, UserSummary, tenant=tenant)
+    await cache_set(redis, "user", user_id, summary, ttl=1800, tenant=tenant)
     await cache_delete(redis, "user", user_id, tenant=tenant)
 
     # Decorator caching
     from fastapi_template.cache import cached
 
     # tenant/user_id/redis must be keyword-only (after a bare ``*``).
-    @cached("user", tenant_param="tenant", id_param="user_id", model_class=User)
+    @cached("user", tenant_param="tenant", id_param="user_id", model_class=UserSummary)
     async def get_user(session: AsyncSession, *, tenant: TenantContext, user_id: UUID, redis: RedisDep):
         ...
 
@@ -33,13 +35,14 @@ from fastapi_template.cache.client import (
     create_redis_client,
 )
 from fastapi_template.cache.decorator import cached
-from fastapi_template.cache.exceptions import CacheError, CacheSerializationError
+from fastapi_template.cache.exceptions import CacheError, CachePiiViolationError, CacheSerializationError
 from fastapi_template.cache.keys import build_cache_key
 from fastapi_template.cache.serialization import deserialize, serialize
 
 __all__ = [
     # Exceptions
     "CacheError",
+    "CachePiiViolationError",
     "CacheSerializationError",
     # Dependency
     "RedisDep",

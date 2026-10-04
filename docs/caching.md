@@ -59,10 +59,23 @@ build_cache_key("health", "status")
 Use `cache_get`, `cache_set`, `cache_delete` for full control. Thread the
 tenant explicitly on every call:
 
+The examples below cache a small `UserSummary` projection rather than the `User`
+row itself: `User` carries `email` and is marked `pii=True`, so `cache_set`
+refuses it (see [Data Classification & PII](#data-classification--pii)).
+
 ```python
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from fastapi_template.cache import cache_get, cache_set, RedisDep
 from fastapi_template.core.tenants import TenantDep
-from sqlalchemy.ext.asyncio import AsyncSession
+
+
+class UserSummary(BaseModel):
+    """Non-PII projection of User -- the cacheable shape (no email)."""
+
+    id: UUID
+    name: str
 
 
 async def get_user_cached(
@@ -70,19 +83,21 @@ async def get_user_cached(
     user_id: UUID,
     tenant: TenantDep,
     redis: RedisDep,
-) -> User | None:
-    """Get a user with the cache-aside pattern."""
-    cached = await cache_get(redis, "user", str(user_id), User, tenant=tenant)
+) -> UserSummary | None:
+    """Get a user summary with the cache-aside pattern."""
+    cached = await cache_get(redis, "user", str(user_id), UserSummary, tenant=tenant)
     if cached:
         return cached
 
     result = await session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
+    if user is None:
+        return None
 
-    if user:
-        await cache_set(redis, "user", str(user_id), user, ttl=1800, tenant=tenant)
+    summary = UserSummary(id=user.id, name=user.name)
+    await cache_set(redis, "user", str(user_id), summary, ttl=1800, tenant=tenant)
 
-    return user
+    return summary
 ```
 
 ### Pattern 2: Decorator (Simple Cases)
@@ -96,17 +111,18 @@ from fastapi_template.cache import cached, RedisDep
 from fastapi_template.core.tenants import TenantDep
 
 
-@cached("user", tenant_param="tenant", id_param="user_id", ttl=1800, model_class=User)
+@cached("user", tenant_param="tenant", id_param="user_id", ttl=1800, model_class=UserSummary)
 async def get_user(
     session: AsyncSession,
     *,                  # id/tenant/redis MUST be keyword-only
     user_id: UUID,
     tenant: TenantDep,  # resolved for the cache key
     redis: RedisDep,    # required parameter
-) -> User | None:
-    """Get a user (automatically cached)."""
+) -> UserSummary | None:
+    """Get a user summary (automatically cached; UserSummary from Pattern 1)."""
     result = await session.execute(select(User).where(User.id == user_id))
-    return result.scalar_one_or_none()
+    user = result.scalar_one_or_none()
+    return UserSummary(id=user.id, name=user.name) if user else None
 ```
 
 The `tenant_param` kwarg may hold a `TenantContext` (threaded as `tenant=`) or a
@@ -124,7 +140,8 @@ them as positional-or-keyword raises `TypeError` at import time.
 ### Pattern 3: Cache Invalidation on Updates
 
 Always invalidate the cache when data changes, threading the same tenant used to
-write it:
+write it. (Here `user: User` is the ORM row being persisted, not a cache payload;
+`cache_delete` never serializes a model, so the `pii=True` guard does not apply.)
 
 ```python
 from fastapi_template.cache import cache_delete
@@ -151,7 +168,8 @@ async def update_user(
 
 ### Pattern 4: Batch Operations with Cache
 
-Cache individual items during batch operations:
+Cache individual items during batch operations (again caching the non-PII
+`UserSummary` projection from Pattern 1):
 
 ```python
 async def get_users_batch(
@@ -159,25 +177,26 @@ async def get_users_batch(
     user_ids: list[UUID],
     tenant: TenantDep,
     redis: RedisDep,
-) -> list[User]:
-    """Get multiple users with per-item caching."""
-    users: list[User] = []
+) -> list[UserSummary]:
+    """Get multiple user summaries with per-item caching."""
+    summaries: list[UserSummary] = []
     uncached_ids: list[UUID] = []
 
     for user_id in user_ids:
-        cached = await cache_get(redis, "user", str(user_id), User, tenant=tenant)
+        cached = await cache_get(redis, "user", str(user_id), UserSummary, tenant=tenant)
         if cached:
-            users.append(cached)
+            summaries.append(cached)
         else:
             uncached_ids.append(user_id)
 
     if uncached_ids:
         result = await session.execute(select(User).where(User.id.in_(uncached_ids)))
         for user in result.scalars().all():
-            await cache_set(redis, "user", str(user.id), user, tenant=tenant)
-            users.append(user)
+            summary = UserSummary(id=user.id, name=user.name)
+            await cache_set(redis, "user", str(user.id), summary, tenant=tenant)
+            summaries.append(summary)
 
-    return users
+    return summaries
 ```
 
 ## Cache Key Format
@@ -273,6 +292,10 @@ This means callers can wrap reads/writes in caching unconditionally; when Redis
 is unset or down, the application transparently falls back to its source of
 truth (typically the database).
 
+The one deliberate exception is `CachePiiViolationError`: it signals a
+programming error, not degraded infrastructure, so `cache_set` raises it rather
+than returning `False` (see below).
+
 ## Data Classification & PII
 
 Caching is **not** a data-classification boundary (see ARCHITECTURE.md,
@@ -281,9 +304,44 @@ Redis, so every field on the cached model — including any PII or other
 sensitive personal data — lands in Redis as-is. Adding caching to a model does
 not change what protections its sensitive fields need.
 
-There is currently **no** field- or model-level exclusion mechanism: nothing in
-the cache layer will stop you from caching a PII-bearing model. Until automated
-enforcement exists (tracked in #61), apply this rule of thumb:
+This is **enforced in code** by a model-level marker. A model class that carries
+PII declares `pii: ClassVar[bool] = True`:
+
+```python
+from typing import ClassVar
+
+from pydantic import BaseModel
+
+
+class SsnRecord(BaseModel):
+    pii: ClassVar[bool] = True
+
+    ssn: str
+```
+
+`cache_set` — and therefore `@cached`, which writes through it — raises
+`CachePiiViolationError` (from `fastapi_template.cache`) for any such model,
+before Redis is ever touched. The marker is a `ClassVar`, so it is not a
+Pydantic field or a database column. It is opt-in and defaults to `False` for
+unmarked models. In the template, `User`, `UserRead`, `UserInfo`, and
+`CurrentUser` are marked, because each carries `email`.
+
+**Known behavior:**
+
+- The exception **propagates** out of `cache_set` and out of the
+  `@cached`-decorated function. It is not swallowed into a `False` return or
+  counted in `cache_errors_total`. An endpoint that caches a marked model
+  therefore returns a 500 on its first write-path request unless the caller
+  catches `CachePiiViolationError` — deliberately, so the mistake fails loudly
+  in tests and at runtime.
+- The check fires **even with Redis disabled** (`redis is None`), so the
+  mistake surfaces in development rather than only in a Redis-enabled
+  deployment.
+- The marker is checked on the **top-level cached object only**. A non-marked
+  container that nests a marked model (e.g. `OrganizationRead.users:
+  list[UserInfo]`) is **not** caught — mark such containers yourself.
+
+For anything not marked, apply this rule of thumb:
 
 - **Don't cache raw PII-bearing models.** If a model carries sensitive fields,
   either apply the same at-rest controls in Redis that the data needs in
