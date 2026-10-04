@@ -22,7 +22,7 @@ from uuid import UUID
 from fastapi import Depends
 from redis.asyncio import BlockingConnectionPool, Redis
 
-from fastapi_template.cache.exceptions import CacheSerializationError
+from fastapi_template.cache.exceptions import CachePiiViolationError, CacheSerializationError
 from fastapi_template.cache.keys import build_cache_key
 from fastapi_template.cache.serialization import deserialize, serialize
 from fastapi_template.core.config import settings
@@ -192,8 +192,24 @@ async def cache_set(  # noqa: PLR0913 - explicit tenant threading (tenant + orga
         organization_id: Explicit organization id for key scoping.
 
     Returns:
-        ``True`` on success, ``False`` otherwise (never raises).
+        ``True`` on success, ``False`` on a ``None`` client or any Redis /
+        serialization failure (graceful degradation).
+
+    Raises:
+        CachePiiViolationError: ``value``'s class declares
+            ``pii: ClassVar[bool] = True`` (ARCHITECTURE.md Invariant 10).
+            Checked before the ``None``-client short-circuit and outside the
+            error-swallowing block, so it fires even with Redis disabled and is
+            never counted in ``cache_errors_total``.
     """
+    if getattr(value, "pii", False):
+        msg = (
+            f"Refusing to cache {type(value).__name__!r} (resource_type={resource_type!r}): "
+            "model is marked pii=True. Caching is not a data-classification boundary "
+            "(ARCHITECTURE.md Invariant 10) -- cache a redacted projection instead."
+        )
+        raise CachePiiViolationError(msg)
+
     if not redis:
         return False
 
