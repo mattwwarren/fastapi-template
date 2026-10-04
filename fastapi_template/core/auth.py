@@ -33,7 +33,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 from uuid import UUID
 
 import httpx
@@ -95,6 +95,9 @@ class CurrentUser(BaseModel):
     id: UUID = Field(..., description="User ID from token 'sub' claim")
     email: str = Field(..., description="User email from token claims")
     organization_id: UUID | None = Field(default=None, description="Organization/tenant ID from token claims")
+
+    # Contains PII (email) -- see ARCHITECTURE.md Invariant 10; enforced in cache_set
+    pii: ClassVar[bool] = True
 
 
 class TokenValidationError(Exception):
